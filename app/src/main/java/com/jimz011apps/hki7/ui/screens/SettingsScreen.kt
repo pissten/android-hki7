@@ -897,6 +897,7 @@ fun SettingsDialog(
                             }
                         }
                         SettingsSection.APPEARANCE -> {
+                            com.jimz011apps.hki7.ui.components.ScreenOrientationSettingsCard()
                             SettingsSubcategory("Visual style", "Color, typography, and component shape")
                             SettingsChoice(Icons.Default.Palette, "Theme", "Colors and light/dark mode") { section = SettingsSection.THEME }
                             SettingsChoice(Icons.Default.TextFields, "Fonts", "Text size, boldness and font family") { section = SettingsSection.FONTS }

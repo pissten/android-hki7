@@ -460,7 +460,7 @@ internal fun CameraFullscreenHost(
         // like Samsung's. With auto-rotate on it turns freely. Everywhere else the app is portrait.
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         onDispose {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            activity?.let { com.jimz011apps.hki7.ui.components.applySavedScreenOrientation(it) }
         }
     }
 

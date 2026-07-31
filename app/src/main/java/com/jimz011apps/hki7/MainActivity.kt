@@ -125,13 +125,9 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Portrait everywhere except fullscreen camera, which temporarily switches to FULL_USER and
-        // restores this on exit. Deliberately set at runtime rather than via
-        // android:screenOrientation: Play builds its device catalogue from the manifest only, and a
-        // declared portrait lock drops every landscape-only form factor (it cost us all car devices
-        // and a tablet). A runtime lock is invisible to that catalogue while behaving identically
-        // on phones. Note Android 16+ ignores orientation locks on large screens either way.
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        // Orientation is selected under Settings > Appearance and applied at runtime so the
+        // manifest remains compatible with phones, tablets, and landscape-only form factors.
+        com.jimz011apps.hki7.ui.components.applySavedScreenOrientation(this)
         enableEdgeToEdge()
         applyPreferredRefreshRate()
         val prefs = PreferencesManager(this)
