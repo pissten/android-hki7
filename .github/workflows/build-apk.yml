@@ -15,7 +15,7 @@ on:
       - ".github/workflows/build-apk.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-debug-apk:
@@ -47,10 +47,28 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace assembleDebug
 
-      - name: Upload APK
+      - name: Prepare release file
+        run: |
+          mkdir -p release
+          cp app/build/outputs/apk/debug/app-debug.apk "release/HKI7-1.0.0-beta.9-debug-build-${GITHUB_RUN_NUMBER}.apk"
+
+      - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
           name: HKI7-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: release/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish GitHub prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: hki7-ci-${{ github.run_number }}
+          name: HKI7 CI Build ${{ github.run_number }}
+          prerelease: true
+          body: |
+            Automated installable debug APK built from commit `${{ github.sha }}`.
+
+            Requires Android 14 or newer. This APK is signed with the standard Android debug key and is intended for testing.
+          files: release/*.apk
+          fail_on_unmatched_files: true
