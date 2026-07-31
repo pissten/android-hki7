@@ -54,7 +54,7 @@ jobs:
         run: |
           mkdir -p release
           if [ "${GITHUB_REF_NAME}" = "t500-android12-compat" ]; then
-            cp app/build/outputs/apk/debug/app-debug.apk "release/HKI7-1.0.0-beta.9-T500-Android12-build-${GITHUB_RUN_NUMBER}.apk"
+            cp app/build/outputs/apk/debug/app-debug.apk "release/HKI7-1.0.0-beta.9-T500-Android12-Orientation1-build-${GITHUB_RUN_NUMBER}.apk"
           else
             cp app/build/outputs/apk/debug/app-debug.apk "release/HKI7-1.0.0-beta.9-debug-build-${GITHUB_RUN_NUMBER}.apk"
           fi
@@ -76,6 +76,12 @@ jobs:
           body: |
             Automated installable debug APK built from branch `${{ github.ref_name }}` and commit `${{ github.sha }}`.
 
-            The `t500-android12-compat` build lowers the minimum supported version to Android 12 / API 31 for testing on the Samsung Galaxy Tab A7 SM-T500. This compatibility build is experimental because the upstream app officially requires Android 14 or newer.
+            T500 compatibility build identification:
+            - Version: `1.0.0-beta.9-t500-orientation.1`
+            - Version code: `17`
+            - Android 12 / API 31 minimum
+            - Settings > Appearance includes Portrait, Landscape, and Auto-rotate
+
+            This compatibility build is experimental because the upstream app officially requires Android 14 or newer.
           files: release/*.apk
           fail_on_unmatched_files: true
