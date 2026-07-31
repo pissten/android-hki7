@@ -38,8 +38,8 @@ fun Context.savedScreenOrientation(): String =
         ?.takeIf { it == ORIENTATION_PORTRAIT || it == ORIENTATION_LANDSCAPE || it == ORIENTATION_AUTO }
         ?: ORIENTATION_PORTRAIT
 
-fun Activity.applySavedScreenOrientation() {
-    requestedOrientation = when (savedScreenOrientation()) {
+fun applySavedScreenOrientation(activity: Activity) {
+    activity.requestedOrientation = when (activity.savedScreenOrientation()) {
         ORIENTATION_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         ORIENTATION_AUTO -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         else -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -60,7 +60,7 @@ private fun saveScreenOrientation(context: Context, value: String) {
         .edit()
         .putString(ORIENTATION_KEY, value)
         .apply()
-    context.findHostActivity()?.applySavedScreenOrientation()
+    context.findHostActivity()?.let(::applySavedScreenOrientation)
 }
 
 @Composable
@@ -99,17 +99,25 @@ fun ScreenOrientationSettingsCard() {
             }
         }
 
-        SettingsTabRow(
-            tabs = listOf(
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
                 ORIENTATION_PORTRAIT to "Portrait",
                 ORIENTATION_LANDSCAPE to "Landscape",
                 ORIENTATION_AUTO to "Auto-rotate"
-            ),
-            selected = selected,
-            onSelect = { value ->
-                selected = value
-                saveScreenOrientation(context, value)
+            ).forEach { (value, label) ->
+                SettingsChoiceChip(
+                    selected = selected == value,
+                    onClick = {
+                        selected = value
+                        saveScreenOrientation(context, value)
+                    },
+                    label = { Text(label) },
+                    modifier = Modifier.weight(1f)
+                )
             }
-        )
+        }
     }
 }
