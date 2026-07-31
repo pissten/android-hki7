@@ -12,10 +12,10 @@ android {
         applicationId = "com.jimz011apps.hki7"
         minSdk = 31
         targetSdk = 37
-        // 8 was consumed by an upload that was never released (Play reserves version codes
-        // permanently, even for bundles left inactive), so beta.2 ships as 9.
-        versionCode = 16
-        versionName = "1.0.0-beta.9-t500"
+        // Compatibility build for Samsung Galaxy Tab A7 / Android 12.
+        // Use a distinct code/name so orientation-enabled builds can be identified reliably.
+        versionCode = 17
+        versionName = "1.0.0-beta.9-t500-orientation.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
