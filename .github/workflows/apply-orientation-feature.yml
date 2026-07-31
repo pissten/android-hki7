@@ -1,0 +1,38 @@
+name: Apply orientation settings source update
+
+on:
+  push:
+    branches:
+      - t500-android12-compat
+    paths:
+      - "tools/apply_orientation_feature.py"
+      - ".github/workflows/apply-orientation-feature.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply-source-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out compatibility branch
+        uses: actions/checkout@v4
+        with:
+          ref: t500-android12-compat
+          fetch-depth: 0
+
+      - name: Apply orientation settings update
+        run: python3 tools/apply_orientation_feature.py
+
+      - name: Commit source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            app/src/main/java/com/jimz011apps/hki7/MainActivity.kt \
+            app/src/main/java/com/jimz011apps/hki7/ui/screens/SettingsScreen.kt \
+            app/src/main/java/com/jimz011apps/hki7/ui/components/HKICameraDialog.kt \
+            app/src/main/java/com/jimz011apps/hki7/ui/components/ScreenOrientationSettings.kt
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: add selectable screen orientation"
+          git push origin HEAD:t500-android12-compat
