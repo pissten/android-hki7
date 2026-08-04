@@ -26,6 +26,7 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
+            implementation(compose.components.resources)
             implementation(libs.kotlinx.coroutines.core)
             api(libs.ktor.client.core)
             implementation(libs.ktor.client.websockets)
@@ -39,4 +40,10 @@ kotlin {
             implementation(libs.ktor.client.js)
         }
     }
+}
+
+compose.resources {
+    publicResClass = true
+    packageOfResClass = "com.jimz011apps.hki7.resources"
+    generateResClass = always
 }
