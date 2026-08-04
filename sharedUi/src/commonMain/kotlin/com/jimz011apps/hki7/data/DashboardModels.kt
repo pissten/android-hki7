@@ -2,6 +2,11 @@ package com.jimz011apps.hki7.data
 
 import kotlinx.serialization.Serializable
 
+/**
+ * Complete persisted HKI 7 dashboard definition shared by Android and browser clients.
+ * Keeping this model in common code lets both platforms decode the same backups, shared
+ * dashboards, room/widget structure, navigation settings, and header configuration.
+ */
 @Serializable
 data class HKIDashboard(
     val id: String,
