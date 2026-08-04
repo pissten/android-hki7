@@ -1,0 +1,34 @@
+name: Migrate HKI 7 models to shared code
+
+on:
+  push:
+    branches:
+      - multiplatform-web
+    paths:
+      - "tools/migrate_home_assistant_models_to_shared.py"
+      - ".github/workflows/migrate-models-to-shared.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: multiplatform-web
+          fetch-depth: 0
+
+      - name: Move the original HKI 7 model source into sharedUi
+        run: python3 tools/migrate_home_assistant_models_to_shared.py
+
+      - name: Commit migrated source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "refactor(kmp): move HKI 7 models into shared code"
+          git push origin HEAD:multiplatform-web
