@@ -16,20 +16,6 @@ on:
       - "gradle.properties"
       - "gradlew"
       - ".github/workflows/build-web.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "webApp/**"
-      - "sharedUi/**"
-      - "app/build.gradle.kts"
-      - "app/src/main/java/com/jimz011apps/hki7/ui/**"
-      - "gradle/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle.properties"
-      - "gradlew"
-      - ".github/workflows/build-web.yml"
 
 permissions:
   contents: read
@@ -37,7 +23,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: hki7-web-${{ github.event.pull_request.number || github.ref }}
+  group: hki7-web-multiplatform-web
   cancel-in-progress: true
 
 jobs:
@@ -168,7 +154,7 @@ jobs:
 
   report-branch-status:
     name: Publish branch build status
-    if: always() && github.event_name == 'push'
+    if: always()
     needs:
       - build-web-image
       - validate-android
