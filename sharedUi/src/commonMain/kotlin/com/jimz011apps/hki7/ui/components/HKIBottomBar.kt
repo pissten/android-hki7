@@ -32,7 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.jimz011apps.hki7.ui.theme.LocalHKIAppColors
+import com.jimz011apps.hki7.sharedui.LocalHKIAppColors
 
 @Composable
 fun HKIBottomBar(
@@ -55,7 +55,6 @@ fun HKIBottomBar(
             .height(64.dp)
             .then(
                 if (showContainer) {
-                    // Soft shadow + hairline border lift the floating bar off busy page content.
                     Modifier
                         .shadow(10.dp, barShape)
                         .clip(barShape)
@@ -64,8 +63,6 @@ fun HKIBottomBar(
                 } else Modifier
             )
     ) {
-        // weight()-based equal-width tabs can't live in a scrollable Row (unbounded width),
-        // so scrollable mode uses fixed-width tabs with spacing instead of SpaceEvenly.
         Row(
             modifier = if (scrollable) {
                 Modifier.fillMaxHeight().horizontalScroll(scrollState).padding(horizontal = 10.dp)
@@ -77,8 +74,6 @@ fun HKIBottomBar(
             content = content
         )
 
-        // Edge affordances: shown only while the bar actually overflows, and only on the side that
-        // still has content left to reach — no left chevron at the start, none on the right at the end.
         if (scrollable) {
             ScrollEdgeChevron(
                 visible = scrollState.canScrollBackward,
@@ -98,7 +93,6 @@ fun HKIBottomBar(
     }
 }
 
-/** Chevron + fade at one edge of a scrollable bar, marking that there is more to scroll that way. */
 @Composable
 private fun ScrollEdgeChevron(
     visible: Boolean,
@@ -120,8 +114,6 @@ private fun ScrollEdgeChevron(
                 .width(30.dp)
                 .background(
                     Brush.horizontalGradient(
-                        // Fade the bar colour over the content it overlaps so tabs slide out of
-                        // sight instead of being abruptly clipped by the chevron.
                         if (fromStart) listOf(barColor, Color.Transparent)
                         else listOf(Color.Transparent, barColor)
                     )
