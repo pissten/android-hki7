@@ -3997,11 +3997,11 @@ fun EnergyCardWidgetItem(
             if (!widget.title.isNullOrBlank() || !widget.icon.isNullOrBlank()) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!widget.icon.isNullOrBlank()) {
-                        com.jimz011apps.hki7.ui.utils.MdiIcon(widget.icon, tint = Color.Gray, size = 16.dp)
+                        com.jimz011apps.hki7.ui.utils.MdiIcon(widget.icon.orEmpty(), tint = Color.Gray, size = 16.dp)
                         Spacer(Modifier.width(8.dp))
                     }
                     if (!widget.title.isNullOrBlank()) {
-                        Text(widget.title, color = Color.Gray, style = MaterialTheme.typography.labelMedium)
+                        Text(widget.title.orEmpty(), color = Color.Gray, style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 Spacer(Modifier.height(12.dp))

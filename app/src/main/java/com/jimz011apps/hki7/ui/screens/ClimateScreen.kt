@@ -3685,11 +3685,11 @@ fun ClimateCardWidgetItem(
             if (!widget.title.isNullOrBlank() || !widget.icon.isNullOrBlank()) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!widget.icon.isNullOrBlank()) {
-                        MdiIcon(widget.icon, tint = headerColor, size = 16.dp)
+                        MdiIcon(widget.icon.orEmpty(), tint = headerColor, size = 16.dp)
                         Spacer(Modifier.width(8.dp))
                     }
                     if (!widget.title.isNullOrBlank()) {
-                        Text(widget.title, color = headerColor, style = MaterialTheme.typography.labelMedium)
+                        Text(widget.title.orEmpty(), color = headerColor, style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 Spacer(Modifier.height(12.dp))

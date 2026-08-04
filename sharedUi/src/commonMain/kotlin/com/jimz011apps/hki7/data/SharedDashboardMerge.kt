@@ -32,7 +32,7 @@ fun mergeSharedDashboardAesthetics(local: HKIDashboard, incoming: HKIDashboard):
     )
 }
 
-internal fun mergeAreaConfigAesthetics(incoming: HKIAreaConfig, local: HKIAreaConfig): HKIAreaConfig =
+fun mergeAreaConfigAesthetics(incoming: HKIAreaConfig, local: HKIAreaConfig): HKIAreaConfig =
     incoming.copy(
         name = local.name,
         icon = local.icon,
@@ -44,7 +44,7 @@ internal fun mergeAreaConfigAesthetics(incoming: HKIAreaConfig, local: HKIAreaCo
         blindIcon = local.blindIcon,
     )
 
-internal fun mergePageConfigAesthetics(incoming: HKIPageConfig, local: HKIPageConfig): HKIPageConfig =
+fun mergePageConfigAesthetics(incoming: HKIPageConfig, local: HKIPageConfig): HKIPageConfig =
     incoming.copy(
         wallpaper = local.wallpaper,
         headerColor = local.headerColor,
@@ -90,7 +90,7 @@ private fun mergeBatteryConfigAesthetics(incoming: HKIBatteryConfig?, local: HKI
         customNames = local.customNames,
     )
 
-internal fun mergeWidgetAesthetics(incoming: HKIRoomWidget, local: HKIRoomWidget): HKIRoomWidget {
+fun mergeWidgetAesthetics(incoming: HKIRoomWidget, local: HKIRoomWidget): HKIRoomWidget {
     if (incoming::class != local::class) return incoming
     return when (incoming) {
         is HKIButtonStack -> {

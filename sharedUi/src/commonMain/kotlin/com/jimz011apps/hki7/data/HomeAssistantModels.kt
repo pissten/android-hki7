@@ -651,7 +651,7 @@ data class HKIAction(
     val popupId: String? = null
 )
 
-internal fun buildHKIActionServicePayload(action: HKIAction, ownerEntityId: String): JsonObject =
+fun buildHKIActionServicePayload(action: HKIAction, ownerEntityId: String): JsonObject =
     buildJsonObject {
         val target = when (action.targetMode) {
             "none" -> null

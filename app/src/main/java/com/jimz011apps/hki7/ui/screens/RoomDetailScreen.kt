@@ -5170,11 +5170,11 @@ fun ButtonStackItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                 if (!stack.icon.isNullOrBlank()) {
-                MdiIcon(stack.icon, tint = Color.Gray, size = 16.dp)
+                MdiIcon(stack.icon.orEmpty(), tint = Color.Gray, size = 16.dp)
                     Spacer(Modifier.width(8.dp))
                 }
                 if (!stack.title.isNullOrBlank()) {
-                    Text(stack.title, color = Color.Gray, style = MaterialTheme.typography.labelMedium)
+                    Text(stack.title.orEmpty(), color = Color.Gray, style = MaterialTheme.typography.labelMedium)
                 }
                 if (showChevron) {
                     Spacer(Modifier.width(6.dp))

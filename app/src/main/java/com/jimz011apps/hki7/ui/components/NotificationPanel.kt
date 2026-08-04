@@ -586,9 +586,10 @@ private fun NotificationRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    if (!notification.title.isNullOrBlank()) {
+                    val notificationTitle = notification.title
+                    if (!notificationTitle.isNullOrBlank()) {
                         Text(
-                            notification.title,
+                            notificationTitle,
                             style = MaterialTheme.typography.labelLarge,
                             color = appColors.onSurface,
                             fontWeight = FontWeight.SemiBold

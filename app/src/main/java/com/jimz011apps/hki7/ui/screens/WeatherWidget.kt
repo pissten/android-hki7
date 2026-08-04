@@ -110,12 +110,12 @@ fun WeatherRoomWidget(
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                         if (!widget.icon.isNullOrBlank()) {
-                            MdiIcon(widget.icon, tint = Color.Gray, size = 16.dp)
+                            MdiIcon(widget.icon.orEmpty(), tint = Color.Gray, size = 16.dp)
                             Spacer(Modifier.width(8.dp))
                         }
                         if (!widget.title.isNullOrBlank()) {
                             Text(
-                                widget.title,
+                                widget.title.orEmpty(),
                                 color = Color.Gray,
                                 style = MaterialTheme.typography.labelMedium
                             )

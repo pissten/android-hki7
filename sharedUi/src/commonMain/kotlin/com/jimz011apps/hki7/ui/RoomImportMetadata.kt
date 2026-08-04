@@ -9,7 +9,7 @@ import com.jimz011apps.hki7.data.HAEntityRegistryEntry
  * windows and therefore should not become room opening indicators. Only direct registry device
  * ownership is considered—hub/bridge relationships are intentionally irrelevant here.
  */
-internal fun climateOwnedWindowEntityIds(
+fun climateOwnedWindowEntityIds(
     entities: List<HAEntity>,
     registry: List<HAEntityRegistryEntry>
 ): Set<String> {

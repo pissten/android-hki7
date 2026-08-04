@@ -261,11 +261,11 @@ private fun SensorGraphCardView(
             if (!widget.title.isNullOrBlank() || !widget.icon.isNullOrBlank()) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
                     if (!widget.icon.isNullOrBlank()) {
-                        MdiIcon(widget.icon, tint = appColors.onSurface, size = 16.dp)
+                        MdiIcon(widget.icon.orEmpty(), tint = appColors.onSurface, size = 16.dp)
                         Spacer(Modifier.width(8.dp))
                     }
                     if (!widget.title.isNullOrBlank()) {
-                        Text(widget.title, color = appColors.onSurface,
+                        Text(widget.title.orEmpty(), color = appColors.onSurface,
                             style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
