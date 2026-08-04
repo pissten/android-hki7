@@ -7,6 +7,9 @@ on:
       - multiplatform-web
     paths:
       - "webApp/**"
+      - "sharedUi/**"
+      - "app/build.gradle.kts"
+      - "app/src/main/java/com/jimz011apps/hki7/ui/theme/**"
       - "gradle/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -18,6 +21,9 @@ on:
       - main
     paths:
       - "webApp/**"
+      - "sharedUi/**"
+      - "app/build.gradle.kts"
+      - "app/src/main/java/com/jimz011apps/hki7/ui/theme/**"
       - "gradle/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
@@ -60,6 +66,9 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :webApp:wasmJsBrowserDistribution
+
+      - name: Validate Android app with shared UI
+        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
 
       - name: Upload web distribution
         uses: actions/upload-artifact@v4
