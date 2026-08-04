@@ -44,6 +44,9 @@ jobs:
   build-web-image:
     name: Build and smoke-test web image
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Check out repository
@@ -59,8 +62,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Install Android preview SDK used by the existing app module
+        shell: bash
         run: |
-          sdkmanager --channel=3 \
+          sdkmanager_path="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager_path" ]; then
+            sdkmanager_path="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -perm -111 | head -n 1)"
+          fi
+          test -n "$sdkmanager_path" && test -x "$sdkmanager_path"
+          "$sdkmanager_path" --channel=3 \
             "platforms;android-37.0" \
             "build-tools;37.0.0"
 
