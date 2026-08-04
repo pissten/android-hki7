@@ -1,0 +1,42 @@
+name: Migrate dashboard models to shared code
+
+on:
+  push:
+    branches:
+      - multiplatform-web
+    paths:
+      - "tools/migrate_dashboard_models_to_shared.py"
+      - ".github/workflows/migrate-dashboard-models.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "tools/migrate_dashboard_models_to_shared.py"
+      - ".github/workflows/migrate-dashboard-models.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hki7-dashboard-model-migration
+  cancel-in-progress: true
+
+jobs:
+  migrate:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: multiplatform-web
+          fetch-depth: 0
+      - name: Move dashboard models into sharedUi
+        run: python3 tools/migrate_dashboard_models_to_shared.py
+      - name: Commit migrated models
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "refactor(kmp): move dashboard models into shared code"
+          git push origin HEAD:multiplatform-web
