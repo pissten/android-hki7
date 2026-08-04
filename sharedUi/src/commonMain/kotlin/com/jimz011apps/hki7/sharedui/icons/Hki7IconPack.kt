@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -21,10 +22,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jimz011apps.hki7.resources.Res
-import com.jimz011apps.hki7.resources.mdi_icons
-import com.jimz011apps.hki7.resources.phosphor_icons
-import com.jimz011apps.hki7.resources.simple_icons
-import com.jimz011apps.hki7.resources.tabler_icons
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.jetbrains.compose.resources.Font
@@ -180,13 +177,14 @@ fun Hki7Icon(
         contentAlignment = Alignment.Center,
     ) {
         resolved?.let { (pack, glyph) ->
-            val family = remember(pack) { FontFamily(Font(pack.fontResource())) }
+            val family = FontFamily(Font(pack.fontResource()))
+            val fontSize = with(LocalDensity.current) { size.toSp() }
             BasicText(
                 text = glyph,
                 style = TextStyle(
                     color = tint,
-                    fontSize = with(androidx.compose.ui.platform.LocalDensity.current) { size.toSp() },
-                    lineHeight = with(androidx.compose.ui.platform.LocalDensity.current) { size.toSp() },
+                    fontSize = fontSize,
+                    lineHeight = fontSize,
                     fontFamily = family,
                     textAlign = TextAlign.Center,
                 ),
