@@ -9,10 +9,8 @@ import androidx.compose.ui.unit.dp
 import com.jimz011apps.hki7.sharedui.icons.Hki7Icon
 import com.jimz011apps.hki7.sharedui.icons.Hki7IconPack
 
-/** Existing HKI 7 API name backed by the shared Compose Multiplatform icon pack. */
 typealias IconPack = Hki7IconPack
 
-/** Android's synchronous picker index still reads its bundled asset copies during migration. */
 val IconPack.codepointsAsset: String
     get() = when (this) {
         IconPack.MDI -> "mdi_codepoints.txt"
@@ -29,17 +27,10 @@ val IconPack.keywordsAsset: String
         IconPack.PHOSPHOR -> "phosphor_keywords.txt"
     }
 
-/** Mirrored preference used by the existing icon picker when creating a new icon. */
 object IconPreferences {
-    @Volatile
     var defaultPack: IconPack = IconPack.DEFAULT
 }
 
-/**
- * Renders the same persisted qualified icon slug on Android and web from the same bundled fonts and
- * lookup tables. The public signature is unchanged, so existing HKI 7 screens can move to shared UI
- * without icon-specific rewrites.
- */
 @Composable
 fun MdiIcon(
     name: String?,
