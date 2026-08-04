@@ -7,12 +7,23 @@ on:
     paths:
       - "tools/migrate_home_assistant_models_to_shared.py"
       - ".github/workflows/migrate-models-to-shared.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "tools/migrate_home_assistant_models_to_shared.py"
+      - ".github/workflows/migrate-models-to-shared.yml"
 
 permissions:
   contents: write
 
+concurrency:
+  group: hki7-model-migration
+  cancel-in-progress: true
+
 jobs:
   migrate-models:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Check out migration branch
