@@ -36,7 +36,8 @@ permissions:
   packages: write
 
 jobs:
-  build-web:
+  build-web-image:
+    name: Build and smoke-test web image
     runs-on: ubuntu-latest
 
     steps:
@@ -67,9 +68,6 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :webApp:wasmJsBrowserDistribution
-
-      - name: Validate Android app with shared UI
-        run: ./gradlew --no-daemon --stacktrace :app:assembleDebug
 
       - name: Upload web distribution
         uses: actions/upload-artifact@v4
@@ -125,3 +123,36 @@ jobs:
           docker tag hki7-web:ci "${image}:sha-${short_sha}"
           docker push "${image}:multiplatform-web"
           docker push "${image}:sha-${short_sha}"
+
+  validate-android:
+    name: Validate Android app with shared UI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android preview SDK
+        run: |
+          sdkmanager --channel=3 \
+            "platforms;android-37.0" \
+            "build-tools;37.0.0"
+
+      - name: Assemble Android debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug
