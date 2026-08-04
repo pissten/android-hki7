@@ -1,0 +1,38 @@
+name: HKI 7 KMP source inventory
+
+on:
+  push:
+    branches:
+      - multiplatform-web
+    paths:
+      - "tools/kmp_inventory.py"
+      - ".github/workflows/kmp-inventory.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "tools/kmp_inventory.py"
+      - ".github/workflows/kmp-inventory.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hki7-kmp-inventory
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: multiplatform-web
+      - name: Generate portability inventory
+        run: python3 tools/kmp_inventory.py
+      - name: Upload inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: HKI7-kmp-inventory
+          path: build/kmp-inventory.md
+          retention-days: 7
