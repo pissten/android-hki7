@@ -35,6 +35,10 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: hki7-web-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-web-image:
     name: Build and smoke-test web image
