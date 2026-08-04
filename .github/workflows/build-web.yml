@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -54,11 +54,12 @@ jobs:
 
       - name: Set up Android SDK for root-project configuration
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install Android preview SDK used by the existing app module
         run: |
           sdkmanager --channel=3 \
-            "platform-tools" \
             "platforms;android-37.0" \
             "build-tools;37.0.0"
 
