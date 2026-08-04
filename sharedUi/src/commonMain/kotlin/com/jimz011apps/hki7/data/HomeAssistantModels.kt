@@ -63,7 +63,7 @@ const val SPACER_ENTITY_DOMAIN = "hki7_spacer"
 fun isSpacerEntityId(entityId: String): Boolean = entityId.startsWith("$SPACER_ENTITY_DOMAIN.")
 
 /** A fresh empty-button id. Each spacer gets its own so several can sit in the same stack. */
-fun newSpacerEntityId(): String = "$SPACER_ENTITY_DOMAIN.${java.util.UUID.randomUUID()}"
+fun newSpacerEntityId(): String = "$SPACER_ENTITY_DOMAIN.${hki7RandomUuid()}"
 
 /** Domain of the synthetic ids used by action buttons and badges: items that carry a name, an icon,
  *  and their own tap/hold/double-tap actions without belonging to any Home Assistant entity. Use
@@ -74,7 +74,7 @@ const val ACTION_ITEM_DOMAIN = "hki7_action"
 fun isActionItemId(entityId: String): Boolean = entityId.startsWith("$ACTION_ITEM_DOMAIN.")
 
 /** A fresh action-button id, so several can live in the same stack or badge bar. */
-fun newActionItemId(): String = "$ACTION_ITEM_DOMAIN.${java.util.UUID.randomUUID()}"
+fun newActionItemId(): String = "$ACTION_ITEM_DOMAIN.${hki7RandomUuid()}"
 
 /** True for any id the app invents rather than reads from Home Assistant (spacers and action
  *  items). These never resolve to an entity, so state, toggling, and more-info do not apply. */
