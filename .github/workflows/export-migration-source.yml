@@ -6,6 +6,11 @@ on:
       - multiplatform-web
     paths:
       - ".github/workflows/export-migration-source.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/export-migration-source.yml"
   workflow_dispatch:
 
 permissions:
