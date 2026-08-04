@@ -13,9 +13,21 @@ on:
       - "gradle.properties"
       - "gradlew"
       - ".github/workflows/build-web.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "webApp/**"
+      - "gradle/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradlew"
+      - ".github/workflows/build-web.yml"
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   build-web:
@@ -56,3 +68,50 @@ jobs:
           path: webApp/build/dist/wasmJs/productionExecutable
           if-no-files-found: error
           retention-days: 30
+
+      - name: Build runnable container
+        run: docker build -f webApp/Dockerfile -t hki7-web:ci .
+
+      - name: Smoke-test container
+        run: |
+          docker run -d --rm --name hki7-web-test -p 8080:80 hki7-web:ci
+          trap 'docker stop hki7-web-test || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error http://127.0.0.1:8080/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs hki7-web-test
+          exit 1
+
+      - name: Export Docker image artifact
+        run: docker save hki7-web:ci | gzip -9 > HKI7-web-image.tar.gz
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HKI7-web-docker-image
+          path: HKI7-web-image.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish image to GHCR
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/${owner}/hki7-web"
+          short_sha="${GITHUB_SHA:0:12}"
+          docker tag hki7-web:ci "${image}:multiplatform-web"
+          docker tag hki7-web:ci "${image}:sha-${short_sha}"
+          docker push "${image}:multiplatform-web"
+          docker push "${image}:sha-${short_sha}"
