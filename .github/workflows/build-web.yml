@@ -58,11 +58,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Set up Android SDK for root-project configuration
-        uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools
-
       - name: Install Android preview SDK used by the existing app module
         run: |
           sdkmanager --channel=3 \
