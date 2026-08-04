@@ -64,6 +64,7 @@ configurations.all {
 }
 
 dependencies {
+    implementation(project(":sharedUi"))
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
