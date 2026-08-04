@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "HKI 7"
 include(":app")
+include(":webApp")
