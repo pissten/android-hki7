@@ -1,0 +1,42 @@
+name: Migrate common-ready HKI 7 sources
+
+on:
+  push:
+    branches:
+      - multiplatform-web
+    paths:
+      - "tools/migrate_common_ready_batch.py"
+      - ".github/workflows/migrate-common-ready.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "tools/migrate_common_ready_batch.py"
+      - ".github/workflows/migrate-common-ready.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hki7-common-source-migration
+  cancel-in-progress: true
+
+jobs:
+  migrate:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: multiplatform-web
+          fetch-depth: 0
+      - name: Move original common-ready sources
+        run: python3 tools/migrate_common_ready_batch.py
+      - name: Commit migrated sources
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "refactor(kmp): move common-ready HKI 7 sources"
+          git push origin HEAD:multiplatform-web
