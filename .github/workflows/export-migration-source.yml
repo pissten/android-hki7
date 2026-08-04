@@ -1,0 +1,32 @@
+name: Export migration source snapshot
+
+on:
+  push:
+    branches:
+      - multiplatform-web
+    paths:
+      - ".github/workflows/export-migration-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: multiplatform-web
+      - name: Create source snapshot
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude='**/build' \
+            --exclude='.gradle' \
+            -czf /tmp/hki7-multiplatform-web-source.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HKI7-multiplatform-web-source
+          path: /tmp/hki7-multiplatform-web-source.tar.gz
+          retention-days: 1
