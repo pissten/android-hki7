@@ -3,10 +3,13 @@ from pathlib import Path
 SOURCE = Path("app/src/main/java/com/jimz011apps/hki7/data/HomeAssistantModels.kt")
 TARGET = Path("sharedUi/src/commonMain/kotlin/com/jimz011apps/hki7/data/HomeAssistantModels.kt")
 
+if TARGET.exists() and not SOURCE.exists():
+    print("HKI 7 models are already located in sharedUi; nothing to migrate")
+    raise SystemExit(0)
 if not SOURCE.exists():
     raise SystemExit(f"Source model file not found: {SOURCE}")
 if TARGET.exists():
-    raise SystemExit(f"Target model file already exists: {TARGET}")
+    raise SystemExit(f"Both source and target model files exist; refusing to create duplicates")
 
 text = SOURCE.read_text(encoding="utf-8")
 needle = "java.util.UUID.randomUUID()"
