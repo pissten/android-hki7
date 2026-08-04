@@ -22,6 +22,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jimz011apps.hki7.resources.Res
+import com.jimz011apps.hki7.resources.mdi_icons
+import com.jimz011apps.hki7.resources.phosphor_icons
+import com.jimz011apps.hki7.resources.simple_icons
+import com.jimz011apps.hki7.resources.tabler_icons
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.jetbrains.compose.resources.Font
