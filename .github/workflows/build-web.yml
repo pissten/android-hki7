@@ -34,6 +34,7 @@ on:
 permissions:
   contents: read
   packages: write
+  statuses: write
 
 concurrency:
   group: hki7-web-${{ github.event.pull_request.number || github.ref }}
@@ -160,3 +161,34 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+  report-branch-status:
+    name: Publish branch build status
+    if: always() && github.event_name == 'push'
+    needs:
+      - build-web-image
+      - validate-android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Publish status with workflow run URL
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEB_RESULT: ${{ needs.build-web-image.result }}
+          ANDROID_RESULT: ${{ needs.validate-android.result }}
+        shell: bash
+        run: |
+          if [ "$WEB_RESULT" = "success" ] && [ "$ANDROID_RESULT" = "success" ]; then
+            state="success"
+            description="Web image and Android validation passed"
+          else
+            state="failure"
+            description="Web: ${WEB_RESULT}; Android: ${ANDROID_RESULT}"
+          fi
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="$state" \
+            -f context="HKI7 Web migration" \
+            -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
