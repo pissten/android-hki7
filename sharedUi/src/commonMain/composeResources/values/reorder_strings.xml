@@ -1,0 +1,5 @@
+<resources>
+    <string name="reorder_nothing_to_reorder">Nothing to reorder yet</string>
+    <string name="reorder_save">Save</string>
+    <string name="reorder_cancel">Cancel</string>
+</resources>
