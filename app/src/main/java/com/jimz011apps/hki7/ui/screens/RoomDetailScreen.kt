@@ -7876,28 +7876,15 @@ fun SubtitleWidget(
     onDelete: () -> Unit,
     onSettings: () -> Unit
 ) {
-    val appColors = LocalHKIAppColors.current
     if (!isWidgetVisibleNow(widget) && !isEditMode) return
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)) {
-        if (!widget.icon.isNullOrBlank()) {
-            MdiIcon(widget.icon, tint = appColors.onMuted, size = 22.dp)
-            Spacer(Modifier.width(10.dp))
-        }
-        Text(
-            text = widget.text,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = appColors.onSurface
-        )
-        if (isEditMode) {
-            Spacer(Modifier.weight(1f))
-            EditSettingsButton(onClick = onSettings)
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_delete_f6fdbe4), tint = appColors.onMuted, modifier = Modifier.size(18.dp))
-            }
-        }
-    }
+    SubtitleWidgetContent(
+        widget = widget,
+        isEditMode = isEditMode,
+        onDelete = onDelete,
+        onSettings = onSettings,
+    )
 }
+
 
 @Composable
 fun HeaderTextSettingsDialog(

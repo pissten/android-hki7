@@ -632,6 +632,7 @@ fun AreaCard(
 
 
 
+
 private fun parseRoomHeaderColor(value: String?): Color? {
     val normalized = value?.trim()?.takeIf { it.isNotEmpty() }?.let {
         if (it.startsWith("#")) it else "#$it"
