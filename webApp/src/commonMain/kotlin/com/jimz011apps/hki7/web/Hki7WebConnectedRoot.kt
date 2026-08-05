@@ -5,25 +5,36 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.jimz011apps.hki7.data.HAArea
 import com.jimz011apps.hki7.data.HKIAreaConfig
+import com.jimz011apps.hki7.data.HKIDashboard
 import com.jimz011apps.hki7.data.HKIRoomWidget
+import com.jimz011apps.hki7.data.Hki7SharedDashboardMeta
 import com.jimz011apps.hki7.resources.Res
 import com.jimz011apps.hki7.resources.rooms_count
 import com.jimz011apps.hki7.sharedui.LocalHKIAppColors
 import com.jimz011apps.hki7.sharedui.ha.Hki7HomeAssistantSession
+import com.jimz011apps.hki7.sharedui.ha.getSharedDashboard
+import com.jimz011apps.hki7.sharedui.ha.listSharedDashboards
 import com.jimz011apps.hki7.ui.NavBarConfig
 import com.jimz011apps.hki7.ui.Screen
 import com.jimz011apps.hki7.ui.displayedRoomControlEntityIds
@@ -37,13 +48,15 @@ import com.jimz011apps.hki7.ui.components.HKITopLevelNavigationBar
 import com.jimz011apps.hki7.ui.components.RoomStatusIndicators
 import com.jimz011apps.hki7.ui.screens.HKIRoomDetailSurface
 import com.jimz011apps.hki7.ui.screens.HKIRoomsSurface
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.pluralStringResource
 
 /**
  * Browser host for HKI 7's canonical shared Compose screens.
  *
- * Route state lives in the browser host, while page chrome, room cards, room detail and top-level
- * navigation are shared UI. No browser-only copy of the production dashboard is introduced here.
+ * When the HKI 7 companion component exposes a shared dashboard, this host decodes the exact same
+ * [HKIDashboard] model as Android and feeds its areas, floor layout, room configuration, widgets and
+ * navigation settings into the shared UI. Registry discovery remains only an offline/fallback path.
  */
 @Composable
 fun Hki7WebConnectedRoot(
@@ -51,14 +64,65 @@ fun Hki7WebConnectedRoot(
     serverUrl: String,
 ) {
     val appColors = LocalHKIAppColors.current
+    val scope = rememberCoroutineScope()
     val entities by session.entities.collectAsState()
-    val areas by session.areas.collectAsState()
-    val floors by session.floors.collectAsState()
+    val registryAreas by session.areas.collectAsState()
+    val registryFloors by session.floors.collectAsState()
     val entityRegistry by session.entityRegistry.collectAsState()
     val deviceRegistry by session.deviceRegistry.collectAsState()
 
     var selectedScreen by remember { mutableStateOf<Screen>(Screen.Rooms) }
     var selectedAreaId by remember { mutableStateOf<String?>(null) }
+    var dashboardMetas by remember { mutableStateOf<List<Hki7SharedDashboardMeta>?>(null) }
+    var activeDashboard by remember { mutableStateOf<HKIDashboard?>(null) }
+    var dashboardLoadingId by remember { mutableStateOf<String?>(null) }
+    var dashboardError by remember { mutableStateOf<String?>(null) }
+
+    suspend fun loadDashboard(meta: Hki7SharedDashboardMeta) {
+        dashboardLoadingId = meta.id
+        dashboardError = null
+        runCatching { session.getSharedDashboard(meta.id) }
+            .onSuccess { dashboard ->
+                if (dashboard == null) {
+                    dashboardError = "Dashboardet kunne ikke lastes fra Home Assistant."
+                } else {
+                    activeDashboard = dashboard
+                    selectedAreaId = null
+                    selectedScreen = Screen.Rooms
+                }
+            }
+            .onFailure { error ->
+                dashboardError = error.message ?: "Dashboardet kunne ikke lastes."
+            }
+        dashboardLoadingId = null
+    }
+
+    LaunchedEffect(session) {
+        val metas = runCatching { session.listSharedDashboards() }
+            .onFailure { error -> dashboardError = error.message }
+            .getOrDefault(emptyList())
+        dashboardMetas = metas
+        if (metas.size == 1) loadDashboard(metas.single())
+    }
+
+    if (dashboardMetas == null) {
+        HKIDashboardLoadingSurface()
+        return
+    }
+
+    if (dashboardMetas!!.isNotEmpty() && activeDashboard == null) {
+        HKIDashboardChooser(
+            dashboards = dashboardMetas!!,
+            loadingId = dashboardLoadingId,
+            error = dashboardError,
+            onSelect = { meta -> scope.launch { loadDashboard(meta) } },
+            onUseDiscoveredLayout = {
+                dashboardMetas = emptyList()
+                dashboardError = null
+            },
+        )
+        return
+    }
 
     val areaEntities = remember(entities, entityRegistry, deviceRegistry) {
         entitiesByAreaId(
@@ -67,14 +131,27 @@ fun Hki7WebConnectedRoot(
             deviceRegistry = deviceRegistry,
         )
     }
-    val configs = remember(areas, areaEntities) {
+    val areas = remember(activeDashboard, registryAreas) {
+        val dashboardAreas = activeDashboard?.areas.orEmpty()
+        val source = dashboardAreas.ifEmpty { registryAreas }
+        orderAreas(source, activeDashboard?.areaOrder.orEmpty())
+    }
+    val floors = remember(activeDashboard, registryFloors) {
+        activeDashboard?.floors.orEmpty().ifEmpty { registryFloors }
+    }
+    val discoveredConfigs = remember(areas, areaEntities) {
         resolveAreaConfigs(
             areas = areas,
             entitiesByArea = areaEntities,
         )
     }
-    val widgetsByArea = remember(areas) {
-        areas.associate { area -> area.area_id to emptyList<HKIRoomWidget>() }
+    val configs = remember(activeDashboard, discoveredConfigs) {
+        discoveredConfigs + activeDashboard?.areaConfigs.orEmpty()
+    }
+    val widgetsByArea = remember(activeDashboard, areas) {
+        activeDashboard?.areaWidgets ?: areas.associate { area ->
+            area.area_id to emptyList<HKIRoomWidget>()
+        }
     }
     val activeConfigs = remember(areas, configs) {
         areas.map { area -> configs[area.area_id] ?: HKIAreaConfig() }
@@ -93,7 +170,13 @@ fun Hki7WebConnectedRoot(
     }
     val roomsSubtitle = wholeHomeSummary.environmentText
         ?: pluralStringResource(Res.plurals.rooms_count, areas.size, areas.size)
-    val navigationScreens = remember { NavBarConfig.visibleTabs(emptyList(), emptyList()) }
+    val navigationScreens = remember(activeDashboard) {
+        NavBarConfig.visibleTabs(
+            savedOrder = activeDashboard?.navBarOrder.orEmpty(),
+            hidden = activeDashboard?.navBarHidden.orEmpty(),
+            customPages = activeDashboard?.customPages.orEmpty(),
+        )
+    }
     val selectedArea = remember(selectedAreaId, areas) {
         selectedAreaId?.let { areaId -> areas.firstOrNull { it.area_id == areaId } }
     }
@@ -130,7 +213,9 @@ fun Hki7WebConnectedRoot(
                         HKIHeaderStatusPill(text = "HKI 7")
                     },
                     rightPill = {
-                        HKIHeaderStatusPill(text = "Home Assistant")
+                        HKIHeaderStatusPill(
+                            text = activeDashboard?.name ?: "Home Assistant",
+                        )
                     },
                     headerTrailingContent = if (wholeHomeSummary.indicators.isNotEmpty()) {
                         { _ ->
@@ -171,6 +256,94 @@ fun Hki7WebConnectedRoot(
             },
             labelFor = { screen -> screen.localizedTitle() },
         )
+    }
+}
+
+private fun orderAreas(areas: List<HAArea>, savedOrder: List<String>): List<HAArea> {
+    if (savedOrder.isEmpty()) return areas
+    val byId = areas.associateBy(HAArea::area_id)
+    val ordered = savedOrder.mapNotNull(byId::get)
+    return ordered + areas.filterNot { area -> area.area_id in savedOrder }
+}
+
+@Composable
+private fun HKIDashboardLoadingSurface() {
+    val appColors = LocalHKIAppColors.current
+    Box(
+        modifier = Modifier.fillMaxSize().background(appColors.background),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator()
+            Text(
+                text = "Laster HKI 7-dashboard …",
+                color = appColors.onMuted,
+            )
+        }
+    }
+}
+
+@Composable
+private fun HKIDashboardChooser(
+    dashboards: List<Hki7SharedDashboardMeta>,
+    loadingId: String?,
+    error: String?,
+    onSelect: (Hki7SharedDashboardMeta) -> Unit,
+    onUseDiscoveredLayout: () -> Unit,
+) {
+    val appColors = LocalHKIAppColors.current
+    HKISharedPage(
+        title = "HKI 7",
+        subtitle = "Velg dashboard",
+        leftPill = { HKIHeaderStatusPill(text = "HKI 7") },
+        rightPill = { HKIHeaderStatusPill(text = "Home Assistant") },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "Tilgjengelige HKI 7-dashboard",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = appColors.onSurface,
+            )
+            Text(
+                text = "Valget lastes med samme dashboardmodell som Android-appen bruker.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = appColors.onMuted,
+            )
+            dashboards.forEach { dashboard ->
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = loadingId == null,
+                    onClick = { onSelect(dashboard) },
+                ) {
+                    if (loadingId == dashboard.id) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(end = 10.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                    Text(dashboard.name)
+                }
+            }
+            error?.let { message ->
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            TextButton(onClick = onUseDiscoveredLayout, enabled = loadingId == null) {
+                Text("Bruk automatisk oppdaget layout")
+            }
+        }
     }
 }
 
