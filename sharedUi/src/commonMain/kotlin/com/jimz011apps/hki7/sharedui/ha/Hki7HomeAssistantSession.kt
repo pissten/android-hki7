@@ -231,7 +231,7 @@ class Hki7HomeAssistantSession(
         client.close()
     }
 
-    private suspend fun sendCommand(
+    internal suspend fun sendCommand(
         type: String,
         payload: Map<String, JsonElement> = emptyMap(),
     ): JsonObject {
