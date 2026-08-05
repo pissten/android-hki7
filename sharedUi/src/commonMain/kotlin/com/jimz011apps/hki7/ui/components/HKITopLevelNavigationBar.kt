@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,63 +39,81 @@ fun HKITopLevelNavigationBar(
     horizontalPadding: Dp = 32.dp,
     scrollable: Boolean = false,
 ) {
-    val appColors = LocalHKIAppColors.current
-
     HKIBottomBar(
         modifier = modifier,
         horizontalPadding = horizontalPadding,
         scrollable = scrollable,
     ) {
-        screens.forEach { screen ->
-            val selected = isSelected(screen)
-            Column(
+        HKITopLevelNavigationItems(
+            screens = screens,
+            isSelected = isSelected,
+            onSelect = onSelect,
+            labelFor = labelFor,
+            scrollable = scrollable,
+        )
+    }
+}
+
+/** Original item row, reusable inside Android's edit-aware bottom-bar host and the shared web host. */
+@Composable
+fun RowScope.HKITopLevelNavigationItems(
+    screens: List<Screen>,
+    isSelected: (Screen) -> Boolean,
+    onSelect: (Screen) -> Unit,
+    labelFor: @Composable (Screen) -> String,
+    scrollable: Boolean,
+) {
+    val appColors = LocalHKIAppColors.current
+
+    screens.forEach { screen ->
+        val selected = isSelected(screen)
+        Column(
+            modifier = Modifier
+                .then(if (scrollable) Modifier.width(68.dp) else Modifier.weight(1f))
+                .fillMaxHeight()
+                .clickable { onSelect(screen) },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+        ) {
+            Box(
                 modifier = Modifier
-                    .then(if (scrollable) Modifier.width(68.dp) else Modifier.weight(1f))
-                    .fillMaxHeight()
-                    .clickable { onSelect(screen) },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                    .size(width = 56.dp, height = 32.dp)
+                    .clip(itemCornerShape())
+                    .background(
+                        if (selected) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                        } else {
+                            Color.Transparent
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(width = 56.dp, height = 32.dp)
-                        .clip(itemCornerShape())
-                        .background(
-                            if (selected) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                            } else {
-                                Color.Transparent
-                            },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val iconTint = if (selected) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        appColors.onMuted
-                    }
-                    if (screen.mdiIcon != null) {
-                        MdiIcon(
-                            name = screen.mdiIcon,
-                            tint = iconTint,
-                            size = 24.dp,
-                        )
-                    } else {
-                        Icon(
-                            imageVector = screen.icon,
-                            contentDescription = null,
-                            tint = iconTint,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
+                val iconTint = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    appColors.onMuted
                 }
-                Text(
-                    text = labelFor(screen),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (selected) appColors.onSurface else appColors.onMuted,
-                    fontSize = 10.sp,
-                )
+                if (screen.mdiIcon != null) {
+                    MdiIcon(
+                        name = screen.mdiIcon,
+                        tint = iconTint,
+                        size = 24.dp,
+                    )
+                } else {
+                    Icon(
+                        imageVector = screen.icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
             }
+            Text(
+                text = labelFor(screen),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (selected) appColors.onSurface else appColors.onMuted,
+                fontSize = 10.sp,
+            )
         }
     }
 }
