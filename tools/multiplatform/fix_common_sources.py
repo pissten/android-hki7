@@ -16,10 +16,18 @@ def add_import(path: Path, anchor: str, import_line: str) -> None:
         path.write_text(text, encoding="utf-8")
 
 
+def remove_import(path: Path, import_line: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    updated = text.replace(import_line, "")
+    if updated != text:
+        path.write_text(updated, encoding="utf-8")
+
+
 def main() -> None:
-    add_import(
+    # Modifier.weight is a RowScope/ColumnScope member extension. Importing the generated internal
+    # parent-data property makes both Android and Wasm resolve the wrong symbol.
+    remove_import(
         SHARED / "ui/screens/HKIRoomsSurface.kt",
-        "import androidx.compose.foundation.layout.width\n",
         "import androidx.compose.foundation.layout.weight\n",
     )
     add_import(
@@ -40,7 +48,7 @@ def main() -> None:
         "import com.jimz011apps.hki7.resources.core_no_media_playing\n",
         "import com.jimz011apps.hki7.ui.components.mediaPlayerStatus\n",
     )
-    print("Applied common source imports required by Android and Wasm")
+    print("Applied common source fixes required by Android and Wasm")
 
 
 if __name__ == "__main__":
