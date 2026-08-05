@@ -1,0 +1,11 @@
+abi_version=2.4.0
+builtins_platform=WASM
+compiler_version=2.4.0
+ir_signature_versions=1,2
+jsOutputName=hki7-webApp
+language_features=+AllowAnyAsAnActualTypeForExpectInterface +JsAllowImplementingFunctionInterface +MultiPlatformProjects
+metadata_version=2.4.0
+serializedIrFileFingerprints=1ftnn90kvhbc6.1ofq9cjzd42p2 9jvtmpd2og2i.2lw6hbk548jru
+serializedKlibFingerprint=1rthkevt9vkzf.36ixtn8z1rpxs
+unique_name=hki7\:webApp
+wasm_targets=wasm-js
