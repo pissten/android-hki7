@@ -10,6 +10,7 @@ on:
       - "tools/multiplatform/migrate_room_visuals.py"
       - "tools/multiplatform/wire_shared_area_card.py"
       - "tools/multiplatform/patch_shared_session.py"
+      - "tools/multiplatform/expose_shared_session_command.py"
       - "tools/multiplatform/fix_common_sources.py"
       - ".github/workflows/migrate-web-batch.yml"
 
@@ -58,11 +59,12 @@ jobs:
 
       - name: Apply deterministic migration batch
         run: |
-          echo "Applying canonical HKI7 shared UI batch v4"
+          echo "Applying canonical HKI7 shared UI batch v5"
           python3 tools/multiplatform/migrate_batch.py
           python3 tools/multiplatform/migrate_room_visuals.py
           python3 tools/multiplatform/wire_shared_area_card.py
           python3 tools/multiplatform/patch_shared_session.py
+          python3 tools/multiplatform/expose_shared_session_command.py
           python3 tools/multiplatform/fix_common_sources.py
 
       - name: Show migration diff
@@ -82,7 +84,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -A
-            git commit -m "refactor(shared): migrate validated HKI7 UI batch"
+            git commit -m "refactor(shared): expose validated HA command repository"
             git push origin HEAD:multiplatform-web
           else
             echo "Migration batch is already applied."
