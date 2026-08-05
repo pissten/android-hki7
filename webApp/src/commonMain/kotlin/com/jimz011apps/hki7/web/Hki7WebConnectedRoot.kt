@@ -104,6 +104,13 @@ fun Hki7WebConnectedRoot(
             entities = areaEntities[selectedArea.area_id].orEmpty(),
             baseUrl = serverUrl.removeSuffix("/"),
             onBack = { selectedAreaId = null },
+            onEntityAction = { entity, action ->
+                session.callService(
+                    domain = action.domain,
+                    service = action.service,
+                    entityId = entity.entity_id,
+                )
+            },
             modifier = Modifier.fillMaxSize(),
         )
         return
