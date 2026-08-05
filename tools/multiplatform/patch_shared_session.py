@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend the shared HA session with the canonical area and floor registry models."""
+"""Extend the shared HA session with the canonical registry models used by HKI 7."""
 
 from pathlib import Path
 
@@ -22,7 +22,9 @@ def main() -> None:
         text,
         "import com.jimz011apps.hki7.data.HAEntity\n",
         "import com.jimz011apps.hki7.data.HAArea\n"
+        "import com.jimz011apps.hki7.data.HADeviceRegistryEntry\n"
         "import com.jimz011apps.hki7.data.HAEntity\n"
+        "import com.jimz011apps.hki7.data.HAEntityRegistryEntry\n"
         "import com.jimz011apps.hki7.data.HAFloor\n",
     )
 
@@ -35,7 +37,11 @@ def main() -> None:
         "    private val _areas = MutableStateFlow<List<HAArea>>(emptyList())\n"
         "    val areas: StateFlow<List<HAArea>> = _areas.asStateFlow()\n\n"
         "    private val _floors = MutableStateFlow<List<HAFloor>>(emptyList())\n"
-        "    val floors: StateFlow<List<HAFloor>> = _floors.asStateFlow()\n",
+        "    val floors: StateFlow<List<HAFloor>> = _floors.asStateFlow()\n\n"
+        "    private val _entityRegistry = MutableStateFlow<List<HAEntityRegistryEntry>>(emptyList())\n"
+        "    val entityRegistry: StateFlow<List<HAEntityRegistryEntry>> = _entityRegistry.asStateFlow()\n\n"
+        "    private val _deviceRegistry = MutableStateFlow<List<HADeviceRegistryEntry>>(emptyList())\n"
+        "    val deviceRegistry: StateFlow<List<HADeviceRegistryEntry>> = _deviceRegistry.asStateFlow()\n",
     )
 
     text = replace_once(
@@ -57,6 +63,22 @@ def main() -> None:
         "                ListSerializer(HAFloor.serializer()),\n"
         "                floorElements,\n"
         "            )\n\n"
+        "            val entityRegistryResponse = sendCommand(\"config/entity_registry/list\")\n"
+        "            requireSuccess(entityRegistryResponse, \"config/entity_registry/list\")\n"
+        "            val entityRegistryElements = entityRegistryResponse[\"result\"] as? JsonArray\n"
+        "                ?: JsonArray(emptyList())\n"
+        "            _entityRegistry.value = json.decodeFromJsonElement(\n"
+        "                ListSerializer(HAEntityRegistryEntry.serializer()),\n"
+        "                entityRegistryElements,\n"
+        "            )\n\n"
+        "            val deviceRegistryResponse = sendCommand(\"config/device_registry/list\")\n"
+        "            requireSuccess(deviceRegistryResponse, \"config/device_registry/list\")\n"
+        "            val deviceRegistryElements = deviceRegistryResponse[\"result\"] as? JsonArray\n"
+        "                ?: JsonArray(emptyList())\n"
+        "            _deviceRegistry.value = json.decodeFromJsonElement(\n"
+        "                ListSerializer(HADeviceRegistryEntry.serializer()),\n"
+        "                deviceRegistryElements,\n"
+        "            )\n\n"
         "            val subscriptionResponse = sendCommand(\n",
     )
 
@@ -67,11 +89,13 @@ def main() -> None:
         "            _entities.value = emptyMap()\n"
         "            _areas.value = emptyList()\n"
         "            _floors.value = emptyList()\n"
+        "            _entityRegistry.value = emptyList()\n"
+        "            _deviceRegistry.value = emptyList()\n"
         "        }\n",
     )
 
     SESSION.write_text(text, encoding="utf-8")
-    print("Shared Home Assistant session now exposes canonical HAArea and HAFloor registries")
+    print("Shared Home Assistant session now exposes areas, floors, entities, and devices")
 
 
 if __name__ == "__main__":
