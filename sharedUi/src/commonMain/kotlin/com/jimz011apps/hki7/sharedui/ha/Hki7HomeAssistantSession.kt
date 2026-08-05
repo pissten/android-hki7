@@ -1,5 +1,6 @@
 package com.jimz011apps.hki7.sharedui.ha
 
+import com.jimz011apps.hki7.data.HAEntity
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -21,7 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -37,22 +37,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
-@Serializable
-data class Hki7EntityState(
-    val entity_id: String,
-    val state: String,
-    val attributes: JsonObject = JsonObject(emptyMap()),
-    val last_changed: String? = null,
-    val last_updated: String? = null,
-) {
-    val friendlyName: String
-        get() = attributes["friendly_name"]?.jsonPrimitive?.contentOrNull
-            ?: entity_id.substringAfter('.').replace('_', ' ').replaceFirstChar { it.uppercase() }
-
-    val domain: String
-        get() = entity_id.substringBefore('.')
-}
-
 enum class Hki7ConnectionStatus {
     DISCONNECTED,
     CONNECTING,
@@ -64,9 +48,9 @@ enum class Hki7ConnectionStatus {
 /**
  * Shared Home Assistant WebSocket session used by both browser and Android targets.
  *
- * It implements the protocol pieces the HKI 7 UI fundamentally depends on: authentication,
- * initial state retrieval, live state_changed events, and service calls. Higher-level registries,
- * history, dashboards, and cloud features are migrated on top of this same command channel.
+ * The session exposes the canonical [HAEntity] model used by the existing HKI 7 screens. There is
+ * deliberately no browser-only entity model: ported cards and dialogs consume the same runtime
+ * objects as Android.
  */
 class Hki7HomeAssistantSession(
     private val scope: CoroutineScope,
@@ -81,8 +65,8 @@ class Hki7HomeAssistantSession(
     private val _status = MutableStateFlow(Hki7ConnectionStatus.DISCONNECTED)
     val status: StateFlow<Hki7ConnectionStatus> = _status.asStateFlow()
 
-    private val _entities = MutableStateFlow<Map<String, Hki7EntityState>>(emptyMap())
-    val entities: StateFlow<Map<String, Hki7EntityState>> = _entities.asStateFlow()
+    private val _entities = MutableStateFlow<Map<String, HAEntity>>(emptyMap())
+    val entities: StateFlow<Map<String, HAEntity>> = _entities.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -139,10 +123,10 @@ class Hki7HomeAssistantSession(
             requireSuccess(statesResponse, "get_states")
             val stateElements = statesResponse["result"] as? JsonArray ?: JsonArray(emptyList())
             val states = json.decodeFromJsonElement(
-                ListSerializer(Hki7EntityState.serializer()),
+                ListSerializer(HAEntity.serializer()),
                 stateElements,
             )
-            _entities.value = states.associateBy(Hki7EntityState::entity_id)
+            _entities.value = states.associateBy(HAEntity::entity_id)
 
             val subscriptionResponse = sendCommand(
                 type = "subscribe_events",
@@ -259,7 +243,7 @@ class Hki7HomeAssistantSession(
         }
 
         val newState = runCatching {
-            json.decodeFromJsonElement(Hki7EntityState.serializer(), newStateElement)
+            json.decodeFromJsonElement(HAEntity.serializer(), newStateElement)
         }.getOrNull() ?: return
         _entities.update { current -> current + (entityId to newState) }
     }
