@@ -27,6 +27,19 @@ def main() -> None:
         "import com.jimz011apps.hki7.ui.displayedRoomControlEntityIds\n",
         "import com.jimz011apps.hki7.ui.localizedText\n",
     )
+    # migrate_batch.py historically stripped the Android presentation boundary from this file.
+    # Once localizedText moved to commonMain these two imports became part of the canonical shared
+    # implementation and must be restored after every idempotent migration pass.
+    add_import(
+        SHARED / "ui/RoomMediaStatus.kt",
+        "package com.jimz011apps.hki7.ui\n\n",
+        "import androidx.compose.runtime.Composable\n",
+    )
+    add_import(
+        SHARED / "ui/RoomMediaStatus.kt",
+        "import com.jimz011apps.hki7.resources.core_no_media_playing\n",
+        "import com.jimz011apps.hki7.ui.components.mediaPlayerStatus\n",
+    )
     print("Applied common source imports required by Android and Wasm")
 
 
