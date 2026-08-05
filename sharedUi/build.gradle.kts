@@ -29,6 +29,8 @@ kotlin {
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor3)
             api(libs.ktor.client.core)
             implementation(libs.ktor.client.websockets)
             implementation(libs.ktor.client.content.negotiation)
