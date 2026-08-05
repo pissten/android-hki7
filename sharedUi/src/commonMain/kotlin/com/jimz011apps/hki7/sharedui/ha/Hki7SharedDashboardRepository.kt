@@ -5,10 +5,10 @@ import com.jimz011apps.hki7.data.Hki7SharedDashboardMeta
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 private val sharedDashboardJson = Json {
@@ -42,9 +42,9 @@ suspend fun Hki7HomeAssistantSession.listSharedDashboards(): List<Hki7SharedDash
             updated = item["updated"]?.jsonPrimitive?.contentOrNull.orEmpty(),
             sharedWith = (item["shared_with"] as? JsonArray)
                 .orEmpty()
-                .mapNotNull { value -> value.jsonPrimitive.contentOrNull },
+                .mapNotNull { value -> (value as? JsonPrimitive)?.contentOrNull },
         )
-    }
+    }.sortedByDescending(Hki7SharedDashboardMeta::updated)
 }
 
 /** Fetches and decodes one dashboard using the exact Android HKIDashboard serializer. */
@@ -52,7 +52,7 @@ suspend fun Hki7HomeAssistantSession.getSharedDashboard(dashboardId: String): HK
     require(dashboardId.isNotBlank()) { "Dashboard id is required" }
     val response = sendCommand(
         type = "hki7/dashboard/get",
-        payload = mapOf("dashboard_id" to kotlinx.serialization.json.JsonPrimitive(dashboardId)),
+        payload = mapOf("dashboard_id" to JsonPrimitive(dashboardId)),
     )
     if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return null
     val payload = response["result"]
