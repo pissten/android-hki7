@@ -8,6 +8,7 @@ on:
     paths:
       - "tools/multiplatform/migrate_batch.py"
       - "tools/multiplatform/migrate_room_visuals.py"
+      - "tools/multiplatform/wire_shared_area_card.py"
       - ".github/workflows/migrate-web-batch.yml"
 
 permissions:
@@ -57,6 +58,7 @@ jobs:
         run: |
           python3 tools/multiplatform/migrate_batch.py
           python3 tools/multiplatform/migrate_room_visuals.py
+          python3 tools/multiplatform/wire_shared_area_card.py
 
       - name: Show migration diff
         run: git status --short && git diff --stat && git diff --check
