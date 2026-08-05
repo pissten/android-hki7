@@ -1,7 +1,14 @@
 package com.jimz011apps.hki7.ui
 
+import androidx.compose.runtime.Composable
 import com.jimz011apps.hki7.data.HAEntity
 import com.jimz011apps.hki7.data.HKIAreaConfig
+import com.jimz011apps.hki7.resources.Res
+import com.jimz011apps.hki7.resources.core_media_players_playing
+import com.jimz011apps.hki7.resources.core_no_media_playing
+import com.jimz011apps.hki7.ui.components.mediaPlayerStatus
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Presentation-neutral media status shared by room tiles and room headers.
@@ -62,6 +69,19 @@ fun resolveRoomMediaStatus(entities: List<HAEntity>): RoomMediaSummary {
         representative = representative,
         activeCount = 1
     )
+}
+
+/** Original resource-backed room media presentation, now shared by Android and web. */
+@Composable
+fun RoomMediaSummary.localizedText(): String? = when {
+    text == null -> null
+    activeCount == 0 -> stringResource(Res.string.core_no_media_playing)
+    activeCount > 1 -> pluralStringResource(
+        Res.plurals.core_media_players_playing,
+        activeCount,
+        activeCount,
+    )
+    else -> mediaPlayerStatus(representative)
 }
 
 private fun singlePlayerStatus(entity: HAEntity): String {
