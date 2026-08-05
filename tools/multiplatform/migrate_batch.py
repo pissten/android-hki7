@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-import shutil
 
 ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / "app/src/main/java/com/jimz011apps/hki7"
@@ -48,6 +47,14 @@ def migrate_room_status_state() -> None:
     text = move_text(source, destination)
     text = text.replace("import java.util.Locale\n", "")
     text = text.replace(".lowercase(Locale.ROOT)", ".lowercase()")
+    text = text.replace(
+        'val compactValue = String.format(Locale.US, "%.2f", value)\n'
+        "        .trimEnd('0')\n"
+        "        .trimEnd('.')",
+        "val compactValue = (kotlin.math.round(value * 100.0) / 100.0).toString()\n"
+        "        .trimEnd('0')\n"
+        "        .trimEnd('.')",
+    )
     text = make_public(text)
     write_if_changed(destination, text)
 
