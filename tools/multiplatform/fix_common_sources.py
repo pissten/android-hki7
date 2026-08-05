@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SHARED = ROOT / "sharedUi/src/commonMain/kotlin/com/jimz011apps/hki7"
+WEB = ROOT / "webApp/src/commonMain/kotlin/com/jimz011apps/hki7"
 
 
 def add_import(path: Path, anchor: str, import_line: str) -> None:
@@ -26,10 +27,12 @@ def remove_import(path: Path, import_line: str) -> None:
 def main() -> None:
     # Modifier.weight is a RowScope/ColumnScope member extension. Importing the generated internal
     # parent-data property makes both Android and Wasm resolve the wrong symbol.
-    remove_import(
+    for path in (
         SHARED / "ui/screens/HKIRoomsSurface.kt",
-        "import androidx.compose.foundation.layout.weight\n",
-    )
+        WEB / "web/Hki7WebConnectedRoot.kt",
+    ):
+        remove_import(path, "import androidx.compose.foundation.layout.weight\n")
+
     add_import(
         SHARED / "ui/components/HKIAreaCard.kt",
         "import com.jimz011apps.hki7.ui.displayedRoomControlEntityIds\n",
