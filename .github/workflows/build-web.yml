@@ -99,8 +99,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # Never advertise the migration harness as a deployable HKI 7 image. Publication is enabled
+      # only after the real shared app root has replaced Hki7WebBootstrap and this marker is added.
       - name: Log in to GitHub Container Registry
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && hashFiles('webApp/PRODUCTION_READY') != ''
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -108,7 +110,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish image to GHCR
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && hashFiles('webApp/PRODUCTION_READY') != ''
         shell: bash
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
@@ -170,7 +172,7 @@ jobs:
         run: |
           if [ "$WEB_RESULT" = "success" ] && [ "$ANDROID_RESULT" = "success" ]; then
             state="success"
-            description="Web image and Android validation passed"
+            description="Web migration build and Android validation passed"
           else
             state="failure"
             description="Web: ${WEB_RESULT}; Android: ${ANDROID_RESULT}"
