@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,15 +40,19 @@ import androidx.compose.ui.unit.dp
 import com.jimz011apps.hki7.data.HAArea
 import com.jimz011apps.hki7.data.HAEntity
 import com.jimz011apps.hki7.sharedui.LocalHKIAppColors
+import com.jimz011apps.hki7.ui.Hki7EntityPrimaryAction
 import com.jimz011apps.hki7.ui.components.HKIHeaderStatusPill
 import com.jimz011apps.hki7.ui.components.HKISharedPage
+import com.jimz011apps.hki7.ui.localizedStateLabel
+import com.jimz011apps.hki7.ui.primaryAction
+import kotlinx.coroutines.launch
 
 /**
- * Platform-neutral first extraction of HKI 7's room-detail route.
+ * Platform-neutral extraction of HKI 7's room-detail route.
  *
- * Navigation, page chrome and live entity inspection are shared by Android and web. The richer
- * Android entity controls will be moved into this surface incrementally rather than recreated in
- * browser-only code.
+ * Navigation, page chrome, live entity inspection and conservative primary service actions are
+ * shared by Android and web. Rich domain dialogs are still migrated from Android incrementally;
+ * they are not reimplemented as browser-only controls.
  */
 @Composable
 fun HKIRoomDetailSurface(
@@ -53,9 +60,13 @@ fun HKIRoomDetailSurface(
     entities: List<HAEntity>,
     baseUrl: String,
     onBack: () -> Unit,
+    onEntityAction: suspend (HAEntity, Hki7EntityPrimaryAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scope = rememberCoroutineScope()
     var selectedEntity by remember(entities) { mutableStateOf<HAEntity?>(null) }
+    var actionEntityId by remember { mutableStateOf<String?>(null) }
+    var actionError by remember { mutableStateOf<String?>(null) }
     val sortedEntities = remember(entities) {
         entities.sortedWith(
             compareBy<HAEntity> { it.friendlyName?.lowercase() ?: it.entity_id.lowercase() }
@@ -117,7 +128,11 @@ fun HKIRoomDetailSurface(
                 ) { entity ->
                     HKIRoomDetailEntityCard(
                         entity = entity,
-                        onClick = { selectedEntity = entity },
+                        actionInProgress = actionEntityId == entity.entity_id,
+                        onClick = {
+                            actionError = null
+                            selectedEntity = entity
+                        },
                     )
                 }
             }
@@ -125,15 +140,22 @@ fun HKIRoomDetailSurface(
     }
 
     selectedEntity?.let { entity ->
+        val action = entity.primaryAction()
+        val busy = actionEntityId == entity.entity_id
         AlertDialog(
-            onDismissRequest = { selectedEntity = null },
+            onDismissRequest = {
+                if (!busy) {
+                    selectedEntity = null
+                    actionError = null
+                }
+            },
             title = {
                 Text(entity.friendlyName ?: entity.entity_id.substringAfter('.'))
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = entity.state.replace('_', ' '),
+                        text = entity.localizedStateLabel(),
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
@@ -141,10 +163,53 @@ fun HKIRoomDetailSurface(
                         style = MaterialTheme.typography.bodySmall,
                         color = LocalHKIAppColors.current.onMuted,
                     )
+                    actionError?.let { message ->
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { selectedEntity = null }) {
+                if (action != null) {
+                    Button(
+                        enabled = !busy,
+                        onClick = {
+                            scope.launch {
+                                actionEntityId = entity.entity_id
+                                actionError = null
+                                runCatching { onEntityAction(entity, action) }
+                                    .onSuccess {
+                                        selectedEntity = null
+                                    }
+                                    .onFailure { error ->
+                                        actionError = error.message ?: "Service call failed"
+                                    }
+                                actionEntityId = null
+                            }
+                        },
+                    ) {
+                        if (busy) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Text(action.label)
+                        }
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !busy,
+                    onClick = {
+                        selectedEntity = null
+                        actionError = null
+                    },
+                ) {
                     Text("Close")
                 }
             },
@@ -155,6 +220,7 @@ fun HKIRoomDetailSurface(
 @Composable
 private fun HKIRoomDetailEntityCard(
     entity: HAEntity,
+    actionInProgress: Boolean,
     onClick: () -> Unit,
 ) {
     val appColors = LocalHKIAppColors.current
@@ -168,7 +234,7 @@ private fun HKIRoomDetailEntityCard(
             .fillMaxWidth()
             .heightIn(min = 112.dp)
             .clip(RoundedCornerShape(28.dp))
-            .clickable(onClick = onClick)
+            .clickable(enabled = !actionInProgress, onClick = onClick)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
@@ -194,11 +260,18 @@ private fun HKIRoomDetailEntityCard(
                         .background(appColors.background.copy(alpha = 0.56f)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = displayName.take(1).uppercase(),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = appColors.onMuted,
-                    )
+                    if (actionInProgress) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(
+                            text = displayName.take(1).uppercase(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = appColors.onMuted,
+                        )
+                    }
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -221,7 +294,7 @@ private fun HKIRoomDetailEntityCard(
 
             Spacer(Modifier.padding(top = 14.dp))
             Text(
-                text = entity.state.replace('_', ' '),
+                text = entity.localizedStateLabel(),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = if (unavailable) MaterialTheme.colorScheme.error else appColors.onSurface,
