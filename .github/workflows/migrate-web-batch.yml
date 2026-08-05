@@ -58,7 +58,7 @@ jobs:
 
       - name: Apply deterministic migration batch
         run: |
-          echo "Applying canonical HKI7 shared UI batch v3"
+          echo "Applying canonical HKI7 shared UI batch v4"
           python3 tools/multiplatform/migrate_batch.py
           python3 tools/multiplatform/migrate_room_visuals.py
           python3 tools/multiplatform/wire_shared_area_card.py
