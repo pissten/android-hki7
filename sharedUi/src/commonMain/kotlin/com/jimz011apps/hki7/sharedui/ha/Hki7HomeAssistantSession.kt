@@ -1,6 +1,10 @@
 package com.jimz011apps.hki7.sharedui.ha
 
+import com.jimz011apps.hki7.data.HAArea
+import com.jimz011apps.hki7.data.HADeviceRegistryEntry
 import com.jimz011apps.hki7.data.HAEntity
+import com.jimz011apps.hki7.data.HAEntityRegistryEntry
+import com.jimz011apps.hki7.data.HAFloor
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -48,9 +52,9 @@ enum class Hki7ConnectionStatus {
 /**
  * Shared Home Assistant WebSocket session used by both browser and Android targets.
  *
- * The session exposes the canonical [HAEntity] model used by the existing HKI 7 screens. There is
- * deliberately no browser-only entity model: ported cards and dialogs consume the same runtime
- * objects as Android.
+ * The session exposes the canonical HKI 7 models used by the existing screens. There is
+ * deliberately no browser-only entity or registry model: ported cards and dialogs consume the same
+ * runtime objects as Android.
  */
 class Hki7HomeAssistantSession(
     private val scope: CoroutineScope,
@@ -67,6 +71,18 @@ class Hki7HomeAssistantSession(
 
     private val _entities = MutableStateFlow<Map<String, HAEntity>>(emptyMap())
     val entities: StateFlow<Map<String, HAEntity>> = _entities.asStateFlow()
+
+    private val _areas = MutableStateFlow<List<HAArea>>(emptyList())
+    val areas: StateFlow<List<HAArea>> = _areas.asStateFlow()
+
+    private val _floors = MutableStateFlow<List<HAFloor>>(emptyList())
+    val floors: StateFlow<List<HAFloor>> = _floors.asStateFlow()
+
+    private val _entityRegistry = MutableStateFlow<List<HAEntityRegistryEntry>>(emptyList())
+    val entityRegistry: StateFlow<List<HAEntityRegistryEntry>> = _entityRegistry.asStateFlow()
+
+    private val _deviceRegistry = MutableStateFlow<List<HADeviceRegistryEntry>>(emptyList())
+    val deviceRegistry: StateFlow<List<HADeviceRegistryEntry>> = _deviceRegistry.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -127,6 +143,40 @@ class Hki7HomeAssistantSession(
                 stateElements,
             )
             _entities.value = states.associateBy(HAEntity::entity_id)
+
+            val areasResponse = sendCommand("config/area_registry/list")
+            requireSuccess(areasResponse, "config/area_registry/list")
+            val areaElements = areasResponse["result"] as? JsonArray ?: JsonArray(emptyList())
+            _areas.value = json.decodeFromJsonElement(
+                ListSerializer(HAArea.serializer()),
+                areaElements,
+            )
+
+            val floorsResponse = sendCommand("config/floor_registry/list")
+            requireSuccess(floorsResponse, "config/floor_registry/list")
+            val floorElements = floorsResponse["result"] as? JsonArray ?: JsonArray(emptyList())
+            _floors.value = json.decodeFromJsonElement(
+                ListSerializer(HAFloor.serializer()),
+                floorElements,
+            )
+
+            val entityRegistryResponse = sendCommand("config/entity_registry/list")
+            requireSuccess(entityRegistryResponse, "config/entity_registry/list")
+            val entityRegistryElements = entityRegistryResponse["result"] as? JsonArray
+                ?: JsonArray(emptyList())
+            _entityRegistry.value = json.decodeFromJsonElement(
+                ListSerializer(HAEntityRegistryEntry.serializer()),
+                entityRegistryElements,
+            )
+
+            val deviceRegistryResponse = sendCommand("config/device_registry/list")
+            requireSuccess(deviceRegistryResponse, "config/device_registry/list")
+            val deviceRegistryElements = deviceRegistryResponse["result"] as? JsonArray
+                ?: JsonArray(emptyList())
+            _deviceRegistry.value = json.decodeFromJsonElement(
+                ListSerializer(HADeviceRegistryEntry.serializer()),
+                deviceRegistryElements,
+            )
 
             val subscriptionResponse = sendCommand(
                 type = "subscribe_events",
@@ -255,7 +305,13 @@ class Hki7HomeAssistantSession(
         runCatching { socket?.close() }
         socket = null
         failPendingCommands("Home Assistant connection closed")
-        if (clearEntities) _entities.value = emptyMap()
+        if (clearEntities) {
+            _entities.value = emptyMap()
+            _areas.value = emptyList()
+            _floors.value = emptyList()
+            _entityRegistry.value = emptyList()
+            _deviceRegistry.value = emptyList()
+        }
     }
 
     private suspend fun failPendingCommands(message: String) {
