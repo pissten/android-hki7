@@ -10,6 +10,7 @@ on:
       - "tools/multiplatform/migrate_room_visuals.py"
       - "tools/multiplatform/wire_shared_area_card.py"
       - "tools/multiplatform/patch_shared_session.py"
+      - "tools/multiplatform/fix_common_sources.py"
       - ".github/workflows/migrate-web-batch.yml"
 
 permissions:
@@ -57,11 +58,12 @@ jobs:
 
       - name: Apply deterministic migration batch
         run: |
-          echo "Applying canonical HKI7 shared UI batch v2"
+          echo "Applying canonical HKI7 shared UI batch v3"
           python3 tools/multiplatform/migrate_batch.py
           python3 tools/multiplatform/migrate_room_visuals.py
           python3 tools/multiplatform/wire_shared_area_card.py
           python3 tools/multiplatform/patch_shared_session.py
+          python3 tools/multiplatform/fix_common_sources.py
 
       - name: Show migration diff
         run: git status --short && git diff --stat && git diff --check
