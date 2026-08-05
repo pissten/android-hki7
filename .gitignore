@@ -23,3 +23,6 @@ local.properties
 /*.xml
 /.xml
 /.descriptions.xml
+
+# Generated outputs for every Gradle module
+**/build/
