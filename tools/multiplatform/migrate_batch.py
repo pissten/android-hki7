@@ -41,6 +41,37 @@ def make_public(text: str) -> str:
     return re.sub(r"(?m)^internal\s+", "", text)
 
 
+def replace_balanced_lambda(text: str, marker: str, replacement: str) -> str:
+    start = text.find(marker)
+    if start < 0:
+        return text
+    opening = text.find("{", start)
+    if opening < 0:
+        raise ValueError(f"No opening brace after marker: {marker}")
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(opening, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[:start] + replacement + text[index + 1 :]
+    raise ValueError(f"Unbalanced lambda after marker: {marker}")
+
+
 def migrate_room_status_state() -> None:
     source = APP / "ui/RoomStatusState.kt"
     destination = SHARED / "ui/RoomStatusState.kt"
@@ -116,11 +147,48 @@ internal fun RoomMediaSummary.localizedText(): String? = when {
     write_if_changed(source, android_wrapper)
 
 
+def migrate_android_navigation_items() -> None:
+    path = APP / "MainActivity.kt"
+    text = path.read_text(encoding="utf-8")
+    import_line = "import com.jimz011apps.hki7.ui.components.HKITopLevelNavigationItems\n"
+    anchor = "import com.jimz011apps.hki7.ui.components.HKIBottomBar\n"
+    if import_line not in text:
+        text = text.replace(anchor, anchor + import_line)
+
+    replacement = """                HKITopLevelNavigationItems(
+                    screens = screens,
+                    isSelected = { screen ->
+                        when (screen) {
+                            is Screen.Custom ->
+                                currentDestination?.route == Screen.CUSTOM_PAGE_ROUTE &&
+                                    navBackStackEntry?.arguments?.getString(\"pageId\") == screen.page.id
+                            Screen.Rooms ->
+                                currentDestination?.route == Screen.RoomDetail.route ||
+                                    currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                            Screen.Battery ->
+                                currentDestination?.route == Screen.Battery.WIDGET_ROUTE ||
+                                    currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                            else -> currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                        }
+                    },
+                    onSelect = navigateToTopLevel,
+                    labelFor = { screen -> screen.localizedTitle() },
+                    scrollable = navBarScrollable,
+                )"""
+    text = replace_balanced_lambda(
+        text,
+        "                screens.forEach { screen ->",
+        replacement,
+    )
+    write_if_changed(path, text)
+
+
 def main() -> None:
     migrate_room_status_state()
     migrate_room_follow_state()
     migrate_room_media_state()
-    print("Migrated canonical room state, room-follow, and media aggregation logic to sharedUi/commonMain")
+    migrate_android_navigation_items()
+    print("Migrated validated room logic and canonical top-level navigation rendering to sharedUi")
 
 
 if __name__ == "__main__":
