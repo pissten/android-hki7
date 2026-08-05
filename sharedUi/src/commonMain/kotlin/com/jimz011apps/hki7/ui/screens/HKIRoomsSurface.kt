@@ -31,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jimz011apps.hki7.data.HAArea
 import com.jimz011apps.hki7.data.HADeviceRegistryEntry
@@ -60,11 +59,11 @@ private data class SharedFloorSection(
 )
 
 /**
- * Canonical HKI 7 Rooms surface for commonMain.
+ * Canonical HKI 7 Rooms content extracted from Android RoomsScreen.
  *
- * This is extracted from the original Android RoomsScreen floor/card hierarchy. It renders the
- * same floor headers, responsive lanes, per-floor columns and [HKIAreaCard]. Platform hosts provide
- * only registry/config state and navigation callbacks.
+ * Page chrome is supplied by the shared HKI page header. The values below intentionally mirror the
+ * Android screen: 16 dp content insets, 24 dp between floor sections, 12 dp between side-by-side
+ * floor groups and 96 dp clearance above the bottom navigation/media area.
  */
 @Composable
 fun HKIRoomsSurface(
@@ -83,7 +82,6 @@ fun HKIRoomsSurface(
     onConfigureArea: (String) -> Unit = {},
     onActivityClick: ((String, List<String>) -> Unit)? = null,
 ) {
-    val appColors = LocalHKIAppColors.current
     val scrollState = rememberScrollState()
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
     val sections = remember(areas, floors, configs) {
@@ -107,20 +105,13 @@ fun HKIRoomsSurface(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            Text(
-                text = stringResource(Res.string.ui_rooms_3a28d6f),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = appColors.onSurface,
-            )
-
             packedRows.forEach { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
                     row.forEach { section ->
@@ -151,8 +142,6 @@ fun HKIRoomsSurface(
                     }
                 }
             }
-
-            Spacer(Modifier.height(28.dp))
         }
     }
 }
