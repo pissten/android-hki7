@@ -225,13 +225,49 @@ def sync_common_string_resources() -> None:
     print(f"Synced {added} original string/plural resources into commonMain")
 
 
+def migrate_navigation_labels() -> None:
+    shared_path = SHARED / "ui/Navigation.kt"
+    text = shared_path.read_text(encoding="utf-8")
+    if "fun Screen.localizedTitle()" not in text:
+        import_anchor = "import androidx.compose.material.icons.Icons\n"
+        common_imports = (
+            "import androidx.compose.runtime.Composable\n"
+            "import org.jetbrains.compose.resources.stringResource\n"
+            "import com.jimz011apps.hki7.resources.*\n"
+        )
+        text = text.replace(import_anchor, common_imports + import_anchor)
+        text = text.rstrip() + """
+
+
+/** Resource-backed labels for the canonical navigation model, shared by Android and web. */
+@Composable
+fun Screen.localizedTitle(): String = when (this) {
+    Screen.Home -> stringResource(Res.string.nav_home)
+    Screen.Rooms -> stringResource(Res.string.nav_rooms)
+    Screen.Security -> stringResource(Res.string.nav_security)
+    Screen.Energy -> stringResource(Res.string.nav_energy)
+    Screen.Climate -> stringResource(Res.string.nav_climate)
+    Screen.Battery -> stringResource(Res.string.nav_battery)
+    Screen.Settings -> stringResource(Res.string.nav_settings)
+    Screen.RoomDetail -> stringResource(Res.string.nav_room_detail)
+    is Screen.Custom -> page.name
+}
+"""
+        write_if_changed(shared_path, text)
+
+    android_path = APP / "ui/Navigation.kt"
+    if android_path.exists():
+        android_path.unlink()
+
+
 def main() -> None:
     migrate_room_status_state()
     migrate_room_follow_state()
     migrate_room_media_state()
     migrate_android_navigation_items()
     sync_common_string_resources()
-    print("Migrated validated room logic, navigation rendering, and original UI resources to sharedUi")
+    migrate_navigation_labels()
+    print("Migrated validated room logic, navigation rendering/labels, and original UI resources to sharedUi")
 
 
 if __name__ == "__main__":
