@@ -99,17 +99,28 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      # Never advertise the migration harness as a deployable HKI 7 image. Publication is enabled
-      # only after the real shared app root has replaced Hki7WebBootstrap and this marker is added.
-      - name: Log in to GitHub Container Registry
-        if: github.event_name == 'push' && hashFiles('webApp/PRODUCTION_READY') != ''
+      - name: Log in to GitHub Container Registry for preview
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish image to GHCR
+      - name: Publish visual parity preview image
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/${owner}/hki7-web"
+          short_sha="${GITHUB_SHA:0:12}"
+          docker tag hki7-web:ci "${image}:preview"
+          docker tag hki7-web:ci "${image}:preview-sha-${short_sha}"
+          docker push "${image}:preview"
+          docker push "${image}:preview-sha-${short_sha}"
+
+      # Production tags remain explicitly gated until the complete HKI 7 app root is ported.
+      - name: Publish production image
         if: github.event_name == 'push' && hashFiles('webApp/PRODUCTION_READY') != ''
         shell: bash
         run: |
@@ -172,7 +183,7 @@ jobs:
         run: |
           if [ "$WEB_RESULT" = "success" ] && [ "$ANDROID_RESULT" = "success" ]; then
             state="success"
-            description="Web migration build and Android validation passed"
+            description="Web preview and Android validation passed"
           else
             state="failure"
             description="Web: ${WEB_RESULT}; Android: ${ANDROID_RESULT}"
