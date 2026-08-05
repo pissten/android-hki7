@@ -100,7 +100,7 @@ jobs:
           retention-days: 30
 
       - name: Log in to GitHub Container Registry for preview
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -108,7 +108,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish visual parity preview image
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
