@@ -1,5 +1,8 @@
 package com.jimz011apps.hki7.ui
 
+import androidx.compose.runtime.Composable
+import org.jetbrains.compose.resources.stringResource
+import com.jimz011apps.hki7.resources.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewQuilt
 import androidx.compose.material.icons.filled.BatteryAlert
@@ -97,4 +100,19 @@ object NavBarConfig {
         return fixed + orderedConfigurable(savedOrder, customPages)
             .filter { it.route !in hiddenSet }
     }
+}
+
+
+/** Resource-backed labels for the canonical navigation model, shared by Android and web. */
+@Composable
+fun Screen.localizedTitle(): String = when (this) {
+    Screen.Home -> stringResource(Res.string.nav_home)
+    Screen.Rooms -> stringResource(Res.string.nav_rooms)
+    Screen.Security -> stringResource(Res.string.nav_security)
+    Screen.Energy -> stringResource(Res.string.nav_energy)
+    Screen.Climate -> stringResource(Res.string.nav_climate)
+    Screen.Battery -> stringResource(Res.string.nav_battery)
+    Screen.Settings -> stringResource(Res.string.nav_settings)
+    Screen.RoomDetail -> stringResource(Res.string.nav_room_detail)
+    is Screen.Custom -> page.name
 }

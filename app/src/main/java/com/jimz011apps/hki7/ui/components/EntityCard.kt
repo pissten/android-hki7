@@ -70,46 +70,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * Callers align it to [Alignment.TopEnd]; this component owns the consistent outward offset.
  * It must be placed in an unclipped overlay container, as a sibling of rounded card content.
  */
-@Composable
-fun EditRemoveBadge(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .offset(x = 6.dp, y = (-6).dp)
-            .size(20.dp)
-            .zIndex(20f)
-            .background(Color(0xFF3C3C3E), CircleShape)
-            .border(1.dp, Color.White.copy(alpha = 0.72f), CircleShape)
-            .clip(CircleShape)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_remove_e963907), tint = Color.White, modifier = Modifier.size(12.dp))
-    }
-}
-
 /** Standard edit-mode cog placed on cards, matching the other configurable widgets. */
-@Composable
-fun EditSettingsButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(20.dp)
-            .zIndex(2f)
-            .shadow(5.dp, CircleShape)
-            .background(Color.Black.copy(alpha = 0.58f), CircleShape)
-            .border(1.dp, Color.White.copy(alpha = 0.72f), CircleShape)
-            .clip(CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.Settings,
-            contentDescription = stringResource(R.string.ui_card_settings_1a3b62a),
-            tint = Color.White,
-            modifier = Modifier.size(12.dp)
-        )
-    }
-}
-
 @Composable
 fun RenameCardDialog(currentName: String, defaultName: String, onDismiss: () -> Unit, onSave: (String?) -> Unit) {
     var value by androidx.compose.runtime.remember(currentName) { androidx.compose.runtime.mutableStateOf(currentName) }
@@ -142,32 +103,6 @@ fun RenameCardDialog(currentName: String, defaultName: String, onDismiss: () -> 
  * One-line status for a room's configured media player: track/artist while playing or paused,
  * otherwise the capitalized state. Null only when no media player is configured.
  */
-@Composable
-fun mediaPlayerStatus(entity: HAEntity?): String? {
-    entity ?: return null
-    val title = entity.mediaTitle
-    return if ((entity.state == "playing" || entity.state == "paused") && !title.isNullOrBlank()) {
-        val artist = entity.mediaArtist
-        val track = if (!artist.isNullOrBlank()) "$title • $artist" else title
-        if (entity.state == "paused") {
-            stringResource(R.string.core_media_paused_track, track)
-        } else {
-            track
-        }
-    } else {
-        entity.localizedStateLabel()
-    }
-}
-
-fun mediaPlayerStateIcon(entity: HAEntity?): ImageVector? {
-    entity ?: return null
-    return when (entity.state.lowercase()) {
-        "playing" -> Icons.Default.PlayArrow
-        "paused" -> Icons.Default.Pause
-        else -> Icons.Default.Stop
-    }
-}
-
 /** Attribute keys that are noise in a state/attribute picker (internal, or already shown elsewhere). */
 val HIDDEN_ATTRIBUTE_KEYS = setOf(
     "friendly_name", "icon", "entity_picture", "supported_features",

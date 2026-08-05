@@ -106,6 +106,7 @@ import com.jimz011apps.hki7.ui.Screen
 import com.jimz011apps.hki7.ui.localizedTitle
 import com.jimz011apps.hki7.ui.localizedName
 import com.jimz011apps.hki7.ui.components.HKIBottomBar
+import com.jimz011apps.hki7.ui.components.HKITopLevelNavigationItems
 import com.jimz011apps.hki7.ui.components.awaitHorizontalTabSwipes
 import com.jimz011apps.hki7.ui.components.HKIMediaPlayerDialog
 import com.jimz011apps.hki7.ui.components.MediaPlayerMiniBar
@@ -1027,8 +1028,10 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
                     stringResource(R.string.ui_done_e9b450d)
                 ) { viewModel.toggleEditMode() }
             } else {
-                screens.forEach { screen ->
-                        val isSelected = when (screen) {
+                HKITopLevelNavigationItems(
+                    screens = screens,
+                    isSelected = { screen ->
+                        when (screen) {
                             is Screen.Custom ->
                                 currentDestination?.route == Screen.CUSTOM_PAGE_ROUTE &&
                                     navBackStackEntry?.arguments?.getString("pageId") == screen.page.id
@@ -1040,49 +1043,11 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
                                     currentDestination?.hierarchy?.any { it.route == screen.route } == true
                             else -> currentDestination?.hierarchy?.any { it.route == screen.route } == true
                         }
-
-                        Column(
-                            modifier = Modifier
-                                .then(
-                                    // weight() needs a bounded row; scrollable rows use fixed-width tabs.
-                                    if (navBarScrollable) Modifier.width(68.dp) else Modifier.weight(1f)
-                                )
-                                .fillMaxHeight()
-                                .clickable { navigateToTopLevel(screen) },
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(width = 56.dp, height = 32.dp)
-                                    .clip(itemCornerShape())
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.Transparent),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val iconTint = if (isSelected) MaterialTheme.colorScheme.primary else appColors.onMuted
-                                if (screen.mdiIcon != null) {
-                                    MdiIcon(
-                                        name = screen.mdiIcon,
-                                        tint = iconTint,
-                                        size = 24.dp
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = screen.icon,
-                                        contentDescription = null,
-                                        tint = iconTint,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = screen.localizedTitle(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isSelected) appColors.onSurface else appColors.onMuted,
-                                fontSize = 10.sp
-                            )
-                        }
-                    }
+                    },
+                    onSelect = navigateToTopLevel,
+                    labelFor = { screen -> screen.localizedTitle() },
+                    scrollable = navBarScrollable,
+                )
             }
         }
         // Handlebar affordance: shows when the media bar is tucked away; swipe up here to restore it.

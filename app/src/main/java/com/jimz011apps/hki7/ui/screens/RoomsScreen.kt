@@ -94,6 +94,7 @@ import com.jimz011apps.hki7.ui.roomMediaPlayerIds
 import com.jimz011apps.hki7.ui.roomEntityIds
 import com.jimz011apps.hki7.ui.Screen
 import com.jimz011apps.hki7.ui.components.HKIPage
+import com.jimz011apps.hki7.ui.components.HKIAreaCard
 import com.jimz011apps.hki7.ui.components.GradientActionButton
 import com.jimz011apps.hki7.ui.components.MdiIconPickerDialog
 import com.jimz011apps.hki7.ui.components.ReorderableGrid
@@ -600,224 +601,35 @@ fun AreaCard(
     onClick: () -> Unit,
     onActivityClick: ((String, List<String>) -> Unit)? = null
 ) {
-    val appColors = LocalHKIAppColors.current
-    val headerColor = remember(config.headerColor) { parseRoomHeaderColor(config.headerColor) }
-    // Match HKIPage: a custom header color takes precedence over the room wallpaper/picture.
-    val imageSource = if (headerColor != null) null else (config.wallpaper ?: area.picture)?.takeIf(String::isNotBlank)
-    val imageUrl = imageSource?.let { if (it.startsWith("http")) it else "$baseUrl$it" }
-    val roomColorScheme = MaterialTheme.colorScheme
-    val generatedRoomColor = remember(
-        area.area_id,
-        appColors.background,
-        roomColorScheme.primary,
-        roomColorScheme.secondary,
-        roomColorScheme.tertiary,
-        roomColorScheme.primaryContainer,
-        roomColorScheme.secondaryContainer,
-        roomColorScheme.tertiaryContainer
-    ) {
-        val palette = listOf(
-            roomColorScheme.primary,
-            roomColorScheme.secondary,
-            roomColorScheme.tertiary,
-            roomColorScheme.primaryContainer,
-            roomColorScheme.secondaryContainer,
-            roomColorScheme.tertiaryContainer
-        )
-        palette[Math.floorMod(area.area_id.hashCode(), palette.size)]
+    val mediaPlayerIds = remember(config) { config.roomMediaPlayerIds() }
+    val displayedControlIds = remember(widgets) { displayedRoomControlEntityIds(widgets) }
+    val dependencyIds = remember(config, mediaPlayerIds, displayedControlIds) {
+        (config.roomEntityIds() + mediaPlayerIds + displayedControlIds).distinct()
     }
-    val roomAccentColor = headerColor ?: generatedRoomColor
-    val roomCardColor = roomAccentColor.copy(
-        alpha = if (appColors.background.luminance() < 0.5f) {
-            0.45f
-        } else if (roomAccentColor.luminance() < 0.35f) {
-            0.28f
-        } else {
-            0.18f
-        }
+    val dependencyFlow = remember(viewModel, dependencyIds) { viewModel.entitiesFor(dependencyIds) }
+    val roomEntities by dependencyFlow.collectAsState()
+    val peopleByArea by viewModel.peopleByAreaId.collectAsState()
+
+    HKIAreaCard(
+        area = area,
+        config = config,
+        widgets = widgets,
+        roomEntities = roomEntities,
+        peopleHere = peopleByArea[area.area_id] ?: 0,
+        baseUrl = baseUrl,
+        isEditMode = isEditMode,
+        canDelete = canDelete,
+        isDragging = isDragging,
+        isSquare = isSquare,
+        compactTiles = compactTiles,
+        cornerRadius = cornerRadius,
+        onDelete = onDelete,
+        onSettings = onSettings,
+        onClick = onClick,
+        onActivityClick = onActivityClick,
     )
-    val roomCardBrush = roomCardColor.let { color ->
-        Brush.verticalGradient(
-            listOf(
-                color.compositeOver(appColors.background),
-                color.copy(alpha = color.alpha * 0.45f).compositeOver(appColors.background),
-                appColors.background
-            )
-        )
-    }
-    val scale by animateFloatAsState(if (isDragging) 1.05f else 1f, label = stringResource(R.string.ui_room_scale_6602c22))
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isSquare) Modifier.aspectRatio(1f) else Modifier.height(if (compactTiles) 112.dp else 160.dp))
-            .scale(scale)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(enabled = !isEditMode) { onClick() },
-            shape = RoundedCornerShape(cornerRadius.dp),
-            colors = CardDefaults.cardColors(containerColor = appColors.elevated)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-            if (imageUrl != null) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.28f)))
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize().background(roomCardBrush),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (config.icon != "None") {
-                        MdiIcon(config.icon ?: area.icon, tint = appColors.onMuted, size = 48.dp)
-                    }
-                }
-            }
-
-            val mediaPlayerIds = remember(config) { config.roomMediaPlayerIds() }
-            val peopleByArea by viewModel.peopleByAreaId.collectAsState()
-            val displayedControlIds = remember(widgets) { displayedRoomControlEntityIds(widgets) }
-            val dependencyIds = remember(config, mediaPlayerIds, displayedControlIds) {
-                // Lights/devices counters auto-count every light/switch shown in the room, so their
-                // live state must be subscribed here too — not just the manually configured extras.
-                (config.roomEntityIds() + mediaPlayerIds + displayedControlIds).distinct()
-            }
-            val dependencyFlow = remember(viewModel, dependencyIds) { viewModel.entitiesFor(dependencyIds) }
-            val roomEntities by dependencyFlow.collectAsState()
-            val mediaPlayers = remember(mediaPlayerIds, roomEntities) {
-                val byId = roomEntities.associateBy(HAEntity::entity_id)
-                mediaPlayerIds.map { id -> byId[id] ?: HAEntity(entity_id = id, state = "unavailable") }
-            }
-            val mediaSummary = remember(mediaPlayers) { resolveRoomMediaStatus(mediaPlayers) }
-            val mediaStatus = mediaSummary.localizedText()
-            val mediaIcon = mediaPlayerStateIcon(mediaSummary.representative)
-            val peopleHere = peopleByArea[area.area_id] ?: 0
-            val roomSummary = remember(config, roomEntities, displayedControlIds, peopleHere) {
-                resolveRoomStatus(config, roomEntities, displayedControlIds, peopleHere)
-            }
-            val topIndicatorKinds = if (isEditMode) 0 else roomSummary.indicators.count { it.role in ROOM_CARD_TOP_STATUS_ROLES }
-            val bottomIndicatorKinds = if (isEditMode) 0 else roomSummary.indicators.count { it.role in ROOM_CARD_BOTTOM_STATUS_ROLES }
-            val topIndicatorPadding = when (topIndicatorKinds) {
-                0 -> 0.dp
-                1 -> 42.dp
-                2 -> 76.dp
-                else -> 112.dp
-            }
-            val bottomIndicatorPadding = when (bottomIndicatorKinds) {
-                0 -> 8.dp
-                1 -> 42.dp
-                2 -> 76.dp
-                else -> 116.dp
-            }
-            val primaryColor = if (imageUrl != null) Color.White else appColors.onSurface
-            val secondaryColor = if (imageUrl != null) Color.White.copy(alpha = 0.88f) else appColors.onMuted
-            Box(
-                modifier = Modifier.fillMaxSize().padding(if (compactTiles) 12.dp else 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .padding(end = topIndicatorPadding),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (config.icon != "None") {
-                        Surface(shape = CircleShape, color = Color.Black.copy(alpha = 0.35f)) {
-                            MdiIcon(
-                                config.icon ?: area.icon,
-                                modifier = Modifier.padding(if (compactTiles) 6.dp else 8.dp),
-                                tint = Color.White,
-                                size = if (compactTiles) 16.dp else 18.dp
-                            )
-                        }
-                        Spacer(Modifier.width(10.dp))
-                    }
-                    Text(
-                        config.name ?: area.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = primaryColor,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                if (!isEditMode) {
-                    RoomStatusIndicators(
-                        summary = roomSummary,
-                        compact = true,
-                        visibleRoles = ROOM_CARD_TOP_STATUS_ROLES,
-                        onIndicatorClick = onActivityClick,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .widthIn(max = 108.dp)
-                    )
-
-                    RoomStatusIndicators(
-                        summary = roomSummary,
-                        compact = true,
-                        visibleRoles = ROOM_CARD_BOTTOM_STATUS_ROLES,
-                        onIndicatorClick = onActivityClick,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .widthIn(max = 108.dp)
-                    )
-                }
-
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .padding(end = bottomIndicatorPadding),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (mediaStatus != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (mediaIcon != null) {
-                                Icon(
-                                    mediaIcon,
-                                    contentDescription = null,
-                                    tint = secondaryColor,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(Modifier.width(5.dp))
-                            }
-                            Text(
-                                mediaStatus,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = secondaryColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    RoomEnvironmentSummary(
-                        summary = roomSummary,
-                        color = primaryColor,
-                        compact = true
-                    )
-                }
-            }
-
-                if (isEditMode) {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
-                }
-            }
-        }
-        if (isEditMode) {
-            EditSettingsButton(onClick = onSettings, modifier = Modifier.align(Alignment.Center))
-            if (canDelete) {
-                EditRemoveBadge(onClick = onDelete, modifier = Modifier.align(Alignment.TopEnd))
-            }
-        }
-    }
 }
+
 
 private fun parseRoomHeaderColor(value: String?): Color? {
     val normalized = value?.trim()?.takeIf { it.isNotEmpty() }?.let {
