@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -44,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +82,18 @@ private data class DialogTabSwipeRegistration(
 private val LocalDialogTabSwipeRegistrar =
     compositionLocalOf<(DialogTabSwipeRegistration?) -> Unit> { { } }
 
+/** True while a family policy only permits local visual customization. */
+val LocalAestheticsOnlyEditing = compositionLocalOf { false }
+
+private val aestheticSettingsTabs = setOf(
+    "appearance",
+    "layout",
+    "identity",
+    "style",
+    "display",
+    "chart",
+)
+
 /** Onboarding-inspired heading used by full settings surfaces. */
 @Composable
 fun ModernSettingsHeader(
@@ -100,7 +118,7 @@ fun ModernSettingsHeader(
                     .size(46.dp)
                     .background(colors.subtleSurface, RoundedCornerShape(16.dp))
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = colors.onSurface)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.ui_back_b52b36b), tint = colors.onSurface)
             }
         } else {
             Surface(
@@ -139,7 +157,7 @@ fun ModernSettingsHeader(
                     .size(46.dp)
                     .background(colors.subtleSurface, CircleShape)
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Close", tint = colors.onSurface)
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_close_bbfa773), tint = colors.onSurface)
             }
         }
     }
@@ -219,12 +237,13 @@ fun ModernSettingsMenuItem(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val colors = LocalHKIAppColors.current
     val accent = readableDialogAccent(MaterialTheme.colorScheme.primary, colors.elevated)
     Surface(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         color = colors.subtleSurface,
         contentColor = colors.onSurface
@@ -239,16 +258,25 @@ fun ModernSettingsMenuItem(
                 color = accent.copy(alpha = 0.13f)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(22.dp))
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = if (enabled) accent else colors.onMuted,
+                        modifier = Modifier.size(22.dp),
+                    )
                 }
             }
             Spacer(Modifier.width(13.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, color = colors.onSurface, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(title, color = if (enabled) colors.onSurface else colors.onMuted, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(subtitle, color = colors.onMuted, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(8.dp))
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = colors.onMuted, modifier = Modifier.size(20.dp))
+            if (enabled) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = colors.onMuted, modifier = Modifier.size(20.dp))
+            } else {
+                Icon(Icons.Default.Lock, contentDescription = null, tint = colors.onMuted, modifier = Modifier.size(20.dp))
+            }
         }
     }
 }
@@ -260,9 +288,20 @@ fun SettingsTabRow(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val tabKeys = tabs.map { it.first }
+    val aestheticsOnly = LocalAestheticsOnlyEditing.current
+    val visibleTabs = if (aestheticsOnly) {
+        tabs.filter { it.first in aestheticSettingsTabs }
+    } else {
+        tabs
+    }
+    val tabKeys = visibleTabs.map { it.first }
     val registerForDialogSwipe = LocalDialogTabSwipeRegistrar.current
     val latestOnSelect by rememberUpdatedState(onSelect)
+    LaunchedEffect(aestheticsOnly, tabKeys, selected) {
+        if (aestheticsOnly && selected !in tabKeys) {
+            tabKeys.firstOrNull()?.let(onSelect)
+        }
+    }
     DisposableEffect(registerForDialogSwipe, tabKeys, selected) {
         registerForDialogSwipe(
             DialogTabSwipeRegistration(tabKeys, selected) { latestOnSelect(it) }
@@ -283,7 +322,7 @@ fun SettingsTabRow(
             ),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        tabs.forEach { (key, label) ->
+        visibleTabs.forEach { (key, label) ->
             SettingsChoiceChip(
                 selected = selected == key,
                 onClick = { onSelect(key) },
@@ -542,7 +581,7 @@ fun ModernAlertDialog(
                                 onClick = onDismissRequest,
                                 modifier = Modifier.size(44.dp).background(colors.subtleSurface, CircleShape)
                             ) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = colors.onSurface)
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_close_bbfa773), tint = colors.onSurface)
                             }
                         }
                     }

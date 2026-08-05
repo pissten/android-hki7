@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeOut
@@ -16,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -35,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,6 +48,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jimz011apps.hki7.data.HKINotification
+import com.jimz011apps.hki7.data.HKINotificationAction
 import com.jimz011apps.hki7.ui.MainViewModel
 import com.jimz011apps.hki7.ui.theme.LocalHKIAppColors
 import kotlinx.coroutines.launch
@@ -84,7 +91,8 @@ fun NotificationBannerHost(
 
     LaunchedEffect(current?.id, visible) {
         if (current != null && visible) {
-            delay(5.seconds)
+            // An actionable notification stays up longer: there are buttons to read and aim for.
+            delay(if (current?.actions.isNullOrEmpty()) 5.seconds else 12.seconds)
             exitMode = "dismiss"
             visible = false
         }
@@ -113,42 +121,149 @@ fun NotificationBannerHost(
                 shadowElevation = 12.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Column(Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(Icons.Default.Notifications, null, tint = bannerForeground, modifier = Modifier.size(22.dp))
+                        Column(Modifier.weight(1f)) {
+                            notification.instanceName?.takeIf { it.isNotBlank() }?.let {
+                                Text(
+                                    it.uppercase(),
+                                    color = bannerMuted,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                            notification.title?.takeIf { it.isNotBlank() }?.let {
+                                Text(it, color = bannerForeground, style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Text(notification.message, color = if (notification.title.isNullOrBlank()) bannerForeground else bannerMuted,
+                                style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                        TextButton(onClick = {
+                            exitMode = "dismiss"
+                            visible = false
+                        }) {
+                            Text(stringResource(R.string.ui_dismiss_70afe9e), color = bannerForeground)
+                        }
+                        IconButton(onClick = {
+                            exitMode = "delete"
+                            visible = false
+                            viewModel.deleteNotification(notification.id)
+                        }) {
+                            Icon(Icons.Default.Close, stringResource(R.string.notification_delete), tint = bannerForeground)
+                        }
+                    }
+                    // A reply needs a text field, which the banner has no room for — those hand off to
+                    // the drawer instead of answering inline.
+                    NotificationActionButtons(
+                        notification = notification,
+                        viewModel = viewModel,
+                        accentColor = bannerForeground,
+                        inlineReply = false,
+                        modifier = Modifier.padding(start = 34.dp, top = 2.dp),
+                        onActionFired = {
+                            exitMode = "dismiss"
+                            visible = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The buttons from HA's `data.actions`. While HKI is visible no system notification is posted, so
+ * this is the user's only way to reach them; tapping one fires the same
+ * `mobile_app_notification_action` event the notification shade would.
+ *
+ * Only one action per notification can be fired — HA would accept a second, but a spent button in
+ * a list that sticks around for 48h is a trap, not a feature.
+ */
+@Composable
+private fun NotificationActionButtons(
+    notification: HKINotification,
+    viewModel: MainViewModel,
+    accentColor: Color,
+    inlineReply: Boolean,
+    modifier: Modifier = Modifier,
+    onActionFired: () -> Unit = {}
+) {
+    if (notification.actions.isEmpty()) return
+    val uriHandler = LocalUriHandler.current
+    val openPanel = LocalOpenNotifications.current
+    var replyingTo by remember(notification.id) { mutableStateOf<HKINotificationAction?>(null) }
+    var replyText by remember(notification.id) { mutableStateOf("") }
+    val spent = notification.firedAction != null
+
+    Column(modifier) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            notification.actions.forEach { action ->
+                val fired = notification.firedAction == action.action
+                TextButton(
+                    // A link is repeatable; it changes nothing on the server.
+                    enabled = action.isUri || !spent,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    onClick = {
+                        when {
+                            action.isUri -> {
+                                action.uri?.let { runCatching { uriHandler.openUri(it) } }
+                                onActionFired()
+                            }
+                            action.isReply && inlineReply -> replyingTo = action
+                            action.isReply -> {
+                                openPanel?.invoke()
+                                onActionFired()
+                            }
+                            else -> {
+                                viewModel.fireNotificationAction(notification, action)
+                                onActionFired()
+                            }
+                        }
+                    }
                 ) {
-                    Icon(Icons.Default.Notifications, null, tint = bannerForeground, modifier = Modifier.size(22.dp))
-                    Column(Modifier.weight(1f)) {
-                        notification.instanceName?.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                it.uppercase(),
-                                color = bannerMuted,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                        }
-                        notification.title?.takeIf { it.isNotBlank() }?.let {
-                            Text(it, color = bannerForeground, style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Text(notification.message, color = if (notification.title.isNullOrBlank()) bannerForeground else bannerMuted,
-                            style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        action.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (fired) FontWeight.Normal else FontWeight.SemiBold,
+                        color = if (action.isUri || !spent) accentColor else accentColor.copy(alpha = 0.4f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        replyingTo?.let { action ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                OutlinedTextField(
+                    value = replyText,
+                    onValueChange = { replyText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text(action.title, style = MaterialTheme.typography.bodySmall) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    textStyle = MaterialTheme.typography.bodySmall
+                )
+                IconButton(
+                    enabled = replyText.isNotBlank(),
+                    onClick = {
+                        viewModel.fireNotificationAction(notification, action, replyText.trim())
+                        replyingTo = null
+                        replyText = ""
+                        onActionFired()
                     }
-                    TextButton(onClick = {
-                        exitMode = "dismiss"
-                        visible = false
-                    }) {
-                        Text("Dismiss", color = bannerForeground)
-                    }
-                    IconButton(onClick = {
-                        exitMode = "delete"
-                        visible = false
-                        viewModel.deleteNotification(notification.id)
-                    }) {
-                        Icon(Icons.Default.Close, "Delete notification", tint = bannerForeground)
-                    }
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, action.title, tint = accentColor, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -181,7 +296,7 @@ fun NotificationBellButton(
                 .clickable { open?.invoke() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = iconTint, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Notifications, contentDescription = stringResource(R.string.ui_notifications_753a22b), tint = iconTint, modifier = Modifier.size(18.dp))
         }
         if (unread > 0) {
             val label = if (unread > 99) "99+" else "$unread"
@@ -251,7 +366,7 @@ fun NotificationPanel(viewModel: MainViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Notifications",
+                stringResource(R.string.ui_notifications_753a22b),
                 style = MaterialTheme.typography.titleLarge,
                 color = appColors.onSurface,
                 fontWeight = FontWeight.Bold,
@@ -259,22 +374,22 @@ fun NotificationPanel(viewModel: MainViewModel) {
             )
             if (tab == "inbox" && notifications.any { !it.archived && !it.read }) {
                 IconButton(onClick = { viewModel.markAllNotificationsRead() }) {
-                    Icon(Icons.Default.DoneAll, "Mark all as read", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.DoneAll, stringResource(R.string.notification_mark_all_read), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }
             }
             if (tab == "inbox" && notifications.any { !it.archived && it.read }) {
                 IconButton(onClick = { viewModel.markAllNotificationsUnread() }) {
-                    Icon(Icons.Default.MarkEmailUnread, "Mark all as unread", tint = appColors.onMuted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.MarkEmailUnread, stringResource(R.string.notification_mark_all_unread), tint = appColors.onMuted, modifier = Modifier.size(20.dp))
                 }
             }
             if (tab == "inbox" && notifications.any { !it.archived }) {
                 IconButton(onClick = { viewModel.clearNotifications() }) {
-                    Icon(Icons.Default.DeleteSweep, "Delete all", tint = appColors.onMuted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.DeleteSweep, stringResource(R.string.notification_delete_all), tint = appColors.onMuted, modifier = Modifier.size(20.dp))
                 }
             }
             if (tab == "archive" && notifications.any { it.archived }) {
                 IconButton(onClick = { viewModel.clearArchivedNotifications() }) {
-                    Icon(Icons.Default.DeleteSweep, "Delete all archived", tint = appColors.onMuted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.DeleteSweep, stringResource(R.string.notification_delete_all_archived), tint = appColors.onMuted, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -284,7 +399,7 @@ fun NotificationPanel(viewModel: MainViewModel) {
             value = query,
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search", color = appColors.onMuted, style = MaterialTheme.typography.bodySmall) },
+            placeholder = { Text(stringResource(R.string.ui_search_bce0641), color = appColors.onMuted, style = MaterialTheme.typography.bodySmall) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = appColors.onMuted, modifier = Modifier.size(18.dp)) },
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
@@ -310,13 +425,13 @@ fun NotificationPanel(viewModel: MainViewModel) {
             FilterChip(
                 selected = tab == "inbox",
                 onClick = { tab = "inbox" },
-                label = { Text("Notifications") },
+                label = { Text(stringResource(R.string.ui_notifications_753a22b)) },
                 shape = RoundedCornerShape(12.dp)
             )
             FilterChip(
                 selected = tab == "archive",
                 onClick = { tab = "archive" },
-                label = { Text("Archived") },
+                label = { Text(stringResource(R.string.ui_archived_eddc813)) },
                 shape = RoundedCornerShape(12.dp)
             )
         }
@@ -338,16 +453,16 @@ fun NotificationPanel(viewModel: MainViewModel) {
                 Spacer(Modifier.height(12.dp))
                 Text(
                     when {
-                        query.isNotBlank() -> "No matches"
-                        tab == "archive" -> "No archived notifications"
-                        else -> "No notifications"
+                        query.isNotBlank() -> stringResource(R.string.ui_no_matches_cd0af6c)
+                        tab == "archive" -> stringResource(R.string.ui_no_archived_notifications_ed5604b)
+                        else -> stringResource(R.string.ui_no_notifications_b08626f)
                     },
                     color = appColors.onMuted, style = MaterialTheme.typography.bodyMedium
                 )
                 if (tab == "inbox" && query.isBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Messages sent to this device via\nHome Assistant's notify service appear here.",
+                        stringResource(R.string.ui_messages_sent_to_this_device_via_home_assistant_s_87e4a32),
                         color = appColors.onMuted.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 24.dp)
@@ -363,11 +478,11 @@ fun NotificationPanel(viewModel: MainViewModel) {
             ) {
                 if (tab == "inbox") {
                     if (unread.isNotEmpty()) {
-                        item(key = "hdr_unread") { SectionLabel("Unread") }
+                        item(key = "hdr_unread") { SectionLabel(stringResource(R.string.notification_unread)) }
                         items(unread, key = { it.id }) { n -> NotificationRow(n, viewModel, archivedTab = false) }
                     }
                     if (history.isNotEmpty()) {
-                        item(key = "hdr_history") { SectionLabel("History") }
+                        item(key = "hdr_history") { SectionLabel(stringResource(R.string.notification_history)) }
                         items(history, key = { it.id }) { n -> NotificationRow(n, viewModel, archivedTab = false) }
                     }
                 } else {
@@ -418,24 +533,24 @@ private fun NotificationRow(
         ) {
             // Read/unread toggle on both tabs: unread gets "mark as read", read the inverse.
             if (notification.read) {
-                SwipeActionButton(Icons.Default.MarkEmailUnread, "Mark as unread", Color(0xFF42A5F5)) {
+                SwipeActionButton(Icons.Default.MarkEmailUnread, stringResource(R.string.notification_mark_unread), Color(0xFF42A5F5)) {
                     viewModel.setNotificationRead(notification.id, false); close()
                 }
             } else {
-                SwipeActionButton(Icons.Default.MarkEmailRead, "Mark as read", Color(0xFF42A5F5)) {
+                SwipeActionButton(Icons.Default.MarkEmailRead, stringResource(R.string.notification_mark_read), Color(0xFF42A5F5)) {
                     viewModel.setNotificationRead(notification.id, true); close()
                 }
             }
             if (!archivedTab) {
-                SwipeActionButton(Icons.Default.Archive, "Archive", Color(0xFF66BB6A)) {
+                SwipeActionButton(Icons.Default.Archive, stringResource(R.string.notification_archive), Color(0xFF66BB6A)) {
                     viewModel.archiveNotification(notification.id); close()
                 }
             } else {
-                SwipeActionButton(Icons.Default.Unarchive, "Unarchive", Color(0xFF66BB6A)) {
+                SwipeActionButton(Icons.Default.Unarchive, stringResource(R.string.notification_unarchive), Color(0xFF66BB6A)) {
                     viewModel.unarchiveNotification(notification.id); close()
                 }
             }
-            SwipeActionButton(Icons.Default.Delete, "Delete", Color(0xFFEF5350)) {
+            SwipeActionButton(Icons.Default.Delete, stringResource(R.string.notification_delete_action), Color(0xFFEF5350)) {
                 viewModel.deleteNotification(notification.id)
             }
         }
@@ -471,9 +586,10 @@ private fun NotificationRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    if (!notification.title.isNullOrBlank()) {
+                    val notificationTitle = notification.title
+                    if (!notificationTitle.isNullOrBlank()) {
                         Text(
-                            notification.title,
+                            notificationTitle,
                             style = MaterialTheme.typography.labelLarge,
                             color = appColors.onSurface,
                             fontWeight = FontWeight.SemiBold
@@ -493,6 +609,13 @@ private fun NotificationRow(
                         ).joinToString(" · "),
                         style = MaterialTheme.typography.labelSmall,
                         color = appColors.onMuted
+                    )
+                    NotificationActionButtons(
+                        notification = notification,
+                        viewModel = viewModel,
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        inlineReply = true,
+                        modifier = Modifier.padding(top = 2.dp).offset(x = (-10).dp)
                     )
                 }
                 if (!notification.read) {

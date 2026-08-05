@@ -13,9 +13,9 @@ android {
         minSdk = 34
         targetSdk = 37
         // 8 was consumed by an upload that was never released (Play reserves version codes
-        // permanently, even for bundles left inactive), so beta.2 ships as 9.
-        versionCode = 16
-        versionName = "1.0.0-beta.9"
+        // permanently, even for bundles left inactive).
+        versionCode = 21
+        versionName = "1.0.0-beta.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -39,6 +39,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    bundle {
+        // Keep every supported translation in the installed app so switching languages from the
+        // in-app picker never depends on Play downloading a language split.
+        language {
+            enableSplit = false
+        }
+    }
 }
 
 configurations.all {
@@ -57,6 +64,7 @@ configurations.all {
 }
 
 dependencies {
+    implementation(project(":sharedUi"))
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)

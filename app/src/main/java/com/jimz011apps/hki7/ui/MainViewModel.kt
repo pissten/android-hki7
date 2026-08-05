@@ -25,6 +25,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.jsonArray
@@ -161,6 +162,10 @@ sealed interface ActionOutcome {
     data class Navigate(val target: String) : ActionOutcome
     data class OpenUrl(val url: String) : ActionOutcome
 }
+
+/** A custom popup opened by an action, hosted at the app root. [startInEditMode] opens it straight
+ *  into its own edit mode, used by the action editor's "Edit contents" shortcut. */
+data class ActivePopup(val popupId: String, val startInEditMode: Boolean = false)
 
 /** How often the expensive dashboard rebuild (areas/floors/registries/autopopulate) runs. */
 private const val DASHBOARD_REFRESH_INTERVAL_MS = 5 * 60 * 1000L
@@ -581,15 +586,25 @@ internal fun importRelatedHomeAssistantEnergyEntities(
 ): HKIEnergyConfig {
     val registryByEntity = registry.associateBy { it.entity_id }
 
-    fun related(category: String): Pair<String, List<HAEntity>>? {
+    fun related(category: String): Pair<String?, List<HAEntity>>? {
         // The first explicit HA Energy source is the anchor. Guesses must stay on its owning
-        // device: including child or secondary devices can select a similarly named but unrelated
-        // phase, inverter, or power sensor.
-        val deviceId = sourceEntityIds[category].orEmpty()
-            .firstNotNullOfOrNull { registryByEntity[it]?.device_id }
+        // device. MQTT integrations such as DSMR Reader deliberately create registry entities
+        // without a device, so use their integration config entry as the equivalent boundary.
+        val anchor = sourceEntityIds[category].orEmpty()
+            .firstNotNullOfOrNull(registryByEntity::get)
             ?: return null
+        val deviceId = anchor.device_id
+        val configEntryId = anchor.config_entry_id
+        if (deviceId == null && configEntryId == null) return null
         val relatedEntityIds = registry.asSequence()
-            .filter { it.device_id == deviceId && it.disabled_by == null }
+            .filter {
+                it.disabled_by == null && if (deviceId != null) {
+                    it.device_id == deviceId
+                } else {
+                    it.device_id == null && it.config_entry_id == configEntryId &&
+                        (anchor.platform == null || it.platform == anchor.platform)
+                }
+            }
             .mapTo(hashSetOf()) { it.entity_id }
         return deviceId to liveEntities.filter { it.entity_id in relatedEntityIds }
     }
@@ -604,6 +619,15 @@ internal fun importRelatedHomeAssistantEnergyEntities(
         entity.deviceClass == "power" || unit(entity) in setOf("W", "kW")
     fun isEnergy(entity: HAEntity) =
         entity.deviceClass == "energy" || unit(entity).contains("Wh", ignoreCase = true)
+    fun HAEntity.hasAny(vararg terms: String) = terms.any(normalizedName()::contains)
+    fun isDsmr(entity: HAEntity) = entity.entity_id.startsWith("sensor.dsmr_reading_")
+    fun isImport(entity: HAEntity) = entity.hasAny("import", "consumption", "consumed", "used", "afname") ||
+        (isDsmr(entity) && entity.hasAny("delivered"))
+    fun isExport(entity: HAEntity) = entity.hasAny("export", "production", "produced", "returned", "teruglever") ||
+        (!isDsmr(entity) && entity.hasAny("delivered"))
+    fun isTariff(entity: HAEntity, tariff: Int) =
+        entity.hasAny("tariff $tariff", "tariff_$tariff", "tarif $tariff", "tarif_$tariff", "t$tariff") ||
+            (isDsmr(entity) && entity.entity_id.endsWith("_$tariff"))
     fun isCost(entity: HAEntity) =
         entity.deviceClass == "monetary" || entity.normalizedName().contains("cost")
     fun HAEntity.matchesPhase(phase: Int): Boolean {
@@ -633,10 +657,10 @@ internal fun importRelatedHomeAssistantEnergyEntities(
                 isPower(it) && listOf("home", "house", "load").any(it.normalizedName()::contains)
             }),
             gridImportEntityId = fill("import_kwh", result.gridImportEntityId, entities.pick {
-                isEnergy(it) && it.normalizedName().contains("import") && !it.normalizedName().contains("tariff")
+                isEnergy(it) && isImport(it) && !isTariff(it, 1) && !isTariff(it, 2)
             }),
             gridExportEntityId = fill("export_kwh", result.gridExportEntityId, entities.pick {
-                isEnergy(it) && it.normalizedName().contains("export") && !it.normalizedName().contains("tariff")
+                isEnergy(it) && isExport(it) && !isTariff(it, 1) && !isTariff(it, 2)
             }),
             energyCostEntityId = fill("cost", result.energyCostEntityId, entities.pick { isCost(it) }),
             powerPhase1EntityId = fill("phase1", result.powerPhase1EntityId, phasePower(1)),
@@ -649,16 +673,16 @@ internal fun importRelatedHomeAssistantEnergyEntities(
             voltagePhase2EntityId = fill("voltage2", result.voltagePhase2EntityId, phaseClass("voltage", "V", 2)),
             voltagePhase3EntityId = fill("voltage3", result.voltagePhase3EntityId, phaseClass("voltage", "V", 3)),
             gridImportTariff1EntityId = fill("import_t1", result.gridImportTariff1EntityId, entities.pick {
-                isEnergy(it) && it.normalizedName().contains("import") && it.normalizedName().contains("tariff 1")
+                isEnergy(it) && isImport(it) && isTariff(it, 1)
             }),
             gridImportTariff2EntityId = fill("import_t2", result.gridImportTariff2EntityId, entities.pick {
-                isEnergy(it) && it.normalizedName().contains("import") && it.normalizedName().contains("tariff 2")
+                isEnergy(it) && isImport(it) && isTariff(it, 2)
             }),
             gridExportTariff1EntityId = fill("export_t1", result.gridExportTariff1EntityId, entities.pick {
-                isEnergy(it) && it.normalizedName().contains("export") && it.normalizedName().contains("tariff 1")
+                isEnergy(it) && isExport(it) && isTariff(it, 1)
             }),
             gridExportTariff2EntityId = fill("export_t2", result.gridExportTariff2EntityId, entities.pick {
-                isEnergy(it) && it.normalizedName().contains("export") && it.normalizedName().contains("tariff 2")
+                isEnergy(it) && isExport(it) && isTariff(it, 2)
             })
         )
     }
@@ -715,6 +739,115 @@ internal fun importRelatedHomeAssistantEnergyEntities(
         result = result.copy(carbonDeviceId = result.carbonDeviceId ?: deviceId)
     }
     return result
+}
+
+/** Import the standard entities exposed by SmartGateways' MQTT feed through DSMR Reader.
+ *
+ * These entities need not be selected in HA's Energy dashboard and DSMR Reader does not attach
+ * them to a device. Match the integration's stable translation keys and MQTT topic-derived ids,
+ * rather than localized friendly names. In DSMR terminology `delivered` means supplied by the
+ * grid (import), while `returned` means sent back to the grid (export). */
+internal fun importMqttP1EnergyEntities(
+    config: HKIEnergyConfig,
+    registry: List<HAEntityRegistryEntry>,
+    liveEntities: List<HAEntity>
+): HKIEnergyConfig {
+    val liveById = liveEntities.associateBy { it.entity_id }
+    val candidates = registry.asSequence()
+        .filter { it.disabled_by == null }
+        .filter { entry ->
+            val identity = listOfNotNull(
+                entry.entity_id,
+                entry.unique_id,
+                entry.translation_key
+            ).joinToString(" ").lowercase()
+            entry.platform == "dsmr_reader" ||
+                identity.contains("dsmr_reading_") ||
+                identity.contains("dsmr/reading/") ||
+                identity.contains("smart_gateways") ||
+                identity.contains("smartgateways")
+        }
+        .mapNotNull { entry -> liveById[entry.entity_id]?.let { entry to it } }
+        .toList()
+    if (candidates.isEmpty()) return config
+
+    fun find(vararg identifiers: String): String? = candidates.firstNotNullOfOrNull { (entry, entity) ->
+        val identities = listOfNotNull(entry.entity_id, entry.unique_id, entry.translation_key)
+            .map { it.lowercase().replace('/', '_') }
+        entity.entity_id.takeIf {
+            identifiers.any { identifier -> identities.any { identity -> identity.endsWith(identifier) } }
+        }
+    }
+    fun fill(role: String, current: String?, guessed: String?): String? =
+        if (role in config.customizedEntityRoles) current else guessed ?: current
+
+    val gasCurrent = candidates.firstNotNullOfOrNull { (entry, entity) ->
+        val identities = listOfNotNull(entry.entity_id, entry.unique_id, entry.translation_key)
+            .map { it.lowercase().replace('/', '_') }
+        val unit = entity.attributes?.get("unit_of_measurement")?.jsonPrimitive?.contentOrNull.orEmpty()
+        entity.entity_id.takeIf {
+            identities.any { identity ->
+                identity.endsWith("current_gas_usage") || identity.endsWith("gas_currently_delivered")
+            } &&
+                unit.contains("/")
+        }
+    }
+    val gridPower = find("current_power_usage", "electricity_currently_delivered")
+    val importTariff1 = find("low_tariff_usage", "electricity_delivered_1")
+    val importTariff2 = find("high_tariff_usage", "electricity_delivered_2")
+    val exportTariff1 = find("low_tariff_returned", "electricity_returned_1")
+    val exportTariff2 = find("high_tariff_returned", "electricity_returned_2")
+    val phasePower1 = find("current_power_usage_l1", "phase_currently_delivered_l1")
+    val phasePower2 = find("current_power_usage_l2", "phase_currently_delivered_l2")
+    val phasePower3 = find("current_power_usage_l3", "phase_currently_delivered_l3")
+    val current1 = find("current_l1", "phase_power_current_l1")
+    val current2 = find("current_l2", "phase_power_current_l2")
+    val current3 = find("current_l3", "phase_power_current_l3")
+    val voltage1 = find("current_voltage_l1", "phase_voltage_l1")
+    val voltage2 = find("current_voltage_l2", "phase_voltage_l2")
+    val voltage3 = find("current_voltage_l3", "phase_voltage_l3")
+    val gas = find("gas_meter_usage", "extra_device_delivered")
+    if (listOfNotNull(
+            gridPower, importTariff1, importTariff2, exportTariff1, exportTariff2,
+            phasePower1, phasePower2, phasePower3, current1, current2, current3,
+            voltage1, voltage2, voltage3, gas, gasCurrent
+        ).isEmpty()
+    ) return config
+    return config.copy(
+        usesHomeAssistantEnergyPreferences = true,
+        hasImportedRelatedEntities = true,
+        gridPowerEntityId = fill(
+            "grid_power", config.gridPowerEntityId,
+            gridPower
+        ),
+        gridImportTariff1EntityId = fill(
+            "import_t1", config.gridImportTariff1EntityId,
+            importTariff1
+        ),
+        gridImportTariff2EntityId = fill(
+            "import_t2", config.gridImportTariff2EntityId,
+            importTariff2
+        ),
+        gridExportTariff1EntityId = fill(
+            "export_t1", config.gridExportTariff1EntityId,
+            exportTariff1
+        ),
+        gridExportTariff2EntityId = fill(
+            "export_t2", config.gridExportTariff2EntityId,
+            exportTariff2
+        ),
+        powerPhase1EntityId = fill("phase1", config.powerPhase1EntityId, phasePower1),
+        powerPhase2EntityId = fill("phase2", config.powerPhase2EntityId, phasePower2),
+        powerPhase3EntityId = fill("phase3", config.powerPhase3EntityId, phasePower3),
+        currentPhase1EntityId = fill("current1", config.currentPhase1EntityId, current1),
+        currentPhase2EntityId = fill("current2", config.currentPhase2EntityId, current2),
+        currentPhase3EntityId = fill("current3", config.currentPhase3EntityId, current3),
+        voltagePhase1EntityId = fill("voltage1", config.voltagePhase1EntityId, voltage1),
+        voltagePhase2EntityId = fill("voltage2", config.voltagePhase2EntityId, voltage2),
+        voltagePhase3EntityId = fill("voltage3", config.voltagePhase3EntityId, voltage3),
+        gasEntityId = fill("gas", config.gasEntityId, gas),
+        gasCurrentEntityId = fill("gas_current", config.gasCurrentEntityId, gasCurrent)
+    )
 }
 
 
@@ -899,6 +1032,121 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     private val _floors = MutableStateFlow<List<HAFloor>>(emptyList())
     val floors: StateFlow<List<HAFloor>> = _floors
 
+    // ── Room following (ESPresense and friends) ──────────────────────────
+    // The sensors publish the room name as their state, so everything below is ordinary entity
+    // reading — no MQTT client anywhere in the app.
+
+    /** This device owner's room-following settings, as configured by an admin in Family Sharing. */
+    val roomFollow: StateFlow<Hki7RoomFollow> =
+        prefs.roomFollow.stateIn(viewModelScope, SharingStarted.Eagerly, Hki7RoomFollow())
+
+    /** The household's tracked room-presence sensors, for the people-per-room counters. */
+    private val roomFollowRoster: StateFlow<List<String>> =
+        prefs.roomFollowRoster.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** How many tracked people are in each area right now, keyed by area id. */
+    val peopleByAreaId: StateFlow<Map<String, Int>> =
+        combine(roomFollowRoster, _entities, _areas, roomFollow) { roster, entities, areas, follow ->
+            peopleCountByArea(roster, entities.associateBy { it.entity_id }, areas, follow)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /** The area this device's owner is in right now, or null when following is off, the sensor
+     *  says they are away, or the state matches no area. Unlike [confirmedRoomMove] this tracks
+     *  the raw sensor with no dwell window — it is what the launch navigation reads. */
+    val followedAreaId: StateFlow<String?> =
+        combine(roomFollow, _entities, _areas) { follow, entities, areas ->
+            if (!follow.isActive) return@combine null
+            val state = entities.firstOrNull { it.entity_id == follow.sensorEntityId }?.state
+            resolveFollowedArea(state, areas, follow)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Areas whose room the user has been asked about and declined, so a room they chose to stay
+     *  out of doesn't ask again until they genuinely leave and come back. */
+    private var lastDeclinedAreaId: String? = null
+    private var dwellTracker: RoomDwellTracker? = null
+    private var dwellTrackerSeconds: Int = -1
+
+    /**
+     * "Don't ask again for now", chosen from the prompt itself. Deliberately in-memory only: it is
+     * meant to last until the app is started again, and a ViewModel field already has exactly that
+     * lifetime. Persisting it would be wrong, and putting it in the policy would make a passing
+     * per-device mood into an admin decision for the whole family.
+     */
+    private var promptSilencedUntilRestart = false
+
+    private val _pendingRoomMove = MutableStateFlow<String?>(null)
+
+    /** An area the user has demonstrably settled into, waiting on a switch-or-stay answer. */
+    val pendingRoomMove: StateFlow<String?> = _pendingRoomMove
+
+    private val _autoRoomMove = MutableStateFlow<String?>(null)
+
+    /** A confirmed move to open straight away, used when the user turned prompting off. */
+    val autoRoomMove: StateFlow<String?> = _autoRoomMove
+
+    /**
+     * Feeds the latest resolved room into the dwell tracker. Called on a timer rather than on
+     * every state change, because confirming a move depends on elapsed time, not on the sensor
+     * saying the same thing again.
+     *
+     * [currentAreaId] is the room already on screen: arriving where the user is already looking
+     * is not a move worth interrupting them for.
+     */
+    fun observeRoomPresence(currentAreaId: String?, nowMillis: Long = System.currentTimeMillis()) {
+        val follow = roomFollow.value
+        // "Ask before switching rooms" being off means switch *without asking* — not stop following.
+        // Treating it as a master off-switch left room following doing nothing at all after launch.
+        // "Don't ask again until I restart" is different: that is the user asking to be left alone,
+        // so it suppresses the silent switch too rather than trading a prompt for a surprise jump.
+        if (!follow.isActive || promptSilencedUntilRestart) {
+            _pendingRoomMove.value = null
+            _autoRoomMove.value = null
+            return
+        }
+        // The room may have been reached in the meantime — by tapping Switch, by navigating there
+        // manually, or by the launch navigation — which makes a waiting prompt pointless.
+        if (_pendingRoomMove.value == currentAreaId) _pendingRoomMove.value = null
+        val dwell = follow.dwellSeconds.coerceAtLeast(Hki7RoomFollow.MIN_DWELL_SECONDS)
+        if (dwellTrackerSeconds != dwell) {
+            dwellTracker = RoomDwellTracker(dwell)
+            dwellTrackerSeconds = dwell
+        }
+        val areaId = followedAreaId.value
+        if (areaId != lastDeclinedAreaId) lastDeclinedAreaId = null
+        val confirmed = dwellTracker?.update(areaId, nowMillis) ?: return
+        if (confirmed == currentAreaId || confirmed == lastDeclinedAreaId) return
+        if (follow.promptOnMove) {
+            if (_pendingRoomMove.value == null) _pendingRoomMove.value = confirmed
+        } else {
+            _autoRoomMove.value = confirmed
+        }
+    }
+
+    /** Consumed by the navigation host once it has actually opened the room. */
+    fun consumeAutoRoomMove(areaId: String) {
+        if (_autoRoomMove.value == areaId) _autoRoomMove.value = null
+    }
+
+    /** The user answered the move prompt. [accepted] false means they chose to stay put. */
+    fun resolveRoomMove(accepted: Boolean) {
+        if (!accepted) lastDeclinedAreaId = _pendingRoomMove.value
+        _pendingRoomMove.value = null
+    }
+
+    /** "Don't ask again" from the prompt: no more move prompts until the app is started again. */
+    fun silenceRoomMovePromptUntilRestart() {
+        promptSilencedUntilRestart = true
+        _pendingRoomMove.value = null
+    }
+
+    /** Retires a move that is no longer wanted — the toggle went off, or edit mode began. Clears
+     *  the silent move as well as the prompt: a confirmed move left sitting in [autoRoomMove] would
+     *  otherwise still be waiting to navigate after following had been switched off. */
+    fun cancelRoomMovePrompt() {
+        _pendingRoomMove.value = null
+        _autoRoomMove.value = null
+    }
+
     private val _collapsedFloorIds = MutableStateFlow<Set<String>>(emptySet())
     val collapsedFloorIds: StateFlow<Set<String>> = _collapsedFloorIds
 
@@ -920,6 +1168,26 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     val defaultDashboardId: StateFlow<String?> = prefs.defaultDashboardId.stateIn(
         viewModelScope, SharingStarted.Eagerly, null
     )
+    val familyDashboardSubscribed: StateFlow<Boolean> = prefs.familyDashboardSubscribed.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+    val allowDashboardSwitch: StateFlow<Boolean> = prefs.enforcedAllowDashboardSwitch.stateIn(
+        viewModelScope, SharingStarted.Eagerly, true
+    )
+    val allowDashboardCreate: StateFlow<Boolean> = prefs.enforcedAllowDashboardCreate.stateIn(
+        viewModelScope, SharingStarted.Eagerly, true
+    )
+    val allowReimport: StateFlow<Boolean> = prefs.enforcedAllowReimport.stateIn(
+        viewModelScope, SharingStarted.Eagerly, true
+    )
+
+    /** Popup dialogs available to `custom_popup` actions on this dashboard. */
+    val customPopups: StateFlow<List<HKICustomPopup>> = prefs.customPopups.stateIn(
+        viewModelScope, SharingStarted.Eagerly, emptyList()
+    )
+    private val _activePopup = MutableStateFlow<ActivePopup?>(null)
+    /** The popup currently open, hosted once at the app root so any surface can trigger one. */
+    val activePopup: StateFlow<ActivePopup?> = _activePopup
 
     private val _people = MutableStateFlow<List<HAEntity>>(emptyList())
     val people: StateFlow<List<HAEntity>> = _people
@@ -1271,6 +1539,39 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     fun unarchiveNotification(id: String) =
         updateNotifications { list -> list.map { if (it.id == id) it.copy(archived = false) else it } }
 
+    /**
+     * Fires a notification action tapped in the in-app panel or banner. Goes through the same
+     * [NotificationActions] dispatcher as the system-shade buttons, so HA receives an identical
+     * `mobile_app_notification_action` event either way. The entry is marked spent right away —
+     * HA has no notion of a used action and would accept the same one again.
+     */
+    fun fireNotificationAction(
+        notification: HKINotification,
+        action: HKINotificationAction,
+        replyText: String? = null
+    ) {
+        val context = appContext ?: return
+        updateNotifications { list ->
+            list.map {
+                if (it.id == notification.id) it.copy(firedAction = action.action, read = true) else it
+            }
+        }
+        viewModelScope.launch {
+            val result = runCatching {
+                NotificationActions.fire(
+                    context, notification.instanceId, action.action, action.actionData, replyText
+                )
+            }.getOrDefault(ActionDispatchResult.RETRY)
+            // Offline or mid-restart: hand off to the same retry worker the shade buttons use.
+            if (result == ActionDispatchResult.RETRY) {
+                NotificationActionWorker.enqueue(
+                    context, notification.instanceId, action.action,
+                    NotificationActions.encodeActionData(action.actionData), replyText
+                )
+            }
+        }
+    }
+
     private val undoStack = mutableListOf<Snapshot>()
     private val redoStack = mutableListOf<Snapshot>()
     private val _canUndo = MutableStateFlow(false)
@@ -1366,6 +1667,7 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     private var client: HomeAssistantClient? = null
     private var pollJob: Job? = null
     private var realtimeJob: Job? = null
+    private var sharedDashboardEventsJob: Job? = null
     private var pushJob: Job? = null
     private val pushHandler by lazy { appContext?.let { PushNotificationHandler(it, prefs) } }
     private val realtimeBuffer = ConcurrentHashMap<String, HAStateChange>()
@@ -1381,7 +1683,10 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     private var lastTokenRefreshAt = 0L
     private var appVisible = true.also { AppVisibilityTracker.isVisible = true }
     private var lastDashboardRefreshAt = 0L
-    private var appContext: Context? = null
+    // Available from construction for family sync even when location reporting is disabled. The
+    // previous lazy assignment in startLocationReporting accidentally made dashboard sync depend
+    // on the user granting/enabling location.
+    private var appContext: Context? = appCtx?.applicationContext
     private var batteryReceiver: android.content.BroadcastReceiver? = null
     private var lastReportedBatteryPct = -1
     private var lastReportedCharging: Boolean? = null
@@ -1690,12 +1995,16 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     private fun startSync() {
         startPolling()
         startRealtimeSync()
+        startSharedDashboardEvents()
         startPushChannel()
+        // Covers cold start and components too old to broadcast dashboard invalidations.
+        syncSharedDashboards()
     }
 
     private fun stopSync() {
         stopPolling()
         stopRealtimeSync()
+        stopSharedDashboardEvents()
         stopPushChannel()
         refreshJob?.cancel()
         refreshJob = null
@@ -1710,7 +2019,14 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
         val handler = pushHandler ?: return
         pushJob = viewModelScope.launch(Dispatchers.IO) {
             while (currentCoroutineContext().isActive) {
-                if (prefs.shouldUsePushService.first()) { delay(30.seconds); continue }
+                // Stand aside only while the service is genuinely holding the channel. Deferring
+                // on the setting alone left nobody subscribed whenever Android refused to start
+                // the service, and Home Assistant then reports the device as "not connected to
+                // local push notifications" even with the app open.
+                if (prefs.shouldUsePushService.first() && PushForegroundService.isRunning) {
+                    delay(10.seconds)
+                    continue
+                }
                 if (prefs.activeHomeAssistantInstance.first()?.notificationsEnabled == false) {
                     delay(30.seconds)
                     continue
@@ -1719,9 +2035,26 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
                 val currentClient = client
                 if (webhookId.isNullOrBlank() || currentClient == null) { delay(10.seconds); continue }
                 try {
-                    currentClient.subscribePushNotifications(webhookId).collect { event ->
-                        runCatching { handler.handle(event) }
+                    addLog("Push channel subscribing (webhook ${webhookId.take(8)}…)")
+                    val subscription = launch {
+                        currentClient.subscribePushNotifications(webhookId).collect { event ->
+                            runCatching { handler.handle(event) }
+                        }
                     }
+                    // Hand the channel back the moment the service actually comes up, so the same
+                    // webhook is never subscribed twice and delivering duplicates.
+                    val watcher = launch {
+                        while (isActive) {
+                            delay(5.seconds)
+                            if (PushForegroundService.isRunning) {
+                                addLog("Push channel handed to the background service")
+                                subscription.cancel()
+                                break
+                            }
+                        }
+                    }
+                    subscription.join()
+                    watcher.cancel()
                 } catch (e: Exception) {
                     if (e.message != "AUTH_EXPIRED") addLog("Push channel interrupted: ${e.message}")
                 }
@@ -1818,6 +2151,36 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
         realtimeBuffer.clear()
     }
 
+    /** Keeps foreground family dashboards current without polling. Backgrounded clients reconcile
+     * on their next startup/foreground transition. */
+    private fun startSharedDashboardEvents() {
+        sharedDashboardEventsJob?.cancel()
+        sharedDashboardEventsJob = viewModelScope.launch(Dispatchers.IO) {
+            while (currentCoroutineContext().isActive) {
+                val currentClient = client
+                if (currentClient == null) {
+                    delay(2.seconds)
+                    continue
+                }
+                try {
+                    currentClient.subscribeHki7DashboardUpdates().collect {
+                        syncSharedDashboards()
+                    }
+                } catch (e: Exception) {
+                    if (e.message != "AUTH_EXPIRED") {
+                        addLog("Family dashboard channel interrupted: ${e.message}")
+                    }
+                }
+                delay(3.seconds)
+            }
+        }
+    }
+
+    private fun stopSharedDashboardEvents() {
+        sharedDashboardEventsJob?.cancel()
+        sharedDashboardEventsJob = null
+    }
+
     /** Applies all buffered state changes in one batch so a burst of events causes a single UI
      *  update rather than one recomposition per event. */
     private fun flushRealtimeBuffer() {
@@ -1828,11 +2191,12 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
         _entities.value.forEach { ordered[it.entity_id] = it }
         var changed = false
         snapshot.values.forEach { change ->
-            if (change.newState == null) {
+            val newState = change.newState
+            if (newState == null) {
                 if (ordered.remove(change.entityId) != null) changed = true
             } else {
-                if (ordered[change.entityId] != change.newState) {
-                    ordered[change.entityId] = change.newState
+                if (ordered[change.entityId] != newState) {
+                    ordered[change.entityId] = newState
                     changed = true
                 }
             }
@@ -2440,20 +2804,36 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun saveWeatherEntity(entityId: String) {
+        if (_aestheticsOnlyEditing.value) return
         viewModelScope.launch {
             prefs.saveWeatherEntity(entityId)
             refreshEntities(isSilent = true)
         }
     }
 
-    fun setWeatherDisplayType(type: String) { viewModelScope.launch { prefs.saveWeatherDisplayType(type) } }
-    fun setHeaderLeftDisplayType(type: String) { viewModelScope.launch { prefs.saveHeaderLeftDisplayType(type) } }
+    fun setWeatherDisplayType(type: String) {
+        if (_aestheticsOnlyEditing.value) return
+        viewModelScope.launch { prefs.saveWeatherDisplayType(type) }
+    }
+    fun setHeaderLeftDisplayType(type: String) {
+        if (_aestheticsOnlyEditing.value) return
+        viewModelScope.launch { prefs.saveHeaderLeftDisplayType(type) }
+    }
     fun setUse24hFormat(use24h: Boolean) { viewModelScope.launch { prefs.saveUse24hFormat(use24h) } }
     fun setUseFullDayName(useFullDayName: Boolean) { viewModelScope.launch { prefs.saveUseFullDayName(useFullDayName) } }
-    fun setWeatherExtraEntity(role: String, entityId: String?) { viewModelScope.launch { prefs.saveWeatherExtraEntity(role, entityId) } }
+    fun setWeatherExtraEntity(role: String, entityId: String?) {
+        if (_aestheticsOnlyEditing.value) return
+        viewModelScope.launch { prefs.saveWeatherExtraEntity(role, entityId) }
+    }
     fun setWeatherCardWidth(card: String, width: String) { viewModelScope.launch { prefs.saveWeatherCardWidth(card, width) } }
-    fun setHeaderAlarmEntities(entityIds: List<String>) { viewModelScope.launch { prefs.saveHeaderAlarmEntities(entityIds) } }
-    fun setHeaderLeftAlarmEntities(entityIds: List<String>) { viewModelScope.launch { prefs.saveHeaderLeftAlarmEntities(entityIds) } }
+    fun setHeaderAlarmEntities(entityIds: List<String>) {
+        if (_aestheticsOnlyEditing.value) return
+        viewModelScope.launch { prefs.saveHeaderAlarmEntities(entityIds) }
+    }
+    fun setHeaderLeftAlarmEntities(entityIds: List<String>) {
+        if (_aestheticsOnlyEditing.value) return
+        viewModelScope.launch { prefs.saveHeaderLeftAlarmEntities(entityIds) }
+    }
     fun setAlarmPendingSeconds(seconds: Int) { viewModelScope.launch { prefs.saveAlarmPendingSeconds(seconds) } }
 
     fun toggleLock(entityId: String) {
@@ -2502,6 +2882,77 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
         callService("vacuum", "clean_segment", HAServiceCall(entity_id = entityId, segments = segments))
     }
 
+    /**
+     * Fetches the Valetudo map camera's PNG and decodes the map JSON hidden in its `zTXt` chunk.
+     * Both the network read and the inflate+parse run off the main thread — a full map is a few
+     * hundred KB of JSON and would jank the dialog if decoded on it.
+     *
+     * Returns a failed [Result] when the image could not be fetched, versus a successful `null` when
+     * the fetch worked but the PNG carries no Valetudo payload. Callers need that distinction: the
+     * second answer is final (an ordinary camera never becomes a map camera), the first is not.
+     */
+    suspend fun loadValetudoMap(cameraEntityId: String): Result<ValetudoMap?> {
+        val currentClient = client ?: return Result.failure(IllegalStateException("Not connected"))
+        return withContext(Dispatchers.Default) {
+            try {
+                val bytes = currentClient.getCameraImageBytes(cameraEntityId)
+                Result.success(ValetudoMapDecoder.decode(bytes))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                addLog("Valetudo map fetch failed: ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Home Assistant's segment-to-area mapping for a vacuum, inverted to `segment_id -> area_id`,
+     * which is the direction a map tap needs: the map knows the Valetudo segment, `vacuum.clean_area`
+     * wants the Home Assistant area. Empty when the user has not run HA's segment mapping dialog.
+     */
+    suspend fun vacuumSegmentAreas(entityId: String): Map<String, String> {
+        val currentClient = client ?: return emptyMap()
+        return try {
+            val byArea = currentClient.getVacuumAreaMapping(entityId)
+            buildMap {
+                byArea.forEach { (areaId, segments) ->
+                    segments.forEach { segmentId -> putIfAbsent(segmentId, areaId) }
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            addLog("Vacuum area mapping fetch failed: ${e.message}")
+            emptyMap()
+        }
+    }
+
+    /**
+     * Starts a room clean. Note this is `vacuum.clean_area` with Home Assistant **area** ids, not
+     * `vacuum.send_command`: Valetudo's MQTT autodiscovery never declares `send_command` in
+     * `supported_features`, so that call is rejected outright. HA translates the areas to Valetudo
+     * segment ids itself and publishes them to the robot's `MapSegmentationCapability/clean/set`.
+     */
+    fun vacuumCleanAreas(entityId: String, areaIds: List<String>) {
+        if (areaIds.isEmpty()) return
+        val currentClient = client ?: return
+        viewModelScope.launch {
+            try {
+                currentClient.callServiceRaw(
+                    "vacuum", "clean_area",
+                    buildJsonObject {
+                        put("entity_id", JsonPrimitive(entityId))
+                        put("cleaning_area_id", JsonArray(areaIds.map { JsonPrimitive(it) }))
+                    }
+                )
+                refreshAfterServiceCall()
+            } catch (e: Exception) {
+                addLog("Vacuum clean_area failed: ${e.message}")
+            }
+        }
+    }
+
     fun vacuumSendCommand(entityId: String, command: String) {
         callService("vacuum", "send_command", HAServiceCall(entity_id = entityId, command = command))
     }
@@ -2514,21 +2965,15 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     /** Imports the read-only Energy dashboard preferences maintained by Home Assistant. */
     fun importHomeAssistantEnergyPreferences(pageKey: String = "energy", force: Boolean = false) {
         val current = (_pageConfigsMapping.value[pageKey] ?: HKIPageConfig()).energyConfig ?: HKIEnergyConfig()
-        // Re-run the lightweight import for existing HA-backed setups that predate carbon-entry
-        // discovery, so Electricity Maps appears without requiring a manual re-import.
-        if (
-            current.usesHomeAssistantEnergyPreferences &&
-            current.gridCarbonFootprintEntityId != null &&
-            current.hasImportedRelatedEntities &&
-            !force
-        ) return
         val currentClient = client ?: return
         viewModelScope.launch {
             try {
-                val prefsResult = currentClient.getEnergyPreferences() ?: return@launch
-                val sources = prefsResult["energy_sources"]?.jsonArray.orEmpty().mapNotNull { runCatching { it.jsonObject }.getOrNull() }
-                val devices = prefsResult["device_consumption"]?.jsonArray.orEmpty().mapNotNull { runCatching { it.jsonObject }.getOrNull() }
-                val waterDevices = prefsResult["device_consumption_water"]?.jsonArray.orEmpty().mapNotNull { runCatching { it.jsonObject }.getOrNull() }
+                // MQTT P1 discovery must still run when the user has not configured HA's Energy
+                // dashboard yet (in that case energy/get_prefs can be absent or empty).
+                val prefsResult = runCatching { currentClient.getEnergyPreferences() }.getOrNull()
+                val sources = prefsResult?.get("energy_sources")?.jsonArray.orEmpty().mapNotNull { runCatching { it.jsonObject }.getOrNull() }
+                val devices = prefsResult?.get("device_consumption")?.jsonArray.orEmpty().mapNotNull { runCatching { it.jsonObject }.getOrNull() }
+                val waterDevices = prefsResult?.get("device_consumption_water")?.jsonArray.orEmpty().mapNotNull { runCatching { it.jsonObject }.getOrNull() }
 
                 fun JsonObject.text(key: String): String? = this[key]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
                 fun source(type: String): JsonObject? = sources.firstOrNull { it.text("type") == type }
@@ -2560,7 +3005,8 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
                 // Keep the device selector usable even when Energy preferences are imported before
                 // the normal dashboard registry refresh has run.
                 if (_deviceRegistry.value.isEmpty()) {
-                    _deviceRegistry.value = currentClient.getDeviceRegistry()
+                    runCatching { currentClient.getDeviceRegistry() }
+                        .onSuccess { _deviceRegistry.value = it }
                 }
                 val registryByEntity = registry.associateBy { it.entity_id }
                 val liveById = _entities.value.associateBy { it.entity_id }
@@ -2576,7 +3022,15 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
                     registry = registry,
                     liveEntities = _entities.value
                 )
-                if (sources.isEmpty() && devices.isEmpty() && waterDevices.isEmpty() && carbonEntityId == null) {
+                val mqttP1Config = importMqttP1EnergyEntities(
+                    config = current,
+                    registry = registry,
+                    liveEntities = _entities.value
+                )
+                if (
+                    sources.isEmpty() && devices.isEmpty() && waterDevices.isEmpty() &&
+                    carbonEntityId == null && mqttP1Config == current
+                ) {
                     return@launch
                 }
                 val powerIds = devices.mapNotNull { device ->
@@ -2624,7 +3078,7 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
                         "carbon" to listOfNotNull(carbonEntityId)
                     )
                 val related = importRelatedHomeAssistantEnergyEntities(
-                    config = current,
+                    config = mqttP1Config,
                     sourceEntityIds = relatedSourceEntityIds,
                     registry = registry,
                     liveEntities = _entities.value
@@ -2668,13 +3122,13 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
                     waterCurrentEntityId = roleValue("water_current", current.waterCurrentEntityId, waterRate, related.waterCurrentEntityId),
                     waterCostEntityId = roleValue("water_cost", current.waterCostEntityId, water?.text("stat_cost"), related.waterCostEntityId),
                     gridCarbonFootprintEntityId = roleValue("carbon", current.gridCarbonFootprintEntityId, null, carbonEntityId ?: related.gridCarbonFootprintEntityId),
-                    deviceEntityIds = powerIds,
-                    energyDeviceEntityIds = energyIds,
-                    waterDeviceEntityIds = waterDeviceIds,
+                    deviceEntityIds = if (devices.isNotEmpty()) powerIds else current.deviceEntityIds,
+                    energyDeviceEntityIds = if (devices.isNotEmpty()) energyIds else current.energyDeviceEntityIds,
+                    waterDeviceEntityIds = if (waterDevices.isNotEmpty()) waterDeviceIds else current.waterDeviceEntityIds,
                     solarForecastConfigEntryIds = solarForecastConfigEntryIds,
-                    hiddenPowerDeviceEntityIds = emptyList(),
-                    hiddenEnergyDeviceEntityIds = emptyList(),
-                    hiddenWaterDeviceEntityIds = emptyList(),
+                    hiddenPowerDeviceEntityIds = if (devices.isNotEmpty()) emptyList() else current.hiddenPowerDeviceEntityIds,
+                    hiddenEnergyDeviceEntityIds = if (devices.isNotEmpty()) emptyList() else current.hiddenEnergyDeviceEntityIds,
+                    hiddenWaterDeviceEntityIds = if (waterDevices.isNotEmpty()) emptyList() else current.hiddenWaterDeviceEntityIds,
                     customNames = current.customNames + importedNames
                 )
                 val page = _pageConfigsMapping.value[pageKey] ?: HKIPageConfig()
@@ -2738,6 +3192,42 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
             prefs.saveCustomPages(pages.map { existing -> if (existing.id == page.id) page else existing })
         }
     }
+
+    /** Creates a popup and returns it immediately, so the caller can point an action at it without
+     *  waiting for the DataStore write to land. */
+    fun createCustomPopup(name: String, icon: String? = null): HKICustomPopup {
+        val popup = HKICustomPopup(id = UUID.randomUUID().toString(), name = name, icon = icon)
+        viewModelScope.launch { prefs.saveCustomPopups(prefs.customPopups.first() + popup) }
+        return popup
+    }
+
+    fun updateCustomPopup(popup: HKICustomPopup) {
+        viewModelScope.launch {
+            val popups = prefs.customPopups.first()
+            prefs.saveCustomPopups(popups.map { existing -> if (existing.id == popup.id) popup else existing })
+        }
+    }
+
+    /** Removes the popup and the widgets it owns. Actions still pointing at it fall back to doing
+     *  nothing, the same as any other incompletely configured action. */
+    fun deleteCustomPopup(popupId: String) {
+        if (_activePopup.value?.popupId == popupId) _activePopup.value = null
+        viewModelScope.launch {
+            prefs.saveCustomPopups(prefs.customPopups.first().filterNot { it.id == popupId })
+            val areaId = customPopupWidgetAreaId(popupId)
+            if (_areaWidgetsMapping.value.containsKey(areaId)) {
+                val updated = _areaWidgetsMapping.value.toMutableMap().apply { remove(areaId) }
+                _areaWidgetsMapping.value = updated
+                prefs.saveAreaWidgets(updated)
+            }
+        }
+    }
+
+    fun openCustomPopup(popupId: String, startInEditMode: Boolean = false) {
+        _activePopup.value = ActivePopup(popupId, startInEditMode)
+    }
+
+    fun closeCustomPopup() { _activePopup.value = null }
 
     fun hideBatteryEntity(pageKey: String, entityId: String) {
         val current = _pageConfigsMapping.value[pageKey] ?: HKIPageConfig()
@@ -3296,7 +3786,12 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
         if (!_isEditMode.value) {
             // Save the current area order so room reorder is preserved
             val currentOrder = _areas.value.map { it.area_id }
-            viewModelScope.launch { prefs.saveAreaOrder(currentOrder) }
+            viewModelScope.launch {
+                prefs.saveAreaOrder(currentOrder)
+                // Done/Save is the family-dashboard commit point. The app filters to dashboards
+                // owned by this user, and the component independently enforces the same ownership.
+                appContext?.let { runCatching { HaDashboardSharing.pushOwnedUpdates(it, prefs) } }
+            }
             _areaWidgetsMapping.value = _areaWidgetsMapping.value.toMap()
             _areaConfigsMapping.value = _areaConfigsMapping.value.toMap()
             _areas.value = _areas.value.toList()
@@ -3611,10 +4106,24 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
         val type = action.type.takeUnless { it == "default" } ?: defaultActionType(ownerEntityId, trigger)
         return when (type) {
             "none" -> ActionOutcome.None
-            "toggle" -> { toggleEntity(action.targetEntityId ?: ownerEntityId); ActionOutcome.Handled }
-            "more_info" -> ActionOutcome.OpenMoreInfo(action.moreInfoEntityId ?: action.targetEntityId ?: ownerEntityId)
+            // An action button or spacer has no entity of its own, so a toggle or more-info that
+            // falls back to the owner has nothing to act on; only an explicit target counts.
+            "toggle" -> {
+                val target = action.targetEntityId ?: ownerEntityId.takeUnless(::isSyntheticItemId)
+                if (target == null) ActionOutcome.None else { toggleEntity(target); ActionOutcome.Handled }
+            }
+            "more_info" -> {
+                val target = action.moreInfoEntityId ?: action.targetEntityId
+                    ?: ownerEntityId.takeUnless(::isSyntheticItemId)
+                if (target == null) ActionOutcome.None else ActionOutcome.OpenMoreInfo(target)
+            }
             "navigate" -> action.navigationTarget?.let { ActionOutcome.Navigate(it) } ?: ActionOutcome.None
             "url" -> action.url?.takeIf { it.isNotBlank() }?.let { ActionOutcome.OpenUrl(it) } ?: ActionOutcome.None
+            // The popup host lives at the app root, so opening one needs no per-surface plumbing.
+            "custom_popup" -> {
+                val popupId = action.popupId?.takeIf { id -> customPopups.value.any { it.id == id } }
+                if (popupId == null) ActionOutcome.None else { openCustomPopup(popupId); ActionOutcome.Handled }
+            }
             "call_service" -> {
                 val service = action.service?.takeIf { it.contains(".") }
                 if (service == null) { ActionOutcome.None }
@@ -3639,6 +4148,9 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
             else -> config?.tapActionEx
         }
         if (ex != null) return ex
+        // An action button only does what it was explicitly given; there is no entity to fall back
+        // on, so the domain-based default (toggle / more-info) would be a no-op anyway.
+        if (isSyntheticItemId(entityId)) return HKIAction(type = "none")
         val legacy = when (trigger) {
             "double" -> config?.doubleTapAction
             "hold" -> config?.holdAction
@@ -3711,7 +4223,7 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
 
     fun createDashboard(name: String, auto: Boolean) {
         viewModelScope.launch {
-            prefs.createDashboard(name, auto)
+            if (prefs.createDashboard(name, auto) == null) return@launch
             _dashboardMode.value = if (auto) "auto" else "manual"
             _areaWidgetsMapping.value = emptyMap()
             _areaConfigsMapping.value = emptyMap()
@@ -3742,6 +4254,23 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
 
     fun copyDashboard(id: String, name: String) { viewModelScope.launch { prefs.copyDashboard(id, name) } }
 
+    /** Activates a newly selected family dashboard even when ordinary dashboard switching is
+     * disabled. This is the controlled subscription entry point, not a general switch bypass. */
+    fun useFamilyDashboard(id: String) {
+        viewModelScope.launch {
+            // Only first-run onboarding removes its placeholder dashboard when switching is denied.
+            // Existing user-created dashboards are retained here so a later permission change can
+            // reveal them again without data loss.
+            prefs.useSharedDashboardAsInitial(id, discardOtherDashboards = false)
+            _areas.value = prefs.savedAreas.first()
+            _floors.value = prefs.savedFloors.first()
+            _areaWidgetsMapping.value = prefs.areaWidgets.first()
+            _areaConfigsMapping.value = prefs.areaConfigs.first()
+            _pageConfigsMapping.value = prefs.pageConfigs.first()
+            _dashboardMode.value = prefs.dashboardMode.first()
+        }
+    }
+
     private var sharedSyncJob: Job? = null
     /** Pull-and-merge any updates to shared dashboards this user imported, keeping their own aesthetic
      * changes. Runs on foreground return; reloads the live view if the active dashboard was updated. */
@@ -3749,14 +4278,16 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
         val ctx = appContext ?: return
         if (sharedSyncJob?.isActive == true) return
         sharedSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            runCatching { HaParentalControls.refreshForCurrentUser(ctx, prefs) }
+            runCatching { HaParentalControls.refreshRoomFollowRoster(ctx, prefs) }
             // Owner side: push this user's local edits to any dashboards they've shared, so recipients
             // pick them up. Runs first so a recipient's pull below sees the freshest content.
             runCatching { HaDashboardSharing.pushOwnedUpdates(ctx, prefs) }
             val result = runCatching { HaDashboardSharing.syncUpdates(ctx, prefs) }.getOrNull() ?: return@launch
-            if (result.needsAutoGenerate) {
-                // Every dashboard this user had was an unpublished shared one; fall back to the app's
-                // default auto-generated dashboard.
-                createDashboard("Default", auto = true)
+            if (result.accessLost) {
+                // Never silently replace a centrally-managed dashboard. The host shows the chooser
+                // again with Auto/Empty/Restore enabled strictly according to the cached policy.
+                // The prune transaction persisted this state atomically with removing the dashboard.
             } else if (result.activeChanged) {
                 _areas.value = prefs.savedAreas.first()
                 _floors.value = prefs.savedFloors.first()
@@ -3772,7 +4303,7 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     fun setDefaultDashboard(id: String) { viewModelScope.launch { prefs.setDefaultDashboard(id) } }
 
     fun reimportRooms(fromScratch: Boolean) {
-        if (_aestheticsOnlyEditing.value) return
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         viewModelScope.launch {
             val currentClient = client ?: return@launch
             try {
@@ -3828,6 +4359,7 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun clearRoomImports() {
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         _areas.value = emptyList()
         _floors.value = emptyList()
         _areaWidgetsMapping.value = emptyMap()
@@ -3842,7 +4374,7 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun reimportClimate(fromScratch: Boolean) {
-        if (_aestheticsOnlyEditing.value) return
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         val current = _pageConfigsMapping.value["climate"] ?: HKIPageConfig()
         val old = if (fromScratch) HKIClimateConfig() else current.climateConfig ?: HKIClimateConfig()
         val all = _entities.value
@@ -3867,12 +4399,13 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun clearClimateImports() {
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         val current = _pageConfigsMapping.value["climate"] ?: HKIPageConfig()
         updatePageConfig("climate", current.copy(climateConfig = HKIClimateConfig(manualOnly = true)))
     }
 
     fun reimportSecurity(fromScratch: Boolean) {
-        if (_aestheticsOnlyEditing.value) return
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         val current = _pageConfigsMapping.value["security"] ?: HKIPageConfig()
         val old = if (fromScratch) HKISecurityConfig() else current.securityConfig ?: HKISecurityConfig()
         val keys = AUTO_SECURITY_GROUP_KEYS
@@ -3885,12 +4418,13 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun clearSecurityImports() {
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         val current = _pageConfigsMapping.value["security"] ?: HKIPageConfig()
         updatePageConfig("security", current.copy(securityConfig = HKISecurityConfig(manualOnly = true)))
     }
 
     fun reimportEnergy(fromScratch: Boolean) {
-        if (_aestheticsOnlyEditing.value) return
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         val current = _pageConfigsMapping.value["energy"] ?: HKIPageConfig()
         val retained = if (fromScratch) HKIEnergyConfig() else (current.energyConfig ?: HKIEnergyConfig()).copy(manualOnly = false)
         updatePageConfig("energy", current.copy(energyConfig = retained))
@@ -3898,12 +4432,13 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun clearEnergyImports() {
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         val current = _pageConfigsMapping.value["energy"] ?: HKIPageConfig()
         updatePageConfig("energy", current.copy(energyConfig = HKIEnergyConfig(manualOnly = true)))
     }
 
     fun reimportBattery(fromScratch: Boolean) {
-        if (_aestheticsOnlyEditing.value) return
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         val current = _pageConfigsMapping.value["battery"] ?: HKIPageConfig()
         val old = if (fromScratch) HKIBatteryConfig() else current.batteryConfig ?: HKIBatteryConfig()
         val imported = _entities.value.filter { it.isBatteryPercentageSensor() }.map { it.entity_id }
@@ -3914,6 +4449,7 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun clearBatteryImports() {
+        if (_aestheticsOnlyEditing.value || !allowReimport.value) return
         val current = _pageConfigsMapping.value["battery"] ?: HKIPageConfig()
         updatePageConfig("battery", current.copy(batteryConfig = HKIBatteryConfig(manualOnly = true)))
     }
@@ -4000,18 +4536,21 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun updateWidget(areaId: String, updatedWidget: HKIRoomWidget) {
-        // Aesthetics-only users may retune visuals but not change structure. Block updates that add
-        // or remove buttons in a stack or children in a container; membership is compared as a set so
-        // reordering (a layout tweak) is still permitted.
-        if (_aestheticsOnlyEditing.value && isStructuralWidgetChange(areaId, updatedWidget)) return
+        val existingWidget = _areaWidgetsMapping.value[areaId]?.firstOrNull { it.id == updatedWidget.id }
+        if (_aestheticsOnlyEditing.value && existingWidget == null) return
+        // Treat the stored widget as authoritative for entities, actions, visibility and behavior.
+        // Only the proposed widget's visual fields are layered over it in aesthetics-only mode.
+        val safeWidget = if (_aestheticsOnlyEditing.value) {
+            mergeWidgetAesthetics(existingWidget!!, updatedWidget)
+        } else updatedWidget
         takeSnapshot()
         bumpWidgetUi()
         ignoreWidgetPrefsUntil = SystemClock.elapsedRealtime() + 2500
         val currentMapping = _areaWidgetsMapping.value.toMutableMap()
         val currentList = currentMapping[areaId]?.toMutableList() ?: return
-        val index = currentList.indexOfFirst { it.id == updatedWidget.id }
+        val index = currentList.indexOfFirst { it.id == safeWidget.id }
         if (index != -1) {
-            currentList[index] = updatedWidget
+            currentList[index] = safeWidget
             currentMapping[areaId] = currentList
             _areaWidgetsMapping.value = currentMapping
             viewModelScope.launch { prefs.saveAreaWidgets(currentMapping) }
@@ -4063,19 +4602,25 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     }
 
     fun updateAreaConfig(areaId: String, config: HKIAreaConfig) {
+        val safeConfig = if (_aestheticsOnlyEditing.value) {
+            mergeAreaConfigAesthetics(_areaConfigsMapping.value[areaId] ?: HKIAreaConfig(), config)
+        } else config
         takeSnapshot()
         _uiRevision.value += 1
         ignoreConfigPrefsUntil = SystemClock.elapsedRealtime() + 2500
         val currentMapping = _areaConfigsMapping.value.toMutableMap()
-        currentMapping[areaId] = config
+        currentMapping[areaId] = safeConfig
         _areaConfigsMapping.value = currentMapping
         viewModelScope.launch { prefs.saveAreaConfigs(currentMapping) }
     }
 
     fun updatePageConfig(pageKey: String, config: HKIPageConfig) {
+        val safeConfig = if (_aestheticsOnlyEditing.value) {
+            mergePageConfigAesthetics(_pageConfigsMapping.value[pageKey] ?: HKIPageConfig(), config)
+        } else config
         takeSnapshot()
         val updated = _pageConfigsMapping.value.toMutableMap()
-        updated[pageKey] = config
+        updated[pageKey] = safeConfig
         _pageConfigsMapping.value = updated
         viewModelScope.launch { prefs.savePageConfigs(updated) }
     }
@@ -4458,11 +5003,13 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
         }
     }
 
-    val greeting: String
+    val greetingPeriod: GreetingPeriod
         get() = when (LocalTime.now().hour) {
-            in 5..11 -> "Good Morning"
-            in 12..17 -> "Good Afternoon"
-            in 18..21 -> "Good Evening"
-            else -> "Good Night"
+            in 5..11 -> GreetingPeriod.MORNING
+            in 12..17 -> GreetingPeriod.AFTERNOON
+            in 18..21 -> GreetingPeriod.EVENING
+            else -> GreetingPeriod.NIGHT
         }
 }
+
+enum class GreetingPeriod { MORNING, AFTERNOON, EVENING, NIGHT }

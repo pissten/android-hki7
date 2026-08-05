@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="family_permission_switch_dashboards">Allow switching dashboards</string>
+    <string name="family_permission_switch_dashboards_subtitle">Let this person load another existing dashboard</string>
+    <string name="family_permission_create_dashboards">Allow creating dashboards</string>
+    <string name="family_permission_create_dashboards_subtitle">Let this person create or duplicate dashboards</string>
+    <string name="family_dashboard_tab_locked">Locked by family permissions</string>
+    <string name="family_dashboard_access_lost_title">Family access removed</string>
+    <string name="family_dashboard_access_lost_message">You no longer have access to HKI 7 through this family dashboard. Choose another dashboard shared with you, or use any other option your family permissions allow.</string>
+    <string name="settings_extra_active_instance">Active instance</string>
+    <string name="settings_extra_automatic_cloud_backup_enabled">Automatic cloud backup enabled.</string>
+    <string name="settings_extra_background_restricted_warning">Restricted — background sync will not work</string>
+    <string name="settings_extra_backup_failed">Backup failed: %1$s</string>
+    <string name="settings_extra_backup_unreadable">The backup could not be read</string>
+    <string name="settings_extra_battery_optimized_warning">Optimized — may interrupt background sync</string>
+    <string name="settings_extra_buy_me_a_coffee_logo">Buy Me a Coffee logo</string>
+    <string name="settings_extra_cloud_backup_created">Cloud backup created.</string>
+    <string name="settings_extra_cloud_backup_failed">Cloud backup failed: %1$s</string>
+    <string name="settings_extra_cloud_component_missing">The HKI 7 Cloud component was not found on your Home Assistant. Install it through HACS, then try again.</string>
+    <string name="settings_extra_copy_dashboard">Copy %1$s</string>
+    <string name="settings_extra_corner_modern">Modern</string>
+    <string name="settings_extra_corner_round">Round</string>
+    <string name="settings_extra_corner_sharp">Sharp</string>
+    <string name="settings_extra_create_custom_page">Create custom page</string>
+    <string name="settings_extra_custom_page_identity_subtitle">Identity and navigation appearance</string>
+    <string name="settings_extra_dashboard_backup_saved">Dashboard backup saved.</string>
+    <string name="settings_extra_dashboard_copy_name">%1$s copy</string>
+    <string name="settings_extra_dashboard_default_name">Dashboard %1$d</string>
+    <string name="settings_extra_dashboard_generating">Your new dashboard is being generated automatically.</string>
+    <string name="settings_extra_dashboard_mode_auto">Automatic</string>
+    <string name="settings_extra_dashboard_mode_manual">Manual</string>
+    <string name="settings_extra_dashboard_restored">Dashboard configuration restored.</string>
+    <string name="settings_extra_dashboard_shared">“%1$s” shared.</string>
+    <string name="settings_extra_dashboard_sharing_failed">Could not share the dashboard.</string>
+    <string name="settings_extra_default_user_name">User</string>
+    <string name="settings_extra_delete_dashboard">Delete %1$s</string>
+    <string name="settings_extra_device_tracker">Device tracker</string>
+    <string name="settings_extra_device_tracker_subtitle">Name used for location, geocoded location, battery, and charging entities</string>
+    <string name="settings_extra_drive_access_token_missing">Google Drive authorization did not return an access token.</string>
+    <string name="settings_extra_drive_authorization_cancelled">Google Drive authorization was cancelled.</string>
+    <string name="settings_extra_drive_authorization_failed">Google Drive authorization failed: %1$s</string>
+    <string name="settings_extra_drive_authorization_open_failed">Google Drive authorization could not be opened.</string>
+    <string name="settings_extra_drive_backups_load_failed">Could not load Google Drive backups: %1$s</string>
+    <string name="settings_extra_edit_custom_page">Edit custom page</string>
+    <string name="settings_extra_effect_glow">Glow</string>
+    <string name="settings_extra_effect_group_alerts">Sensors and alarms</string>
+    <string name="settings_extra_effect_group_climate">Climate and humidity</string>
+    <string name="settings_extra_effect_group_fans">Fans and vacuums</string>
+    <string name="settings_extra_effect_group_lights">Lights and switches</string>
+    <string name="settings_extra_effect_group_media">Media players</string>
+    <string name="settings_extra_effect_group_other">Everything else</string>
+    <string name="settings_extra_effect_none">None</string>
+    <string name="settings_extra_effect_pulse">Pulse</string>
+    <string name="settings_extra_effect_spin">Spin</string>
+    <string name="settings_extra_empty_dashboard_created">An empty dashboard was created.</string>
+    <string name="settings_extra_font_atkinson">Atkinson Hyperlegible</string>
+    <string name="settings_extra_font_bree_serif">Bree Serif</string>
+    <string name="settings_extra_font_comfortaa">Comfortaa</string>
+    <string name="settings_extra_font_cursive">Cursive</string>
+    <string name="settings_extra_font_default">Default</string>
+    <string name="settings_extra_font_monospace">Monospace</string>
+    <string name="settings_extra_font_nunito">Nunito</string>
+    <string name="settings_extra_font_patrick_hand">Patrick Hand</string>
+    <string name="settings_extra_font_sans_serif">Sans serif</string>
+    <string name="settings_extra_font_serif">Serif</string>
+    <string name="settings_extra_font_space_grotesk">Space Grotesk</string>
+    <string name="settings_extra_ha_backup_created">Home Assistant backup created.</string>
+    <string name="settings_extra_ha_backup_enabled">Home Assistant backup enabled.</string>
+    <string name="settings_extra_ha_backup_failed">Home Assistant backup failed. Is the HKI 7 Cloud component reachable?</string>
+    <string name="settings_extra_ha_backups_load_failed">Could not load Home Assistant backups: %1$s</string>
+    <string name="settings_extra_hide_tab">Hide tab</string>
+    <string name="settings_extra_hki_cloud_step_add_integration">Go to Settings → Devices &amp; Services → Add Integration, choose “HKI 7 Cloud,” and confirm.</string>
+    <string name="settings_extra_hki_cloud_step_add_repository">Paste %1$s, choose the “Integration” category, and add it.</string>
+    <string name="settings_extra_hki_cloud_step_install">Open the new “HKI 7 Cloud” entry, install it, and restart Home Assistant.</string>
+    <string name="settings_extra_hki_cloud_step_open_custom_repositories">In Home Assistant, open HACS → the ⋮ menu in the top-right → Custom repositories.</string>
+    <string name="settings_extra_hki_cloud_step_reopen">Reopen this screen. The features will appear automatically.</string>
+    <string name="settings_extra_location_allowed_always">Allowed all the time</string>
+    <string name="settings_extra_location_allowed_foreground">Allowed only while using the app</string>
+    <string name="settings_extra_location_not_allowed">Not allowed</string>
+    <string name="settings_extra_language_dutch">Nederlands</string>
+    <string name="settings_extra_language_english">English</string>
+    <string name="settings_extra_language_french">Français</string>
+    <string name="settings_extra_language_german">Deutsch</string>
+    <string name="settings_extra_language_italian">Italiano</string>
+    <string name="settings_extra_language_spanish">Español</string>
+    <string name="settings_extra_language_turkish">Türkçe</string>
+    <string name="settings_extra_language_portuguese">Português</string>
+    <string name="settings_extra_language_portuguese_brazil">Português (Brasil)</string>
+    <string name="settings_extra_language_spanish_latam">Español (Latinoamérica)</string>
+    <string name="settings_extra_language_japanese">日本語</string>
+    <string name="settings_extra_language_korean">한국어</string>
+    <string name="settings_extra_language_chinese_simplified">中文（简体）</string>
+    <string name="settings_extra_language_chinese_traditional">中文（繁體）</string>
+
+    <!-- Always shown in English, regardless of app language, so someone who picked the wrong
+         language can still recognize their way back. -->
+    <string name="settings_extra_language_dutch_hint" translatable="false">Dutch</string>
+    <string name="settings_extra_language_french_hint" translatable="false">French</string>
+    <string name="settings_extra_language_german_hint" translatable="false">German</string>
+    <string name="settings_extra_language_italian_hint" translatable="false">Italian</string>
+    <string name="settings_extra_language_spanish_hint" translatable="false">Spanish</string>
+    <string name="settings_extra_language_turkish_hint" translatable="false">Turkish</string>
+    <string name="settings_extra_language_portuguese_hint" translatable="false">Portuguese</string>
+    <string name="settings_extra_language_portuguese_brazil_hint" translatable="false">Portuguese, Brazil</string>
+    <string name="settings_extra_language_spanish_latam_hint" translatable="false">Spanish, Latin America</string>
+    <string name="settings_extra_language_japanese_hint" translatable="false">Japanese</string>
+    <string name="settings_extra_language_korean_hint" translatable="false">Korean</string>
+    <string name="settings_extra_language_chinese_simplified_hint" translatable="false">Chinese, Simplified</string>
+    <string name="settings_extra_language_chinese_traditional_hint" translatable="false">Chinese, Traditional</string>
+    <string name="settings_extra_no_drive_backups">No Google Drive backups were found.</string>
+    <string name="settings_extra_no_ha_backups">No Home Assistant backups were found. Is the HKI 7 Cloud component installed?</string>
+    <string name="settings_extra_notifications_multi_home_required">Required while multiple homes receive notifications. Manage each home under Connection.</string>
+    <string name="settings_extra_notifications_persistent_connection">Keeps a persistent connection to Home Assistant while the app is closed. This uses more battery.</string>
+    <string name="settings_extra_paypal_logo">PayPal logo</string>
+    <string name="settings_extra_policy_update_failed">Could not update the policy.</string>
+    <string name="settings_extra_policy_needs_component_update">Permissions saved. Update HKI 7 Cloud to also store the Visible and Invisible lists.</string>
+    <string name="settings_extra_policy_needs_component_update_room_follow">Permissions saved. Update HKI 7 Cloud to also store the room following settings.</string>
+    <string name="settings_extra_tab_presence">Presence</string>
+    <string name="settings_extra_room_follow_title">Room following</string>
+    <string name="settings_extra_room_follow_description">Pick the room-presence sensor that tracks each person\'s phone, such as an ESPresense sensor. The app opens the room they are in and offers to follow them as they move.</string>
+    <string name="settings_extra_room_follow_sensor">Presence sensor</string>
+    <string name="settings_extra_room_follow_none">No sensor</string>
+    <string name="settings_extra_room_follow_enabled">Follow this person between rooms</string>
+    <string name="settings_extra_room_follow_open_on_launch">Open their room when the app starts</string>
+    <string name="settings_extra_room_follow_prompt_on_move">Ask before switching rooms</string>
+    <string name="settings_extra_room_follow_dwell">Wait before a move counts</string>
+    <string name="settings_extra_room_follow_dwell_value">%1$d s</string>
+    <string name="settings_extra_room_follow_dwell_hint">Room-presence sensors drift between nearby rooms. A longer wait means fewer false moves.</string>
+    <string name="settings_extra_room_follow_rooms">Sensor states</string>
+    <string name="settings_extra_room_follow_rooms_matched">Matched automatically</string>
+    <string name="settings_extra_room_follow_rooms_unmatched">Pick a room</string>
+    <string name="settings_extra_room_follow_no_states">No states seen yet. States appear here once the sensor reports them.</string>
+    <string name="room_follow_moved_title">You moved to %1$s</string>
+    <string name="room_follow_moved_message">Switch to that room, or stay where you are?</string>
+    <string name="room_follow_moved_switch">Switch</string>
+    <string name="room_follow_moved_stay">Stay</string>
+    <string name="room_follow_moved_silence">Don\'t ask again until I restart the app</string>
+    <string name="settings_extra_rename_dashboard">Rename %1$s</string>
+    <string name="settings_extra_rename_instance">Rename %1$s</string>
+    <string name="settings_extra_restart_home_assistant_failed">Could not restart Home Assistant.</string>
+    <string name="settings_extra_restore_failed">Restore failed: %1$s</string>
+    <string name="settings_extra_selected_file_open_failed">Could not open the selected file</string>
+    <string name="settings_extra_set_dashboard_default">Set %1$s as the default dashboard</string>
+    <string name="settings_extra_shared_dashboard_delete_failed">Could not delete “%1$s.”</string>
+    <string name="settings_extra_shared_dashboard_deleted">“%1$s” was deleted from the cloud.</string>
+    <string name="settings_extra_shared_dashboard_import_failed">Could not import “%1$s.”</string>
+    <string name="settings_extra_shared_dashboard_imported">“%1$s” was imported into your dashboards.</string>
+    <string name="settings_extra_shared_dashboard_now_using">Now using “%1$s.”</string>
+    <string name="settings_extra_shared_dashboard_use_failed">Could not use “%1$s.”</string>
+    <string name="settings_extra_shared_dashboards_up_to_date">Shared dashboards are already up to date.</string>
+    <string name="settings_extra_show_tab">Show tab</string>
+    <string name="settings_extra_tab_dashboards">Dashboards</string>
+    <string name="settings_extra_tab_parental_controls">Parental controls</string>
+    <string name="settings_extra_tab_permissions">Permissions</string>
+    <string name="settings_extra_technology_kotlin">Kotlin</string>
+    <string name="settings_extra_technology_xml_kotlin_dsl">XML and Kotlin DSL</string>
+    <string name="settings_extra_theme_amber">Amber</string>
+    <string name="settings_extra_theme_auto">Auto</string>
+    <string name="settings_extra_theme_blue">Blue</string>
+    <string name="settings_extra_theme_custom">Custom</string>
+    <string name="settings_extra_theme_dark">Dark</string>
+    <string name="settings_extra_theme_green">Green</string>
+    <string name="settings_extra_theme_light">Light</string>
+    <string name="settings_extra_theme_rose">Rose</string>
+    <string name="settings_extra_theme_system">System</string>
+    <string name="settings_extra_unknown_error">Unknown error</string>
+    <string name="settings_extra_unrestricted_recommended">Unrestricted (recommended)</string>
+    <string name="settings_extra_view_battery">Battery</string>
+    <string name="settings_extra_view_climate">Climate</string>
+    <string name="settings_extra_view_energy">Energy</string>
+    <string name="settings_extra_view_rooms">Rooms</string>
+    <string name="settings_extra_view_security">Security</string>
+    <plurals name="settings_extra_minutes_ago">
+        <item quantity="one">%1$d minute ago</item>
+        <item quantity="other">%1$d minutes ago</item>
+    </plurals>
+    <plurals name="settings_extra_hours_ago">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+    <plurals name="settings_extra_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
+    <plurals name="settings_extra_shared_dashboards_pushed">
+        <item quantity="one">Pushed changes to %1$d shared dashboard.</item>
+        <item quantity="other">Pushed changes to %1$d shared dashboards.</item>
+    </plurals>
+    <string name="family_permission_reimport">Allow re-importing</string>
+    <string name="family_permission_reimport_subtitle">Let this person manually re-import or clear Rooms, Climate, Security, Energy, and Battery data</string>
+    <string name="family_dashboard_create_disabled_reason">Your family administrator has disabled dashboard creation. This account can only use family-shared dashboards.</string>
+    <string name="family_dashboard_restore_disabled_reason">Your family administrator has disabled dashboard switching. Restoring a backup could replace the family dashboard, so this account can only select a shared dashboard.</string>
+    <string name="family_settings_admin_only">Locked — only a Home Assistant administrator can manage family sharing</string>
+    <string name="family_aesthetics_only_explanation">Aesthetics-only access allows local names, icons, colors, backgrounds, card styles, shapes, sizes, and layout. Entities, actions, visibility rules, content, controls, and other behavior remain managed by the dashboard owner.</string>
+    <string name="parental_search_access_title">Entity search access</string>
+    <string name="parental_search_access_hint">Choose which Home Assistant domains or individual entities this person can find in global search. Invisible selections always take precedence.</string>
+    <string name="parental_search_visible_title">Visible</string>
+    <string name="parental_search_invisible_title">Invisible</string>
+    <string name="parental_search_visible_empty">All entities are visible unless they appear in the Invisible list.</string>
+    <string name="parental_search_invisible_empty">No entities are explicitly hidden.</string>
+    <string name="parental_search_picker_subtitle">Select entire domains or individual entities</string>
+    <string name="parental_search_domains">Domains</string>
+    <string name="parental_search_entire_domain">Entire domain</string>
+    <string name="parental_search_domain_chip">Domain: %1$s</string>
+</resources>

@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.screens
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -13,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,9 +32,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import com.jimz011apps.hki7.ui.components.toVisibilitySpec
 import com.jimz011apps.hki7.ui.components.ModernAlertDialog as AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -64,7 +73,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import com.jimz011apps.hki7.data.HACalendarEvent
+import com.jimz011apps.hki7.data.HKIButtonConfig
+import com.jimz011apps.hki7.data.isButtonVisibleNow
+import com.jimz011apps.hki7.data.isWidgetVisibleNow
 import com.jimz011apps.hki7.data.HAEntity
 import com.jimz011apps.hki7.data.HKICalendarWidget
 import com.jimz011apps.hki7.ui.MainViewModel
@@ -90,12 +104,29 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
+import java.time.temporal.WeekFields
+import java.util.Locale
 
-val calendarWidgetViews = listOf(
-    "agenda" to "Agenda",
-    "week" to "Week",
-    "month" to "Month"
-)
+private val calendarWidgetViews = listOf("agenda", "week", "month")
+
+@Composable
+private fun calendarViewLabel(view: String): String = when (view) {
+    "week" -> stringResource(R.string.widgets_calendar_week)
+    "month" -> stringResource(R.string.widgets_calendar_month)
+    else -> stringResource(R.string.widgets_calendar_agenda)
+}
+
+// Shared with the waste widget's week calendar so both grids start their weeks on the same day and
+// label them identically — a Monday-first grid beside a Sunday-first one reads as a bug.
+@Composable
+internal fun appLocale(): Locale =
+    LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+
+internal fun startOfLocaleWeek(date: LocalDate, locale: Locale): LocalDate =
+    date.with(TemporalAdjusters.previousOrSame(WeekFields.of(locale).firstDayOfWeek))
+
+internal fun localeWeekdayLabels(start: LocalDate, locale: Locale): List<String> =
+    (0 until 7).map { start.plusDays(it.toLong()).format(DateTimeFormatter.ofPattern("EEEEE", locale)) }
 
 private val CalendarPalette = listOf(
     Color(0xFF0A84FF),
@@ -126,7 +157,7 @@ fun CalendarWidgetItem(
     onDelete: () -> Unit,
     onSettings: () -> Unit
 ) {
-    if (widget.isHidden && !isEditMode) return
+    if (!isWidgetVisibleNow(widget) && !isEditMode) return
     var showFullDialog by remember(widget.id) { mutableStateOf(false) }
     val compact = widget.width == "half"
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -144,8 +175,8 @@ fun CalendarWidgetItem(
         }
         if (showFullDialog) {
             com.jimz011apps.hki7.ui.components.ModernSettingsDialogFrame(
-                title = widget.title ?: "Calendar",
-                subtitle = normalizeCalendarView(widget.view).replaceFirstChar { it.uppercase() },
+                title = widget.title ?: stringResource(R.string.widgets_calendar_title),
+                subtitle = calendarViewLabel(normalizeCalendarView(widget.view)),
                 icon = Icons.Default.CalendarMonth,
                 onDismiss = { showFullDialog = false },
                 content = {
@@ -157,7 +188,7 @@ fun CalendarWidgetItem(
                         fillHeight = true
                     )
                 },
-                footer = { TextButton(onClick = { showFullDialog = false }) { Text("Done") } }
+                footer = { TextButton(onClick = { showFullDialog = false }) { Text(stringResource(R.string.ui_done_e9b450d)) } }
             )
         }
         if (isEditMode) {
@@ -193,9 +224,10 @@ private fun CalendarWidgetCard(
         }
     }
     val calendarEntities by calendarEntityFlow.collectAsState()
-    val entityIds = remember(widget.entityIds, calendarEntities) {
+    val entityIds = remember(widget.entityIds, calendarEntities, widget.itemConfigs) {
         widget.entityIds.filter { id -> calendarEntities.any { it.entity_id == id } }
             .ifEmpty { calendarEntities.map { it.entity_id } }
+            .filter { isButtonVisibleNow(widget.itemConfigs[it] ?: HKIButtonConfig()) }
     }
     val calendarNames = remember(calendarEntities) {
         calendarEntities.associate { it.entity_id to (it.friendlyName ?: it.entity_id.substringAfter(".")) }
@@ -207,7 +239,7 @@ private fun CalendarWidgetCard(
     var activeView by remember(widget.id, widget.view) { mutableStateOf(normalizeCalendarView(widget.view)) }
     var showDatePicker by remember(widget.id) { mutableStateOf(false) }
     val selectedDate = LocalDate.ofEpochDay(selectedEpochDay)
-    val window = remember(activeView, selectedDate) { calendarWindow(activeView, selectedDate) }
+    val window = calendarWindow(activeView, selectedDate)
     val startMillis = window.startMillis(zone)
     val endMillis = window.endMillis(zone)
     val cacheKey = remember(entityIds, startMillis, endMillis) {
@@ -266,14 +298,16 @@ private fun CalendarWidgetCard(
     ) {
       Box {
         WidgetBackground(widget.backgroundUrl, currentUrl)
+        // Keep the header and tabs stable while the bounded calendar body scrolls. This prevents
+        // short cards from squeezing event rows or clipping month/week content.
         Column(
             modifier = Modifier
                 .padding(16.dp)
-                .then(if (fillHeight) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             CalendarHeader(
-                title = widget.title ?: "Calendar",
+                title = widget.title ?: stringResource(R.string.widgets_calendar_title),
                 icon = widget.icon,
                 windowTitle = window.title,
                 selectedDate = selectedDate,
@@ -284,37 +318,47 @@ private fun CalendarWidgetCard(
                 onPickDate = if (interactionsEnabled) ({ showDatePicker = true }) else null
             )
             CalendarViewTabs(activeView = activeView, enabled = interactionsEnabled) { activeView = it }
-            if (entityIds.isEmpty()) {
-                CalendarEmptyState("No calendar entity available")
-            } else {
-                when (activeView) {
-                    "week" -> WeekCalendarView(
-                        selectedDate = selectedDate,
-                        events = events,
-                        colorsByEntity = colorsByEntity,
-                        calendarNames = calendarNames,
-                        interactionsEnabled = interactionsEnabled,
-                        onSelectDate = { selectedEpochDay = it.toEpochDay() },
-                        zone = zone
-                    )
-                    "month" -> MonthCalendarView(
-                        selectedDate = selectedDate,
-                        window = window,
-                        events = events,
-                        colorsByEntity = colorsByEntity,
-                        calendarNames = calendarNames,
-                        interactionsEnabled = interactionsEnabled,
-                        onSelectDate = { selectedEpochDay = it.toEpochDay() },
-                        zone = zone
-                    )
-                    else -> AgendaCalendarView(
-                        startDate = window.startDate,
-                        endDateExclusive = window.endDateExclusive,
-                        events = events,
-                        colorsByEntity = colorsByEntity,
-                        calendarNames = calendarNames,
-                        zone = zone
-                    )
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (entityIds.isEmpty()) {
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        CalendarEmptyState(stringResource(R.string.widgets_calendar_no_entity))
+                    }
+                } else {
+                    when (activeView) {
+                        "week" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            WeekCalendarView(
+                                selectedDate = selectedDate,
+                                events = events,
+                                colorsByEntity = colorsByEntity,
+                                calendarNames = calendarNames,
+                                interactionsEnabled = interactionsEnabled,
+                                onSelectDate = { selectedEpochDay = it.toEpochDay() },
+                                zone = zone
+                            )
+                        }
+                        "month" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            MonthCalendarView(
+                                selectedDate = selectedDate,
+                                window = window,
+                                events = events,
+                                colorsByEntity = colorsByEntity,
+                                calendarNames = calendarNames,
+                                interactionsEnabled = interactionsEnabled,
+                                onSelectDate = { selectedEpochDay = it.toEpochDay() },
+                                zone = zone
+                            )
+                        }
+                        else -> AgendaCalendarView(
+                            startDate = window.startDate,
+                            endDateExclusive = window.endDateExclusive,
+                            events = events,
+                            colorsByEntity = colorsByEntity,
+                            calendarNames = calendarNames,
+                            zone = zone,
+                            modifier = Modifier.fillMaxSize(),
+                            fillHeight = true
+                        )
+                    }
                 }
             }
         }
@@ -346,6 +390,7 @@ private fun CompactCalendarWidgetCard(
     currentUrl: String = ""
 ) {
     val appColors = LocalHKIAppColors.current
+    val locale = appLocale()
     val visibleEvents = remember(events, selectedDate, zone) {
         events.filter { it.occursOn(selectedDate, zone) }.take(2)
     }
@@ -378,13 +423,13 @@ private fun CompactCalendarWidgetCard(
                 zone = zone
             )
             else -> Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxSize().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            selectedDate.format(DateTimeFormatter.ofPattern("EEEE")),
+                            selectedDate.format(DateTimeFormatter.ofPattern("EEEE", locale)),
                             color = appColors.onSurface,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
@@ -401,22 +446,26 @@ private fun CompactCalendarWidgetCard(
                     }
                     MdiIcon(widget.icon ?: "calendar-month", tint = appColors.onMuted.copy(alpha = 0.22f), size = 34.dp)
                 }
-                Spacer(Modifier.weight(1f))
-                if (visibleEvents.isEmpty()) {
-                    Text(
-                        "No events",
-                        color = appColors.onMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                } else {
-                    visibleEvents.forEach { event ->
-                        CompactCalendarEventPill(
-                            event = event,
-                            color = colorsByEntity[event.entityId] ?: MaterialTheme.colorScheme.primary,
-                            zone = zone
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (visibleEvents.isEmpty()) {
+                        Text(
+                            stringResource(R.string.ui_no_events_e339ba7),
+                            color = appColors.onMuted,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                    } else {
+                        visibleEvents.forEach { event ->
+                            CompactCalendarEventPill(
+                                event = event,
+                                color = colorsByEntity[event.entityId] ?: MaterialTheme.colorScheme.primary,
+                                zone = zone
+                            )
+                        }
                     }
                 }
             }
@@ -433,13 +482,14 @@ private fun CompactWeekCalendar(
     zone: ZoneId
 ) {
     val appColors = LocalHKIAppColors.current
-    val weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+    val locale = appLocale()
+    val weekStart = startOfLocaleWeek(selectedDate, locale)
     val days = (0 until 7).map { weekStart.plusDays(it.toLong()) }
     val selectedEvents = events.filter { it.occursOn(selectedDate, zone) }.take(2)
     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                selectedDate.format(DateTimeFormatter.ofPattern("EEEE")),
+                selectedDate.format(DateTimeFormatter.ofPattern("EEEE", locale)),
                 color = appColors.onSurface,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -469,7 +519,7 @@ private fun CompactWeekCalendar(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            day.format(DateTimeFormatter.ofPattern("E")).take(1),
+                            day.format(DateTimeFormatter.ofPattern("EEEEE", locale)),
                             color = if (selected) MaterialTheme.colorScheme.onPrimary else appColors.onMuted,
                             style = MaterialTheme.typography.labelSmall
                         )
@@ -495,7 +545,7 @@ private fun CompactWeekCalendar(
         }
         Spacer(Modifier.weight(1f))
         if (selectedEvents.isEmpty()) {
-            Text("No events", color = appColors.onMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+            Text(stringResource(R.string.ui_no_events_e339ba7), color = appColors.onMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
         } else {
             selectedEvents.forEach { event ->
                 CompactCalendarEventPill(event, colorsByEntity[event.entityId] ?: MaterialTheme.colorScheme.primary, zone)
@@ -513,20 +563,21 @@ private fun CompactMonthCalendar(
     zone: ZoneId
 ) {
     val appColors = LocalHKIAppColors.current
+    val locale = appLocale()
     val today = LocalDate.now(zone)
     val days = generateSequence(window.displayStartDate) { it.plusDays(1) }
         .take(ChronoUnit.DAYS.between(window.displayStartDate, window.displayEndDateExclusive).toInt())
         .toList()
     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(
-            selectedDate.format(DateTimeFormatter.ofPattern("MMMM")).uppercase(),
+            selectedDate.format(DateTimeFormatter.ofPattern("MMMM", locale)).uppercase(locale),
             color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             maxLines = 1
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
+            localeWeekdayLabels(window.displayStartDate, locale).forEach { label ->
                 Text(label, modifier = Modifier.weight(1f), color = appColors.onMuted, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
             }
         }
@@ -594,7 +645,7 @@ private fun CompactCalendarEventPill(
     ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
             Text(
-                event.summary?.takeIf { it.isNotBlank() } ?: "Untitled event",
+                event.summary?.takeIf { it.isNotBlank() } ?: stringResource(R.string.ui_untitled_event_ef8d264),
                 color = appColors.onSurface,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
@@ -631,12 +682,12 @@ private fun CalendarDatePickerDialog(
                     val date = java.time.Instant.ofEpochMilli(millis).atZone(ZoneId.of("UTC")).toLocalDate()
                     onDateSelected(date)
                 } ?: onDismiss()
-            }) { Text("Done") }
+            }) { Text(stringResource(R.string.ui_done_e9b450d)) }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = { onDateSelected(LocalDate.now(zone)) }) { Text("Today") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = { onDateSelected(LocalDate.now(zone)) }) { Text(stringResource(R.string.ui_today_24345a1)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) }
             }
         }
     ) {
@@ -657,6 +708,7 @@ private fun CalendarHeader(
     onPickDate: (() -> Unit)? = null
 ) {
     val appColors = LocalHKIAppColors.current
+    val locale = appLocale()
     val today = LocalDate.now()
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Surface(
@@ -669,7 +721,7 @@ private fun CalendarHeader(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    selectedDate.format(DateTimeFormatter.ofPattern("EEE")).uppercase(),
+                    selectedDate.format(DateTimeFormatter.ofPattern("EEE", locale)).uppercase(locale),
                     color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
@@ -714,7 +766,7 @@ private fun CalendarHeader(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        if (activeView == "month") today.dayOfMonth.toString() else "T",
+                        if (activeView == "month") today.dayOfMonth.toString() else stringResource(R.string.widgets_today_initial),
                         color = if (selectedDate == today) MaterialTheme.colorScheme.primary else appColors.onMuted,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold
@@ -733,7 +785,7 @@ private fun CalendarViewTabs(activeView: String, enabled: Boolean, onSelect: (St
     val appColors = LocalHKIAppColors.current
     Surface(shape = itemCornerShape(), color = appColors.subtleSurface) {
         Row(modifier = Modifier.fillMaxWidth().padding(3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            calendarWidgetViews.forEach { (value, label) ->
+            calendarWidgetViews.forEach { value ->
                 val selected = activeView == value
                 Surface(
                     modifier = Modifier.weight(1f).clip(itemCornerShape()).clickable(enabled = enabled) { onSelect(value) },
@@ -742,7 +794,7 @@ private fun CalendarViewTabs(activeView: String, enabled: Boolean, onSelect: (St
                     tonalElevation = if (selected) 2.dp else 0.dp
                 ) {
                     Text(
-                        label,
+                        calendarViewLabel(value),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                         color = if (selected) appColors.onSurface else appColors.onMuted,
                         style = MaterialTheme.typography.labelMedium,
@@ -763,20 +815,24 @@ private fun AgendaCalendarView(
     events: List<HACalendarEvent>,
     colorsByEntity: Map<String, Color>,
     calendarNames: Map<String, String>,
-    zone: ZoneId
+    zone: ZoneId,
+    modifier: Modifier = Modifier,
+    /** Fill the height the caller allots instead of the compact card's fixed cap, so the
+     *  full-screen dialog shows a long agenda over its whole height. */
+    fillHeight: Boolean = false
 ) {
     val visibleEvents = events.filter { event ->
         val day = event.startDate(zone)
         day != null && day >= startDate && day < endDateExclusive
     }
     if (visibleEvents.isEmpty()) {
-        CalendarEmptyState("No events in the next days")
+        CalendarEmptyState(stringResource(R.string.widgets_calendar_no_upcoming_events))
         return
     }
     val listState = rememberLazyListState()
     LazyColumn(
-        modifier = Modifier
-            .heightIn(max = 330.dp)
+        modifier = modifier
+            .then(if (fillHeight) Modifier.fillMaxHeight() else Modifier.heightIn(max = 330.dp))
             .fadingEdges(listState),
         state = listState,
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -803,7 +859,8 @@ private fun WeekCalendarView(
     zone: ZoneId
 ) {
     val appColors = LocalHKIAppColors.current
-    val weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+    val locale = appLocale()
+    val weekStart = startOfLocaleWeek(selectedDate, locale)
     val days = (0 until 7).map { weekStart.plusDays(it.toLong()) }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         days.forEach { day ->
@@ -818,7 +875,7 @@ private fun WeekCalendarView(
                     modifier = Modifier.padding(vertical = 9.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(day.format(DateTimeFormatter.ofPattern("EEE")).take(1), color = if (selected) MaterialTheme.colorScheme.onPrimary else appColors.onMuted, style = MaterialTheme.typography.labelSmall)
+                    Text(day.format(DateTimeFormatter.ofPattern("EEEEE", locale)), color = if (selected) MaterialTheme.colorScheme.onPrimary else appColors.onMuted, style = MaterialTheme.typography.labelSmall)
                     Text(day.dayOfMonth.toString(), color = if (selected) MaterialTheme.colorScheme.onPrimary else appColors.onSurface, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.height(8.dp)) {
                         dayEvents.take(3).forEach { event ->
@@ -833,7 +890,13 @@ private fun WeekCalendarView(
     }
     val selectedEvents = events.filter { it.occursOn(selectedDate, zone) }
     if (selectedEvents.isEmpty()) {
-        CalendarEmptyState("No events for ${selectedDate.format(DateTimeFormatter.ofPattern("EEE d MMM"))}", compact = true)
+        CalendarEmptyState(
+            stringResource(
+                R.string.widgets_calendar_no_events_for,
+                selectedDate.format(DateTimeFormatter.ofPattern("EEE d MMM", locale))
+            ),
+            compact = true
+        )
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             selectedEvents.take(5).forEach { event ->
@@ -855,13 +918,14 @@ private fun MonthCalendarView(
     zone: ZoneId
 ) {
     val appColors = LocalHKIAppColors.current
+    val locale = appLocale()
     val today = LocalDate.now(zone)
     val days = generateSequence(window.displayStartDate) { it.plusDays(1) }
         .take(ChronoUnit.DAYS.between(window.displayStartDate, window.displayEndDateExclusive).toInt())
         .toList()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
+            localeWeekdayLabels(window.displayStartDate, locale).forEach { label ->
                 Text(label, modifier = Modifier.weight(1f), color = appColors.onMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
             }
         }
@@ -908,7 +972,13 @@ private fun MonthCalendarView(
         }
         val selectedEvents = events.filter { it.occursOn(selectedDate, zone) }
         if (selectedEvents.isEmpty()) {
-            CalendarEmptyState("No events for ${selectedDate.format(DateTimeFormatter.ofPattern("d MMM"))}", compact = true)
+            CalendarEmptyState(
+                stringResource(
+                    R.string.widgets_calendar_no_events_for,
+                    selectedDate.format(DateTimeFormatter.ofPattern("d MMM", locale))
+                ),
+                compact = true
+            )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 selectedEvents.take(4).forEach { event ->
@@ -922,10 +992,11 @@ private fun MonthCalendarView(
 @Composable
 private fun DaySectionHeader(date: LocalDate) {
     val appColors = LocalHKIAppColors.current
+    val locale = appLocale()
     val label = when (date) {
-        LocalDate.now() -> "Today"
-        LocalDate.now().plusDays(1) -> "Tomorrow"
-        else -> date.format(DateTimeFormatter.ofPattern("EEEE d MMM"))
+        LocalDate.now() -> stringResource(R.string.ui_today_24345a1)
+        LocalDate.now().plusDays(1) -> stringResource(R.string.ui_tomorrow_1948bf2)
+        else -> date.format(DateTimeFormatter.ofPattern("EEEE d MMM", locale))
     }
     Text(label, color = appColors.onMuted, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
 }
@@ -944,7 +1015,7 @@ private fun CalendarEventRow(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    event.summary?.takeIf { it.isNotBlank() } ?: "Untitled event",
+                    event.summary?.takeIf { it.isNotBlank() } ?: stringResource(R.string.ui_untitled_event_ef8d264),
                     color = appColors.onSurface,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
@@ -959,7 +1030,7 @@ private fun CalendarEventRow(
                         Spacer(Modifier.width(8.dp))
                         Icon(Icons.Default.LocationOn, null, tint = appColors.onMuted, modifier = Modifier.size(13.dp))
                         Spacer(Modifier.width(3.dp))
-                        Text(event.location, color = appColors.onMuted, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(event.location.orEmpty(), color = appColors.onMuted, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -1007,12 +1078,19 @@ fun CalendarWidgetSettingsDialog(
     var showEntityPicker by remember { mutableStateOf(false) }
     var showIconPicker by remember { mutableStateOf(false) }
     var settingsPage by remember(widget) { mutableStateOf("content") }
+    var itemConfigs by remember(widget) { mutableStateOf(widget.itemConfigs) }
+    var editingItemVisibility by remember { mutableStateOf<String?>(null) }
+    var visSpec by remember(widget) {
+        mutableStateOf(
+            widget.toVisibilitySpec()
+        )
+    }
     val calendarEntities = remember(allEntities) { allEntities.filter { it.entity_id.startsWith("calendar.") } }
 
     if (showEntityPicker) {
         AdvancedEntitySearchDialog(
             allEntities = calendarEntities,
-            title = "Select Calendars",
+            title = stringResource(R.string.ui_select_calendars_e26b0da),
             singleSelect = false,
             preselectedIds = entityIds.toSet(),
             onDismiss = { showEntityPicker = false },
@@ -1038,68 +1116,102 @@ fun CalendarWidgetSettingsDialog(
     AlertDialog(
         stableHeight = true,
         onDismissRequest = onDismiss,
-        title = { com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle("Calendar", "Calendars, default view, and appearance") },
+        title = {
+            com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle(
+                stringResource(R.string.widgets_calendar_title),
+                stringResource(R.string.widgets_calendar_subtitle)
+            )
+        },
         text = {
             Column(
                 modifier = Modifier
-                    .heightIn(max = 520.dp)
+                    .fillMaxSize()
                     .fadingEdges(settingsScroll)
                     .verticalScroll(settingsScroll),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 com.jimz011apps.hki7.ui.components.SettingsTabRow(
-                    tabs = listOf("content" to "Calendar", "appearance" to "Appearance"),
+                    tabs = listOf(
+                        "content" to stringResource(R.string.widgets_calendar_title),
+                        "appearance" to stringResource(R.string.widgets_tab_appearance),
+                        "visibility" to stringResource(R.string.ui_visibility_7d9ff4f)
+                    ),
                     selected = settingsPage,
                     onSelect = { settingsPage = it }
                 )
                 if (settingsPage == "content") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Calendar content", "Select calendars and the view shown first")
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_calendar_content_1f185c8), stringResource(R.string.ui_select_calendars_and_the_view_shown_first_d5c38b5))
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("Title (optional)") },
+                    label = { Text(stringResource(R.string.ui_title_optional_932fc13)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Calendars", style = MaterialTheme.typography.labelLarge)
-                val selectedNames = entityIds.map { id -> calendarEntities.find { it.entity_id == id }?.friendlyName ?: id }
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.ui_calendars_9444501), style = MaterialTheme.typography.labelLarge)
+                if (entityIds.isEmpty()) {
+                    Text(
+                        stringResource(R.string.ui_all_calendar_entities_bffb01d),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                entityIds.forEach { id ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            selectedNames.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "All calendar entities",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (selectedNames.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            calendarEntities.find { it.entity_id == id }?.friendlyName ?: id,
+                            modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodySmall
                         )
-                    }
-                    TextButton(onClick = { showEntityPicker = true }) { Text("Change") }
-                    if (entityIds.isNotEmpty()) {
-                        TextButton(onClick = { entityIds = emptyList() }) { Text("All") }
+                        IconButton(onClick = { editingItemVisibility = id }) {
+                            Icon(
+                                if (isButtonVisibleNow(itemConfigs[id] ?: HKIButtonConfig())) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = stringResource(R.string.ui_visibility_7d9ff4f)
+                            )
+                        }
+                        IconButton(onClick = { entityIds = entityIds - id; itemConfigs = itemConfigs - id }) {
+                            Icon(Icons.Default.Close, stringResource(R.string.widgets_remove))
+                        }
                     }
                 }
-                Text("Default view", style = MaterialTheme.typography.labelLarge)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { showEntityPicker = true }) { Text(stringResource(R.string.ui_change_64fbd99)) }
+                    if (entityIds.isNotEmpty()) {
+                        TextButton(onClick = { entityIds = emptyList() }) { Text(stringResource(R.string.ui_all_6a72085)) }
+                    }
+                }
+                Text(stringResource(R.string.ui_default_view_343256a), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    calendarWidgetViews.forEach { (value, label) ->
-                        FilterChip(selected = view == value, onClick = { view = value }, label = { Text(label) })
+                    calendarWidgetViews.forEach { value ->
+                        FilterChip(
+                            selected = view == value,
+                            onClick = { view = value },
+                            label = { Text(calendarViewLabel(value)) }
+                        )
                     }
                 }
                 }
                 if (settingsPage == "appearance") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Appearance", "Card width, shape, icon, and background")
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_appearance_41def7a), stringResource(R.string.ui_card_width_shape_icon_and_background_c3695b5))
                 WidgetWidthSelector(width = width, onWidthChange = { width = it }, includeThird = false)
-                Text("Shape", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_shape_ea5c1a2), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = !isSquare, onClick = { isSquare = false }, label = { Text("Standard") })
-                    FilterChip(selected = isSquare, onClick = { isSquare = true }, label = { Text("Square") })
+                    FilterChip(selected = !isSquare, onClick = { isSquare = false }, label = { Text(stringResource(R.string.ui_standard_2dfa660)) })
+                    FilterChip(selected = isSquare, onClick = { isSquare = true }, label = { Text(stringResource(R.string.ui_square_82810cb)) })
                 }
-                Text("Icon", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_icon_716f63b), style = MaterialTheme.typography.labelLarge)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (iconName != "None") MdiIcon(iconName, size = 20.dp)
-                    TextButton(onClick = { showIconPicker = true }) { Text(if (iconName == "None") "Choose" else "Change") }
-                    if (iconName != "None") TextButton(onClick = { iconName = "None" }) { Text("None") }
+                    TextButton(onClick = { showIconPicker = true }) {
+                        Text(if (iconName == "None") stringResource(R.string.ui_choose_78b7c9f) else stringResource(R.string.ui_change_64fbd99))
+                    }
+                    if (iconName != "None") TextButton(onClick = { iconName = "None" }) { Text(stringResource(R.string.ui_none_6eef664)) }
                 }
                 WidgetBackgroundSelector(backgroundUrl) { backgroundUrl = it }
+                }
+                if (settingsPage == "visibility") {
+                    com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_visibility_7d9ff4f), stringResource(R.string.ui_hide_this_button_or_schedule_when_it_appears_a28bf66))
+                    com.jimz011apps.hki7.ui.components.VisibilityEditor(visSpec) { visSpec = it }
                 }
             }
         },
@@ -1115,14 +1227,33 @@ fun CalendarWidgetSettingsDialog(
                             icon = iconName.takeUnless { it == "None" },
                             width = width,
                             cornerRadius = cornerRadius,
-                            backgroundUrl = backgroundUrl
+                            backgroundUrl = backgroundUrl,
+                            isHidden = visSpec.hidden,
+                            visibilityStart = visSpec.start,
+                            visibilityEnd = visSpec.end,
+                            visibilityRangeMode = visSpec.rangeMode,
+                            visibilityRecurrence = visSpec.recurrence,
+                            visibilityConditionEntityId = visSpec.conditionEntityId,
+                            visibilityConditionState = visSpec.conditionState,
+                            visibilityConditionNegate = visSpec.conditionNegate,
+                            visibilityConditions = visSpec.conditions,
+                            visibilityMatch = visSpec.match,
+                            itemConfigs = itemConfigs
                         )
                     )
                 }
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.ui_save_efc007a)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
     )
+    editingItemVisibility?.let { id ->
+        com.jimz011apps.hki7.ui.components.ItemVisibilityDialog(
+            label = calendarEntities.find { it.entity_id == id }?.friendlyName ?: id,
+            config = itemConfigs[id] ?: HKIButtonConfig(),
+            onDismiss = { editingItemVisibility = null },
+            onSave = { itemConfigs = itemConfigs + (id to it) }
+        )
+    }
 }
 
 @Composable
@@ -1134,7 +1265,7 @@ fun CalendarEntityPickerDialog(
     val calendarEntities = remember(allEntities) { allEntities.filter { it.entity_id.startsWith("calendar.") } }
     AdvancedEntitySearchDialog(
         allEntities = calendarEntities,
-        title = "Select Calendars",
+        title = stringResource(R.string.ui_select_calendars_e26b0da),
         singleSelect = false,
         preselectedIds = emptySet(),
         onDismiss = onDismiss,
@@ -1143,26 +1274,28 @@ fun CalendarEntityPickerDialog(
 }
 
 private fun normalizeCalendarView(view: String): String =
-    if (calendarWidgetViews.any { it.first == view }) view else "agenda"
+    if (view in calendarWidgetViews) view else "agenda"
 
 
+@Composable
 private fun calendarWindow(view: String, selectedDate: LocalDate): CalendarWindow {
-    val monthFmt = DateTimeFormatter.ofPattern("MMMM yyyy")
-    val dayFmt = DateTimeFormatter.ofPattern("d MMM")
+    val locale = appLocale()
+    val monthFmt = DateTimeFormatter.ofPattern("MMMM yyyy", locale)
+    val dayFmt = DateTimeFormatter.ofPattern("d MMM", locale)
     return when (normalizeCalendarView(view)) {
         "week" -> {
-            val start = selectedDate.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+            val start = startOfLocaleWeek(selectedDate, locale)
             CalendarWindow(
                 startDate = start,
                 endDateExclusive = start.plusDays(7),
                 displayStartDate = start,
                 displayEndDateExclusive = start.plusDays(7),
-                title = "${start.format(dayFmt)} - ${start.plusDays(6).format(dayFmt)}"
+                title = stringResource(R.string.ui_text_59f6071, start.format(dayFmt), start.plusDays(6).format(dayFmt))
             )
         }
         "month" -> {
             val start = selectedDate.withDayOfMonth(1)
-            val displayStart = start.with(TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+            val displayStart = startOfLocaleWeek(start, locale)
             val displayEnd = displayStart.plusDays(42)
             CalendarWindow(
                 startDate = start,
@@ -1177,7 +1310,7 @@ private fun calendarWindow(view: String, selectedDate: LocalDate): CalendarWindo
             endDateExclusive = selectedDate.plusDays(14),
             displayStartDate = selectedDate,
             displayEndDateExclusive = selectedDate.plusDays(14),
-            title = "Upcoming"
+            title = stringResource(R.string.ui_upcoming_523baab)
         )
     }
 }
@@ -1194,7 +1327,7 @@ private fun HACalendarEvent.endDateTime(zone: ZoneId): ZonedDateTime? = parseCal
 
 private fun HACalendarEvent.startDate(zone: ZoneId): LocalDate? = startDateTime(zone)?.toLocalDate()
 
-private fun HACalendarEvent.isAllDay(): Boolean = start?.date != null && start.dateTime == null
+private fun HACalendarEvent.isAllDay(): Boolean = start?.let { it.date != null && it.dateTime == null } == true
 
 private fun HACalendarEvent.occursOn(day: LocalDate, zone: ZoneId): Boolean {
     val startDay = startDate(zone) ?: return false
@@ -1217,10 +1350,17 @@ private fun parseCalendarDateTime(dateTime: String?, date: String?, zone: ZoneId
     return null
 }
 
+@Composable
 private fun eventTimeLabel(event: HACalendarEvent, zone: ZoneId): String {
-    if (event.isAllDay()) return "All day"
-    val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
-    val start = event.startDateTime(zone) ?: return "Time unknown"
+    if (event.isAllDay()) return stringResource(R.string.widgets_calendar_all_day)
+    val locale = appLocale()
+    val context = LocalContext.current
+    val pattern = android.text.format.DateFormat.getBestDateTimePattern(
+        locale,
+        if (android.text.format.DateFormat.is24HourFormat(context)) "Hm" else "hm"
+    )
+    val timeFmt = DateTimeFormatter.ofPattern(pattern, locale)
+    val start = event.startDateTime(zone) ?: return stringResource(R.string.widgets_calendar_time_unknown)
     val end = event.endDateTime(zone)
     return if (end != null && end.toLocalDate() == start.toLocalDate()) {
         "${start.format(timeFmt)} - ${end.format(timeFmt)}"

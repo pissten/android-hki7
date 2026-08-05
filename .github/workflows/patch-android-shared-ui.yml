@@ -1,0 +1,171 @@
+name: Apply Android shared UI fixes
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - multiplatform-web
+    paths:
+      - ".github/workflows/patch-android-shared-ui.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: multiplatform-web
+          fetch-depth: 0
+
+      - name: Patch cross-module Kotlin access
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_exact(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"Expected block not found in {path}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_exact(
+              "app/src/main/java/com/jimz011apps/hki7/data/ButtonVisibility.kt",
+              '''    else -> {
+                  if (condition.entityId.isNullOrBlank() || resolveEntityState == null) {
+                      true
+                  } else {
+                      val current = resolveEntityState(condition.entityId)
+                      val matches = current != null && current.equals(condition.state, ignoreCase = true)
+                      if (condition.negate) !matches else matches
+                  }
+              }''',
+              '''    else -> {
+                  val entityId = condition.entityId
+                  if (entityId.isNullOrBlank() || resolveEntityState == null) {
+                      true
+                  } else {
+                      val current = resolveEntityState(entityId)
+                      val matches = current != null && current.equals(condition.state, ignoreCase = true)
+                      if (condition.negate) !matches else matches
+                  }
+              }'''
+          )
+
+          replace_exact(
+              "app/src/main/java/com/jimz011apps/hki7/ui/MainViewModel.kt",
+              '''        snapshot.values.forEach { change ->
+                      if (change.newState == null) {
+                          if (ordered.remove(change.entityId) != null) changed = true
+                      } else {
+                          if (ordered[change.entityId] != change.newState) {
+                              ordered[change.entityId] = change.newState
+                              changed = true
+                          }
+                      }
+                  }''',
+              '''        snapshot.values.forEach { change ->
+                      val newState = change.newState
+                      if (newState == null) {
+                          if (ordered.remove(change.entityId) != null) changed = true
+                      } else {
+                          if (ordered[change.entityId] != newState) {
+                              ordered[change.entityId] = newState
+                              changed = true
+                          }
+                      }
+                  }'''
+          )
+
+          replace_exact(
+              "app/src/main/java/com/jimz011apps/hki7/ui/components/ActionEditors.kt",
+              '''                !button.icon.isNullOrBlank() -> button.icon''',
+              '''                !button.icon.isNullOrBlank() -> button.icon.orEmpty()'''
+          )
+
+          replace_exact(
+              "app/src/main/java/com/jimz011apps/hki7/ui/components/NotificationPanel.kt",
+              '''                    if (!notification.title.isNullOrBlank()) {
+                                  Text(
+                                      notification.title,''',
+              '''                    val notificationTitle = notification.title
+                              if (!notificationTitle.isNullOrBlank()) {
+                                  Text(
+                                      notificationTitle,'''
+          )
+
+          replace_exact(
+              "app/src/main/java/com/jimz011apps/hki7/ui/screens/CalendarWidget.kt",
+              '''                        Text(event.location, color = appColors.onMuted, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)''',
+              '''                        Text(event.location.orEmpty(), color = appColors.onMuted, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)'''
+          )
+          replace_exact(
+              "app/src/main/java/com/jimz011apps/hki7/ui/screens/CalendarWidget.kt",
+              '''private fun HACalendarEvent.isAllDay(): Boolean = start?.date != null && start.dateTime == null''',
+              '''private fun HACalendarEvent.isAllDay(): Boolean = start?.let { it.date != null && it.dateTime == null } == true'''
+          )
+
+          replacements = {
+              "app/src/main/java/com/jimz011apps/hki7/ui/screens/ClimateScreen.kt": [
+                  ("MdiIcon(widget.icon, tint = headerColor, size = 16.dp)", "MdiIcon(widget.icon.orEmpty(), tint = headerColor, size = 16.dp)"),
+                  ("Text(widget.title, color = headerColor, style = MaterialTheme.typography.labelMedium)", "Text(widget.title.orEmpty(), color = headerColor, style = MaterialTheme.typography.labelMedium)"),
+              ],
+              "app/src/main/java/com/jimz011apps/hki7/ui/screens/EnergyScreen.kt": [
+                  ("com.jimz011apps.hki7.ui.utils.MdiIcon(widget.icon, tint = Color.Gray, size = 16.dp)", "com.jimz011apps.hki7.ui.utils.MdiIcon(widget.icon.orEmpty(), tint = Color.Gray, size = 16.dp)"),
+                  ("Text(widget.title, color = Color.Gray, style = MaterialTheme.typography.labelMedium)", "Text(widget.title.orEmpty(), color = Color.Gray, style = MaterialTheme.typography.labelMedium)"),
+              ],
+              "app/src/main/java/com/jimz011apps/hki7/ui/screens/RoomDetailScreen.kt": [
+                  ("MdiIcon(stack.icon, tint = Color.Gray, size = 16.dp)", "MdiIcon(stack.icon.orEmpty(), tint = Color.Gray, size = 16.dp)"),
+                  ("Text(stack.title, color = Color.Gray, style = MaterialTheme.typography.labelMedium)", "Text(stack.title.orEmpty(), color = Color.Gray, style = MaterialTheme.typography.labelMedium)"),
+              ],
+              "app/src/main/java/com/jimz011apps/hki7/ui/screens/SensorGraphWidget.kt": [
+                  ("MdiIcon(widget.icon, tint = appColors.onSurface, size = 16.dp)", "MdiIcon(widget.icon.orEmpty(), tint = appColors.onSurface, size = 16.dp)"),
+                  ("Text(widget.title, color = appColors.onSurface,", "Text(widget.title.orEmpty(), color = appColors.onSurface,"),
+              ],
+              "app/src/main/java/com/jimz011apps/hki7/ui/screens/WeatherWidget.kt": [
+                  ("MdiIcon(widget.icon, tint = Color.Gray, size = 16.dp)", "MdiIcon(widget.icon.orEmpty(), tint = Color.Gray, size = 16.dp)"),
+                  ("                                widget.title,", "                                widget.title.orEmpty(),"),
+              ],
+          }
+          for path, pairs in replacements.items():
+              for old, new in pairs:
+                  replace_exact(path, old, new)
+
+          shared_files = list(Path("sharedUi/src/commonMain/kotlin").rglob("*.kt"))
+          helper_names = (
+              "buildHKIActionServicePayload",
+              "mergeWidgetAesthetics",
+              "mergeAreaConfigAesthetics",
+              "mergePageConfigAesthetics",
+              "climateOwnedWindowEntityIds",
+          )
+          found = {name: False for name in helper_names}
+          pattern = re.compile(r"\binternal\s+fun\s+(" + "|".join(helper_names) + r")\b")
+          for path in shared_files:
+              text = path.read_text()
+              def make_public(match):
+                  found[match.group(1)] = True
+                  return "fun " + match.group(1)
+              updated = pattern.sub(make_public, text)
+              if updated != text:
+                  path.write_text(updated)
+          missing = [name for name, was_found in found.items() if not was_found]
+          if missing:
+              raise SystemExit("Shared helper declarations not found: " + ", ".join(missing))
+          PY
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app sharedUi
+          git diff --cached --check
+          git commit -m "fix(android): adapt callers to shared model module"
+          git push origin HEAD:multiplatform-web

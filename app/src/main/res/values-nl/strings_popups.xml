@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empty (transparent) buttons and the custom-popup action. -->
+<resources>
+    <string name="spacer_empty_button">Lege knop</string>
+    <string name="spacer_empty_button_description">Transparante plaatshouder die alleen ruimte reserveert</string>
+    <string name="spacer_add_empty_button">Lege knop toevoegen</string>
+    <string name="popup_custom_popup">Aangepaste pop-up</string>
+    <string name="popup_choose">Kies een pop-up</string>
+    <string name="popup_none_yet">Nog geen pop-ups</string>
+    <string name="popup_new">Nieuwe pop-up</string>
+    <string name="popup_default_name">Nieuwe pop-up</string>
+    <string name="popup_name">Naam van pop-up</string>
+    <string name="popup_edit_contents">Inhoud bewerken</string>
+    <string name="popup_delete">Pop-up verwijderen</string>
+    <string name="popup_status_entity">Statusentiteit</string>
+    <string name="popup_status_entity_hint">Optioneel. De status ervan vult de statusregel van het dialoogvenster en voegt de geschiedenisweergave toe.</string>
+    <string name="popup_settings_subtitle">Naam, pictogram en statusentiteit</string>
+    <string name="popup_shared_hint">Pop-ups worden gedeeld: andere knoppen kunnen dezelfde pop-up openen.</string>
+    <string name="popup_empty">Deze pop-up is leeg. Tik op Bewerken om widgets toe te voegen.</string>
+    <string name="popup_settings_title">Pop-ups</string>
+    <string name="popup_settings_subtitle_section">Bouw en bewerk je aangepaste pop-ups</string>
+    <string name="popup_settings_hint">Pop-ups openen vanaf een knop, badge of dialoogknop met de actie Aangepaste pop-up. Inhoud bewerken opent de pop-up zelf, zodat je de widgets kunt indelen.</string>
+    <string name="button_icon_only">Alleen pictogram</string>
+    <string name="button_icon_size">Pictogramgrootte</string>
+    <string name="button_icon_size_description">Automatisch verkleint het pictogram naarmate de stapel meer kolommen krijgt, zodat het op een smalle knop past.</string>
+    <string name="button_icon_size_auto">Automatisch</string>
+    <string name="button_icon_size_value">%1$d dp</string>
+    <string name="stack_child_icon_only">Alleen pictogram voor elke knop</string>
+    <string name="stack_child_icon_only_description">Geldt voor alle knoppen in deze stapel, zodat je het niet per knop hoeft in te stellen.</string>
+    <string name="stack_child_icon_size">Pictogramgrootte voor elke knop</string>
+    <string name="button_icon_only_description">Verberg de naam en status en centreer het pictogram op de knop</string>
+    <string name="action_button">Actieknop</string>
+    <string name="action_button_description">Een knop zonder entiteit: geef hem een naam, een pictogram en een actie</string>
+    <string name="action_button_add">Actieknop toevoegen</string>
+    <string name="action_badge_add">Actiebadge toevoegen</string>
+</resources>

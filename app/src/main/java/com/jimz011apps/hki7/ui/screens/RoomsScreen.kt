@@ -1,10 +1,16 @@
 package com.jimz011apps.hki7.ui.screens
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -81,12 +87,14 @@ import com.jimz011apps.hki7.ui.MainViewModel
 import com.jimz011apps.hki7.ui.RoomStatusRoles
 import com.jimz011apps.hki7.ui.displayedRoomControlEntityIds
 import com.jimz011apps.hki7.ui.resolveRoomMediaStatus
+import com.jimz011apps.hki7.ui.localizedText
 import com.jimz011apps.hki7.ui.resolveRoomStatus
 import com.jimz011apps.hki7.ui.resolveWholeHomeStatus
 import com.jimz011apps.hki7.ui.roomMediaPlayerIds
 import com.jimz011apps.hki7.ui.roomEntityIds
 import com.jimz011apps.hki7.ui.Screen
 import com.jimz011apps.hki7.ui.components.HKIPage
+import com.jimz011apps.hki7.ui.components.HKIAreaCard
 import com.jimz011apps.hki7.ui.components.GradientActionButton
 import com.jimz011apps.hki7.ui.components.MdiIconPickerDialog
 import com.jimz011apps.hki7.ui.components.ReorderableGrid
@@ -97,6 +105,7 @@ import com.jimz011apps.hki7.ui.components.WidgetWidthSelector
 import com.jimz011apps.hki7.ui.components.fadingEdges
 import com.jimz011apps.hki7.ui.components.LocalItemCornerRadius
 import com.jimz011apps.hki7.ui.components.itemCornerShape
+import com.jimz011apps.hki7.ui.components.responsiveDashboardColumnCount
 import com.jimz011apps.hki7.ui.theme.LocalHKIAppColors
 import com.jimz011apps.hki7.ui.utils.MdiIcon
 import kotlin.math.max
@@ -116,6 +125,7 @@ fun RoomsScreen(viewModel: MainViewModel, navController: NavController) {
     val isEditMode by viewModel.isEditMode.collectAsState()
     // Aesthetics-only recipients (Family Sharing) can't add or remove rooms/floors.
     val aestheticsOnly by viewModel.aestheticsOnlyEditing.collectAsState()
+    val allowReimport by viewModel.allowReimport.collectAsState()
     val currentUrl by viewModel.currentUrl.collectAsState()
     val entities by viewModel.entities.collectAsState()
     // Tapping a room-status counter lists exactly the entities it counts (the currently-active ones)
@@ -128,10 +138,11 @@ fun RoomsScreen(viewModel: MainViewModel, navController: NavController) {
     if (activityRole != null && activityEntityIds.isNotEmpty()) {
         val role = activityRole!!
         val groupEntities = activityEntityIds.mapNotNull { id -> entities.find { it.entity_id == id } }
-        val syntheticStack = remember(role, activityEntityIds) {
+        val groupTitle = com.jimz011apps.hki7.ui.components.roomStatusGroupTitle(role)
+        val syntheticStack = remember(role, activityEntityIds, groupTitle) {
             com.jimz011apps.hki7.data.HKIButtonStack(
                 id = "room-status-$role",
-                title = com.jimz011apps.hki7.ui.components.roomStatusGroupTitle(role),
+                title = groupTitle,
                 icon = com.jimz011apps.hki7.ui.components.roomStatusMdiSlug(role),
                 entityIds = activityEntityIds
             )
@@ -159,13 +170,13 @@ fun RoomsScreen(viewModel: MainViewModel, navController: NavController) {
     var showClearRooms by remember { mutableStateOf(false) }
 
     val roomsImportSettings: Pair<String, @Composable androidx.compose.foundation.layout.ColumnScope.(setBack: ((() -> Unit)?) -> Unit) -> Unit> =
-        "Re-import" to { _ ->
-            Text("Fetch rooms, floors, and their entities from Home Assistant again.", color = LocalHKIAppColors.current.onMuted)
+        stringResource(R.string.widgets_reimport) to { _ ->
+            Text(stringResource(R.string.ui_fetch_rooms_floors_and_their_entities_from_home_assistant_0d84305), color = LocalHKIAppColors.current.onMuted)
             Button(onClick = { showRoomsReimport = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.CloudDownload, null); Spacer(Modifier.width(8.dp)); Text("Re-import Rooms")
+                Icon(Icons.Default.CloudDownload, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.ui_re_import_rooms_b49077d))
             }
             OutlinedButton(onClick = { showClearRooms = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Clear Rooms View", color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.ui_clear_rooms_view_87a43ca), color = MaterialTheme.colorScheme.error)
             }
         }
 
@@ -189,17 +200,17 @@ fun RoomsScreen(viewModel: MainViewModel, navController: NavController) {
         resolveWholeHomeStatus(activeRoomConfigs, wholeHomeEntities, wholeHomeDisplayedControlIds)
     }
     val roomsSubtitle = wholeHomeSummary.environmentText
-        ?: "${areas.size} ${if (areas.size == 1) "room" else "rooms"}"
+        ?: pluralStringResource(R.plurals.rooms_count, areas.size, areas.size)
     val roomsScrollState = rememberScrollState()
 
     HKIPage(
         viewModel = viewModel,
-        title = "Rooms",
+        title = stringResource(R.string.ui_rooms_3a28d6f),
         subtitle = roomsSubtitle,
         showPeople = false,
         pageKey = "rooms",
-        pageSettingsTitle = "Rooms Settings",
-        extraPageSettingsSection = roomsImportSettings,
+        pageSettingsTitle = stringResource(R.string.rooms_settings_title),
+        extraPageSettingsSection = roomsImportSettings.takeIf { !aestheticsOnly && allowReimport },
         headerTrailingContent = if (wholeHomeSummary.indicators.isNotEmpty()) {
             { _ ->
                 RoomStatusIndicators(
@@ -211,18 +222,19 @@ fun RoomsScreen(viewModel: MainViewModel, navController: NavController) {
         } else null,
         navController = navController
     ) { padding ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            val floorRowCapacity = responsiveDashboardColumnCount(maxWidth) * 2
             if (groupedFloors.isEmpty() && !isEditMode) {
                 if (autoGenerationPending) {
                     RoomsImportProgress(Modifier.fillMaxSize(), centered = true)
                 } else {
                     EmptyEditHint(
                         Modifier.fillMaxSize(),
-                        "This is an empty rooms view. You can add floors and rooms by swiping down on the header and enabling edit mode."
+                        stringResource(R.string.rooms_empty)
                     )
                 }
             } else {
@@ -241,7 +253,7 @@ fun RoomsScreen(viewModel: MainViewModel, navController: NavController) {
                     if (autoGenerationPending) {
                         RoomsImportProgress(Modifier.fillMaxWidth())
                     }
-                    packFloorRows(groupedFloors).forEach { floorRow ->
+                    packFloorRows(groupedFloors, floorRowCapacity).forEach { floorRow ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -280,7 +292,9 @@ fun RoomsScreen(viewModel: MainViewModel, navController: NavController) {
                                 )
                             }
                             val usedUnits = floorRow.sumOf { if (it.floor?.width == "half") 1 else 2 }
-                            if (usedUnits < 2) Spacer(Modifier.weight((2 - usedUnits).toFloat()))
+                            if (usedUnits < floorRowCapacity) {
+                                Spacer(Modifier.weight((floorRowCapacity - usedUnits).toFloat()))
+                            }
                         }
                     }
                 }
@@ -321,31 +335,31 @@ fun RoomsScreen(viewModel: MainViewModel, navController: NavController) {
     if (showAutoInfo) {
         AlertDialog(
             onDismissRequest = { showAutoInfo = false },
-            title = { Text("Rooms are imported") },
-            text = { Text("This dashboard is currently being generated from Home Assistant. You can edit rooms as soon as the one-time import finishes.") },
-            confirmButton = { Button(onClick = { showAutoInfo = false }) { Text("OK") } }
+            title = { Text(stringResource(R.string.ui_rooms_are_imported_2ef3415)) },
+            text = { Text(stringResource(R.string.ui_this_dashboard_is_currently_being_generated_from_home_assi_470200d)) },
+            confirmButton = { Button(onClick = { showAutoInfo = false }) { Text(stringResource(R.string.ui_ok_9ce3bd4)) } }
         )
     }
 
     if (showRoomsReimport) {
         AlertDialog(
             onDismissRequest = { showRoomsReimport = false },
-            title = { Text("Re-import rooms") },
-            text = { Text("Import only rooms and entities that have not been edited, or remove all edited rooms and floors and import everything from scratch.") },
+            title = { Text(stringResource(R.string.ui_re_import_rooms_6cc58f9)) },
+            text = { Text(stringResource(R.string.ui_import_only_rooms_and_entities_that_have_not_been_478d449)) },
             confirmButton = { Column(horizontalAlignment = Alignment.End) {
-                Button(onClick = { viewModel.reimportRooms(false); showRoomsReimport = false }) { Text("Import unedited") }
-                TextButton(onClick = { viewModel.reimportRooms(true); showRoomsReimport = false }) { Text("Remove edits and import all", color = MaterialTheme.colorScheme.error) }
+                Button(onClick = { viewModel.reimportRooms(false); showRoomsReimport = false }) { Text(stringResource(R.string.ui_import_unedited_4a58143)) }
+                TextButton(onClick = { viewModel.reimportRooms(true); showRoomsReimport = false }) { Text(stringResource(R.string.ui_remove_edits_and_import_all_7f0b4a1), color = MaterialTheme.colorScheme.error) }
             } },
-            dismissButton = { TextButton(onClick = { showRoomsReimport = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showRoomsReimport = false }) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
         )
     }
     if (showClearRooms) {
         AlertDialog(
             onDismissRequest = { showClearRooms = false },
-            title = { Text("Clear rooms view?") },
-            text = { Text("This removes all imported rooms and floors from this view.") },
-            confirmButton = { TextButton(onClick = { viewModel.clearRoomImports(); showClearRooms = false }) { Text("Clear", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { showClearRooms = false }) { Text("Cancel") } }
+            title = { Text(stringResource(R.string.ui_clear_rooms_view_f1d0d72)) },
+            text = { Text(stringResource(R.string.ui_this_removes_all_imported_rooms_and_floors_from_this_d1cbbff)) },
+            confirmButton = { TextButton(onClick = { viewModel.clearRoomImports(); showClearRooms = false }) { Text(stringResource(R.string.ui_clear_719ea39), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { showClearRooms = false }) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
         )
     }
 
@@ -411,9 +425,9 @@ private fun RoomsImportProgress(modifier: Modifier = Modifier, centered: Boolean
             ) {
                 CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
                 Column {
-                    Text("Generating your rooms", style = MaterialTheme.typography.titleSmall, color = appColors.onSurface)
+                    Text(stringResource(R.string.ui_generating_your_rooms_01654a1), style = MaterialTheme.typography.titleSmall, color = appColors.onSurface)
                     Text(
-                        "Importing areas and entities from Home Assistant…",
+                        stringResource(R.string.ui_importing_areas_and_entities_from_home_assistant_0e50b82),
                         style = MaterialTheme.typography.bodySmall,
                         color = appColors.onMuted
                     )
@@ -425,15 +439,18 @@ private fun RoomsImportProgress(modifier: Modifier = Modifier, centered: Boolean
 
 private data class FloorSectionData(val key: String, val floor: HAFloor?, val areas: List<HAArea>)
 
-// Packs floor sections into rows: a "full" floor takes a whole row, while "half" floors pair up
-// two per row (like full/half-row widgets), so the whole section resizes — not the cards inside.
-private fun packFloorRows(sections: List<FloorSectionData>): List<List<FloorSectionData>> {
+// Packs floor sections into the same responsive dashboard lanes as Home and room detail. Each lane
+// has two units: a "full" floor uses both and a "half" floor uses one.
+private fun packFloorRows(
+    sections: List<FloorSectionData>,
+    maxUnits: Int,
+): List<List<FloorSectionData>> {
     val rows = mutableListOf<List<FloorSectionData>>()
     var current = mutableListOf<FloorSectionData>()
     var used = 0
     for (section in sections) {
         val units = if (section.floor?.width == "half") 1 else 2
-        if (used + units > 2 && current.isNotEmpty()) {
+        if (used + units > maxUnits && current.isNotEmpty()) {
             rows.add(current.toList())
             current = mutableListOf()
             used = 0
@@ -492,11 +509,15 @@ private fun FloorSection(
                 MdiIcon(floor?.icon, tint = appColors.onMuted, size = 16.dp)
                 Spacer(Modifier.width(8.dp))
             }
-            Text(floor?.name ?: "Rooms", color = appColors.onMuted, style = MaterialTheme.typography.labelMedium)
+            Text(floor?.name ?: stringResource(R.string.ui_rooms_3a28d6f), color = appColors.onMuted, style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.width(6.dp))
             Icon(
                 if (isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
-                contentDescription = if (isCollapsed) "Expand floor" else "Collapse floor",
+                contentDescription = if (isCollapsed) {
+                    stringResource(R.string.floor_expand)
+                } else {
+                    stringResource(R.string.floor_collapse)
+                },
                 tint = appColors.onMuted,
                 modifier = Modifier.size(18.dp)
             )
@@ -504,14 +525,14 @@ private fun FloorSection(
             if (isEditMode) {
                 if (dashboardMode != "auto" && floor != null && floor.floor_id != "__rooms__") {
                     IconButton(onClick = onDeleteFloor, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete floor", tint = appColors.onMuted, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_delete_floor_07c4a91), tint = appColors.onMuted, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.width(8.dp))
                 }
                 IconButton(onClick = onSettingsFloor, modifier = Modifier.size(24.dp)) {
                     Icon(
                         Icons.Default.Settings,
-                        contentDescription = "Floor settings",
+                        contentDescription = stringResource(R.string.ui_floor_settings_640cb8e),
                         tint = appColors.onMuted,
                         modifier = Modifier.size(16.dp)
                     )
@@ -580,222 +601,37 @@ fun AreaCard(
     onClick: () -> Unit,
     onActivityClick: ((String, List<String>) -> Unit)? = null
 ) {
-    val appColors = LocalHKIAppColors.current
-    val headerColor = remember(config.headerColor) { parseRoomHeaderColor(config.headerColor) }
-    // Match HKIPage: a custom header color takes precedence over the room wallpaper/picture.
-    val imageSource = if (headerColor != null) null else (config.wallpaper ?: area.picture)?.takeIf(String::isNotBlank)
-    val imageUrl = imageSource?.let { if (it.startsWith("http")) it else "$baseUrl$it" }
-    val roomColorScheme = MaterialTheme.colorScheme
-    val generatedRoomColor = remember(
-        area.area_id,
-        appColors.background,
-        roomColorScheme.primary,
-        roomColorScheme.secondary,
-        roomColorScheme.tertiary,
-        roomColorScheme.primaryContainer,
-        roomColorScheme.secondaryContainer,
-        roomColorScheme.tertiaryContainer
-    ) {
-        val palette = listOf(
-            roomColorScheme.primary,
-            roomColorScheme.secondary,
-            roomColorScheme.tertiary,
-            roomColorScheme.primaryContainer,
-            roomColorScheme.secondaryContainer,
-            roomColorScheme.tertiaryContainer
-        )
-        palette[Math.floorMod(area.area_id.hashCode(), palette.size)]
+    val mediaPlayerIds = remember(config) { config.roomMediaPlayerIds() }
+    val displayedControlIds = remember(widgets) { displayedRoomControlEntityIds(widgets) }
+    val dependencyIds = remember(config, mediaPlayerIds, displayedControlIds) {
+        (config.roomEntityIds() + mediaPlayerIds + displayedControlIds).distinct()
     }
-    val roomAccentColor = headerColor ?: generatedRoomColor
-    val roomCardColor = roomAccentColor.copy(
-        alpha = if (appColors.background.luminance() < 0.5f) {
-            0.45f
-        } else if (roomAccentColor.luminance() < 0.35f) {
-            0.28f
-        } else {
-            0.18f
-        }
+    val dependencyFlow = remember(viewModel, dependencyIds) { viewModel.entitiesFor(dependencyIds) }
+    val roomEntities by dependencyFlow.collectAsState()
+    val peopleByArea by viewModel.peopleByAreaId.collectAsState()
+
+    HKIAreaCard(
+        area = area,
+        config = config,
+        widgets = widgets,
+        roomEntities = roomEntities,
+        peopleHere = peopleByArea[area.area_id] ?: 0,
+        baseUrl = baseUrl,
+        isEditMode = isEditMode,
+        canDelete = canDelete,
+        isDragging = isDragging,
+        isSquare = isSquare,
+        compactTiles = compactTiles,
+        cornerRadius = cornerRadius,
+        onDelete = onDelete,
+        onSettings = onSettings,
+        onClick = onClick,
+        onActivityClick = onActivityClick,
     )
-    val roomCardBrush = roomCardColor.let { color ->
-        Brush.verticalGradient(
-            listOf(
-                color.compositeOver(appColors.background),
-                color.copy(alpha = color.alpha * 0.45f).compositeOver(appColors.background),
-                appColors.background
-            )
-        )
-    }
-    val scale by animateFloatAsState(if (isDragging) 1.05f else 1f, label = "room-scale")
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isSquare) Modifier.aspectRatio(1f) else Modifier.height(if (compactTiles) 112.dp else 160.dp))
-            .scale(scale)
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(enabled = !isEditMode) { onClick() },
-            shape = RoundedCornerShape(cornerRadius.dp),
-            colors = CardDefaults.cardColors(containerColor = appColors.elevated)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-            if (imageUrl != null) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.28f)))
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize().background(roomCardBrush),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (config.icon != "None") {
-                        MdiIcon(config.icon ?: area.icon, tint = appColors.onMuted, size = 48.dp)
-                    }
-                }
-            }
-
-            val mediaPlayerIds = remember(config) { config.roomMediaPlayerIds() }
-            val displayedControlIds = remember(widgets) { displayedRoomControlEntityIds(widgets) }
-            val dependencyIds = remember(config, mediaPlayerIds, displayedControlIds) {
-                // Lights/devices counters auto-count every light/switch shown in the room, so their
-                // live state must be subscribed here too — not just the manually configured extras.
-                (config.roomEntityIds() + mediaPlayerIds + displayedControlIds).distinct()
-            }
-            val dependencyFlow = remember(viewModel, dependencyIds) { viewModel.entitiesFor(dependencyIds) }
-            val roomEntities by dependencyFlow.collectAsState()
-            val mediaPlayers = remember(mediaPlayerIds, roomEntities) {
-                val byId = roomEntities.associateBy(HAEntity::entity_id)
-                mediaPlayerIds.map { id -> byId[id] ?: HAEntity(entity_id = id, state = "unavailable") }
-            }
-            val mediaSummary = remember(mediaPlayers) { resolveRoomMediaStatus(mediaPlayers) }
-            val mediaStatus = mediaSummary.text
-            val mediaIcon = mediaPlayerStateIcon(mediaSummary.representative)
-            val roomSummary = remember(config, roomEntities, displayedControlIds) {
-                resolveRoomStatus(config, roomEntities, displayedControlIds)
-            }
-            val topIndicatorKinds = if (isEditMode) 0 else roomSummary.indicators.count { it.role in ROOM_CARD_TOP_STATUS_ROLES }
-            val bottomIndicatorKinds = if (isEditMode) 0 else roomSummary.indicators.count { it.role in ROOM_CARD_BOTTOM_STATUS_ROLES }
-            val topIndicatorPadding = when (topIndicatorKinds) {
-                0 -> 0.dp
-                1 -> 42.dp
-                2 -> 76.dp
-                else -> 112.dp
-            }
-            val bottomIndicatorPadding = when (bottomIndicatorKinds) {
-                0 -> 8.dp
-                1 -> 42.dp
-                2 -> 76.dp
-                else -> 116.dp
-            }
-            val primaryColor = if (imageUrl != null) Color.White else appColors.onSurface
-            val secondaryColor = if (imageUrl != null) Color.White.copy(alpha = 0.88f) else appColors.onMuted
-            Box(
-                modifier = Modifier.fillMaxSize().padding(if (compactTiles) 12.dp else 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .padding(end = topIndicatorPadding),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (config.icon != "None") {
-                        Surface(shape = CircleShape, color = Color.Black.copy(alpha = 0.35f)) {
-                            MdiIcon(
-                                config.icon ?: area.icon,
-                                modifier = Modifier.padding(if (compactTiles) 6.dp else 8.dp),
-                                tint = Color.White,
-                                size = if (compactTiles) 16.dp else 18.dp
-                            )
-                        }
-                        Spacer(Modifier.width(10.dp))
-                    }
-                    Text(
-                        config.name ?: area.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = primaryColor,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                if (!isEditMode) {
-                    RoomStatusIndicators(
-                        summary = roomSummary,
-                        compact = true,
-                        visibleRoles = ROOM_CARD_TOP_STATUS_ROLES,
-                        onIndicatorClick = onActivityClick,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .widthIn(max = 108.dp)
-                    )
-
-                    RoomStatusIndicators(
-                        summary = roomSummary,
-                        compact = true,
-                        visibleRoles = ROOM_CARD_BOTTOM_STATUS_ROLES,
-                        onIndicatorClick = onActivityClick,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .widthIn(max = 108.dp)
-                    )
-                }
-
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .padding(end = bottomIndicatorPadding),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (mediaStatus != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (mediaIcon != null) {
-                                Icon(
-                                    mediaIcon,
-                                    contentDescription = null,
-                                    tint = secondaryColor,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(Modifier.width(5.dp))
-                            }
-                            Text(
-                                mediaStatus,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = secondaryColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                    RoomEnvironmentSummary(
-                        summary = roomSummary,
-                        color = primaryColor,
-                        compact = true
-                    )
-                }
-            }
-
-                if (isEditMode) {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
-                }
-            }
-        }
-        if (isEditMode) {
-            EditSettingsButton(onClick = onSettings, modifier = Modifier.align(Alignment.Center))
-            if (canDelete) {
-                EditRemoveBadge(onClick = onDelete, modifier = Modifier.align(Alignment.TopEnd))
-            }
-        }
-    }
 }
+
+
+
 
 private fun parseRoomHeaderColor(value: String?): Color? {
     val normalized = value?.trim()?.takeIf { it.isNotEmpty() }?.let {
@@ -814,6 +650,7 @@ private val ROOM_CARD_TOP_STATUS_ROLES = setOf(
 private val ROOM_CARD_BOTTOM_STATUS_ROLES = setOf(
     RoomStatusRoles.MOTION,
     RoomStatusRoles.PRESENCE,
+    RoomStatusRoles.PEOPLE,
     RoomStatusRoles.SMOKE,
     RoomStatusRoles.GAS,
     RoomStatusRoles.FIRE
@@ -830,7 +667,7 @@ fun AddAreaCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ) {
         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Add Room")
+        Text(stringResource(R.string.ui_add_room_5a95991))
     }
 }
 
@@ -845,7 +682,7 @@ fun AddFloorCard(modifier: Modifier = Modifier, onClick: () -> Unit) {
     ) {
         Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Floor")
+        Text(stringResource(R.string.ui_floor_7db82f7))
     }
 }
 
@@ -861,18 +698,18 @@ private fun AddRoomDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Room") },
+        title = { Text(stringResource(R.string.ui_add_room_5a95991)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = roomName,
                     onValueChange = { roomName = it },
-                    label = { Text("Room name") },
+                    label = { Text(stringResource(R.string.ui_room_name_8605e33)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 if (floors.isNotEmpty()) {
-                    Text("Floor", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ui_floor_7db82f7), style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         floors.take(3).forEach { floor ->
                             FilterChip(
@@ -889,7 +726,7 @@ private fun AddRoomDialog(
                 OutlinedTextField(
                     value = newFloorName,
                     onValueChange = { newFloorName = it },
-                    label = { Text("New floor") },
+                    label = { Text(stringResource(R.string.ui_new_floor_1389094)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -899,9 +736,9 @@ private fun AddRoomDialog(
             Button(
                 enabled = roomName.isNotBlank(),
                 onClick = { onCreate(roomName, selectedFloorId, newFloorName) }
-            ) { Text("Create") }
+            ) { Text(stringResource(R.string.ui_create_6e157c5)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
     )
 }
 
@@ -913,20 +750,20 @@ private fun AddFloorDialog(
     var name by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Floor") },
+        title = { Text(stringResource(R.string.ui_add_floor_63c715d)) },
         text = {
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Floor name") },
+                label = { Text(stringResource(R.string.ui_floor_name_e9d98d6)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
         },
         confirmButton = {
-            Button(enabled = name.isNotBlank(), onClick = { onCreate(name) }) { Text("Create") }
+            Button(enabled = name.isNotBlank(), onClick = { onCreate(name) }) { Text(stringResource(R.string.ui_create_6e157c5)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
     )
 }
 
@@ -955,43 +792,48 @@ private fun FloorSettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle("Floor", "Identity, layout, and card style") },
+        title = {
+            com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle(
+                stringResource(R.string.floor_settings_title),
+                stringResource(R.string.floor_settings_subtitle)
+            )
+        },
         text = {
             val settingsScroll = rememberScrollState()
             Column(
                 modifier = Modifier.heightIn(max = 460.dp).fadingEdges(settingsScroll).verticalScroll(settingsScroll),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Identity", "Name and icon shown above this floor")
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_identity_7e5a975), stringResource(R.string.ui_name_and_icon_shown_above_this_floor_3755eda))
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Title") },
+                    label = { Text(stringResource(R.string.ui_title_768e0c1)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Icon", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_icon_716f63b), style = MaterialTheme.typography.labelLarge)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (iconName.isNotEmpty()) MdiIcon(iconName, size = 20.dp)
-                    TextButton(onClick = { showIconPickerFloor = true }) { Text(if (iconName.isEmpty()) "Choose" else "Change") }
-                    if (iconName.isNotEmpty()) TextButton(onClick = { iconName = "" }) { Text("None") }
+                    TextButton(onClick = { showIconPickerFloor = true }) { Text(if (iconName.isEmpty()) stringResource(R.string.ui_choose_78b7c9f) else stringResource(R.string.ui_change_64fbd99)) }
+                    if (iconName.isNotEmpty()) TextButton(onClick = { iconName = "" }) { Text(stringResource(R.string.ui_none_6eef664)) }
                 }
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Layout", "Grid density, width, and tile shape")
-                Text("Columns", style = MaterialTheme.typography.labelLarge)
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_layout_972ad8d), stringResource(R.string.ui_grid_density_width_and_tile_shape_267ad9a))
+                Text(stringResource(R.string.ui_columns_cf723c5), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (1..3).forEach { count ->
-                        FilterChip(selected = columns == count, onClick = { columns = count }, label = { Text("$count") })
+                        FilterChip(selected = columns == count, onClick = { columns = count }, label = { Text(stringResource(R.string.ui_text_c79f712, count)) })
                     }
                 }
                 WidgetWidthSelector(width = cardWidth, onWidthChange = { cardWidth = it }, includeThird = false)
-                Text("Shape", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_shape_ea5c1a2), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = !isSquare, onClick = { isSquare = false }, label = { Text("Standard") })
-                    FilterChip(selected = isSquare, onClick = { isSquare = true }, label = { Text("Square") })
+                    FilterChip(selected = !isSquare, onClick = { isSquare = false }, label = { Text(stringResource(R.string.ui_standard_2dfa660)) })
+                    FilterChip(selected = isSquare, onClick = { isSquare = true }, label = { Text(stringResource(R.string.ui_square_82810cb)) })
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = compactTiles, onCheckedChange = { compactTiles = it })
-                    Text("Compact tile height")
+                    Text(stringResource(R.string.ui_compact_tile_height_78b57a3))
                 }
             }
         },
@@ -1011,8 +853,8 @@ private fun FloorSettingsDialog(
                         )
                     )
                 }
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.ui_save_efc007a)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
     )
 }

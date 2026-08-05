@@ -1,0 +1,197 @@
+name: Build HKI 7 Web
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - multiplatform-web
+    paths:
+      - "webApp/**"
+      - "sharedUi/**"
+      - "app/build.gradle.kts"
+      - "app/src/main/java/com/jimz011apps/hki7/ui/**"
+      - "gradle/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle.properties"
+      - "gradlew"
+      - ".github/workflows/build-web.yml"
+
+permissions:
+  contents: read
+  packages: write
+  statuses: write
+
+concurrency:
+  group: hki7-web-multiplatform-web
+  cancel-in-progress: true
+
+jobs:
+  build-web-image:
+    name: Build and smoke-test web image
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android preview SDK used by the existing app module
+        shell: bash
+        run: |
+          sdkmanager_path="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager_path" ]; then
+            sdkmanager_path="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -perm -111 | head -n 1)"
+          fi
+          test -n "$sdkmanager_path" && test -x "$sdkmanager_path"
+          "$sdkmanager_path" --channel=3 \
+            "platforms;android-37.0" \
+            "build-tools;37.0.0"
+
+      - name: Build production WebAssembly distribution
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :webApp:wasmJsBrowserDistribution
+
+      - name: Upload web distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: HKI7-web-wasm
+          path: webApp/build/dist/wasmJs/productionExecutable
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Build runnable container
+        run: docker build -f webApp/Dockerfile -t hki7-web:ci .
+
+      - name: Smoke-test container
+        run: |
+          docker run -d --rm --name hki7-web-test -p 8080:80 hki7-web:ci
+          trap 'docker stop hki7-web-test || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --show-error http://127.0.0.1:8080/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs hki7-web-test
+          exit 1
+
+      - name: Export Docker image artifact
+        run: docker save hki7-web:ci | gzip -9 > HKI7-web-image.tar.gz
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HKI7-web-docker-image
+          path: HKI7-web-image.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Log in to GitHub Container Registry for preview
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish visual parity preview image
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/${owner}/hki7-web"
+          short_sha="${GITHUB_SHA:0:12}"
+          docker tag hki7-web:ci "${image}:preview"
+          docker tag hki7-web:ci "${image}:preview-sha-${short_sha}"
+          docker push "${image}:preview"
+          docker push "${image}:preview-sha-${short_sha}"
+
+      # Production tags remain explicitly gated until the complete HKI 7 app root is ported.
+      - name: Publish production image
+        if: github.event_name == 'push' && hashFiles('webApp/PRODUCTION_READY') != ''
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/${owner}/hki7-web"
+          short_sha="${GITHUB_SHA:0:12}"
+          docker tag hki7-web:ci "${image}:multiplatform-web"
+          docker tag hki7-web:ci "${image}:sha-${short_sha}"
+          docker push "${image}:multiplatform-web"
+          docker push "${image}:sha-${short_sha}"
+
+  validate-android:
+    name: Validate Android app with shared UI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android preview SDK
+        run: |
+          sdkmanager --channel=3 \
+            "platforms;android-37.0" \
+            "build-tools;37.0.0"
+
+      - name: Assemble Android debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug
+
+  report-branch-status:
+    name: Publish branch build status
+    if: always()
+    needs:
+      - build-web-image
+      - validate-android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Publish status with workflow run URL
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WEB_RESULT: ${{ needs.build-web-image.result }}
+          ANDROID_RESULT: ${{ needs.validate-android.result }}
+        shell: bash
+        run: |
+          if [ "$WEB_RESULT" = "success" ] && [ "$ANDROID_RESULT" = "success" ]; then
+            state="success"
+            description="Web preview and Android validation passed"
+          else
+            state="failure"
+            description="Web: ${WEB_RESULT}; Android: ${ANDROID_RESULT}"
+          fi
+          gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="$state" \
+            -f context="HKI7 Web migration" \
+            -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"

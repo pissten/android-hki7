@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empty (transparent) buttons and the custom-popup action. -->
+<resources>
+    <string name="spacer_empty_button">Boş düğme</string>
+    <string name="spacer_empty_button_description">Yalnızca yer kaplayan saydam yer tutucu</string>
+    <string name="spacer_add_empty_button">Boş düğme ekle</string>
+    <string name="popup_custom_popup">Özel açılır pencere</string>
+    <string name="popup_choose">Bir açılır pencere seçin</string>
+    <string name="popup_none_yet">Henüz açılır pencere yok</string>
+    <string name="popup_new">Yeni açılır pencere</string>
+    <string name="popup_default_name">Yeni açılır pencere</string>
+    <string name="popup_name">Açılır pencere adı</string>
+    <string name="popup_edit_contents">İçeriği düzenle</string>
+    <string name="popup_delete">Açılır pencereyi sil</string>
+    <string name="popup_status_entity">Durum varlığı</string>
+    <string name="popup_status_entity_hint">İsteğe bağlı. Durumu, iletişim kutusunun durum satırını doldurur ve geçmiş görünümünü ekler.</string>
+    <string name="popup_settings_subtitle">Ad, simge ve durum varlığı</string>
+    <string name="popup_shared_hint">Açılır pencereler paylaşılır: başka düğmeler de aynı pencereyi açabilir.</string>
+    <string name="popup_empty">Bu açılır pencere boş. Widget eklemek için Düzenle’ye dokunun.</string>
+    <string name="popup_settings_title">Açılır pencereler</string>
+    <string name="popup_settings_subtitle_section">Özel açılır pencerelerinizi oluşturun ve düzenleyin</string>
+    <string name="popup_settings_hint">Açılır pencereler, Özel açılır pencere eylemine ayarlanmış bir düğme, rozet veya iletişim kutusu düğmesinden açılır. «İçeriği düzenle», widget’ları yerleştirebilmeniz için pencerenin kendisini açar.</string>
+    <string name="button_icon_only">Yalnızca simge</string>
+    <string name="button_icon_size">Simge boyutu</string>
+    <string name="button_icon_size_description">Otomatik, yığın sütun kazandıkça simgeyi küçültür; böylece dar bir düğmeye sığar.</string>
+    <string name="button_icon_size_auto">Otomatik</string>
+    <string name="button_icon_size_value">%1$d dp</string>
+    <string name="stack_child_icon_only">Her düğme için yalnızca simge</string>
+    <string name="stack_child_icon_only_description">Bu yığındaki tüm düğmelere uygulanır, böylece tek tek ayarlamanız gerekmez.</string>
+    <string name="stack_child_icon_size">Her düğme için simge boyutu</string>
+    <string name="button_icon_only_description">Adı ve durumu gizler, simgeyi düğmenin ortasına yerleştirir</string>
+    <string name="action_button">Eylem düğmesi</string>
+    <string name="action_button_description">Varlığı olmayan bir düğme: ad, simge ve istediğiniz eylemi verin</string>
+    <string name="action_button_add">Eylem düğmesi ekle</string>
+    <string name="action_badge_add">Eylem rozeti ekle</string>
+</resources>

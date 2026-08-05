@@ -422,28 +422,74 @@ open class HomeAssistantClient(
     }
 
     /** Sets a user's full policy (hidden views/rooms plus edit and visibility permissions). Admin
-     * only. Returns true on success.
+     * only.
      *
-     * Older companion components accept only hidden_views/hidden_rooms and reject unknown keys with a
-     * schema error, so the extra permission fields are attempted first and, if that call is rejected,
-     * we retry with just the hidden lists. That keeps parental controls working on an un-updated
-     * component; the new permission fields take effect once the component understands them. */
-    open suspend fun hki7SetPolicy(userId: String, policy: Hki7Policy): Boolean = withWebSocket {
+     * Older companion components accept only the fields they shipped with and reject unknown keys
+     * with a schema error, so this walks back through the generations. Whatever the component does
+     * understand is still stored, and the result says whether anything had to be dropped — a
+     * component that is merely out of date must not block every other permission from saving. */
+    open suspend fun hki7SetPolicy(userId: String, policy: Hki7Policy): Hki7PolicySaveResult = withWebSocket {
         val base = mapOf<String, JsonElement>(
             "user_id" to JsonPrimitive(userId),
             "hidden_views" to JsonArray(policy.hiddenViews.map { JsonPrimitive(it) }),
             "hidden_rooms" to JsonArray(policy.hiddenRooms.map { JsonPrimitive(it) }),
         )
-        val full = base + mapOf<String, JsonElement>(
+        val legacyPermissions = base + mapOf<String, JsonElement>(
             "allow_edit" to JsonPrimitive(policy.allowEdit),
             "aesthetics_only" to JsonPrimitive(policy.aestheticsOnly),
             "show_global_search" to JsonPrimitive(policy.showGlobalSearch),
             "show_flows" to JsonPrimitive(policy.showFlows),
         )
-        if (sendCommand("hki7/policy/set", full)["success"]?.jsonPrimitive?.booleanOrNull == true) {
-            return@withWebSocket true
+        val dashboardPermissions = legacyPermissions + mapOf<String, JsonElement>(
+            "allow_dashboard_switch" to JsonPrimitive(policy.allowDashboardSwitch),
+            "allow_dashboard_create" to JsonPrimitive(policy.allowDashboardCreate),
+            "allow_reimport" to JsonPrimitive(policy.allowReimport),
+        )
+        val searchAccess = dashboardPermissions + mapOf<String, JsonElement>(
+            "hidden_item_ids" to JsonArray(policy.hiddenItemIds.map { JsonPrimitive(it) }),
+            "visible_search_domains" to JsonArray(policy.visibleSearchDomains.map { JsonPrimitive(it) }),
+            "visible_search_entity_ids" to JsonArray(policy.visibleSearchEntityIds.map { JsonPrimitive(it) }),
+            "hidden_search_domains" to JsonArray(policy.hiddenSearchDomains.map { JsonPrimitive(it) }),
+            "hidden_search_entity_ids" to JsonArray(policy.hiddenSearchEntityIds.map { JsonPrimitive(it) }),
+        )
+        val full = searchAccess + mapOf<String, JsonElement>(
+            "room_follow" to buildJsonObject {
+                put("sensor_entity_id", policy.roomFollow.sensorEntityId?.let(::JsonPrimitive) ?: JsonNull)
+                put("enabled", policy.roomFollow.enabled)
+                put("open_on_launch", policy.roomFollow.openOnLaunch)
+                put("prompt_on_move", policy.roomFollow.promptOnMove)
+                put("dwell_seconds", policy.roomFollow.dwellSeconds)
+                put("state_rooms", buildJsonObject {
+                    policy.roomFollow.stateRooms.forEach { (state, areaId) -> put(state, areaId) }
+                })
+            }
+        )
+        suspend fun send(payload: Map<String, JsonElement>): Boolean =
+            sendCommand("hki7/policy/set", payload)["success"]?.jsonPrimitive?.booleanOrNull == true
+
+        if (send(full)) return@withWebSocket Hki7PolicySaveResult.SAVED
+        // Component 0.5.x and older reject room_follow. Only report the drop when the policy
+        // actually carries room-following settings.
+        if (policy.roomFollow != Hki7RoomFollow() && send(searchAccess)) {
+            return@withWebSocket Hki7PolicySaveResult.SAVED_WITHOUT_ROOM_FOLLOW
         }
-        sendCommand("hki7/policy/set", base)["success"]?.jsonPrimitive?.booleanOrNull == true
+        if (send(searchAccess)) return@withWebSocket Hki7PolicySaveResult.SAVED
+        // Everything below drops the item/search lists, so only report a partial save when the
+        // policy actually carries some.
+        val usesSearchAccess = policy.hiddenItemIds.isNotEmpty() ||
+            policy.visibleSearchDomains.isNotEmpty() || policy.visibleSearchEntityIds.isNotEmpty() ||
+            policy.hiddenSearchDomains.isNotEmpty() || policy.hiddenSearchEntityIds.isNotEmpty()
+        val degraded = if (usesSearchAccess) {
+            Hki7PolicySaveResult.SAVED_WITHOUT_SEARCH_ACCESS
+        } else {
+            Hki7PolicySaveResult.SAVED
+        }
+        if (send(dashboardPermissions)) return@withWebSocket degraded
+        // Component 0.4/0.5 understands the original permission set but not the dashboard fields.
+        // Preserve those permissions instead of falling all the way back to hidden lists.
+        if (send(legacyPermissions)) return@withWebSocket degraded
+        if (send(base)) return@withWebSocket degraded
+        Hki7PolicySaveResult.FAILED
     }
 
     /** Every stored policy keyed by user id (admin only). Empty if not permitted. */
@@ -457,11 +503,44 @@ open class HomeAssistantClient(
     private fun parsePolicy(o: JsonObject): Hki7Policy = Hki7Policy(
         hiddenViews = o["hidden_views"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
         hiddenRooms = o["hidden_rooms"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        hiddenItemIds = o["hidden_item_ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        visibleSearchDomains = o["visible_search_domains"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        visibleSearchEntityIds = o["visible_search_entity_ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        hiddenSearchDomains = o["hidden_search_domains"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        hiddenSearchEntityIds = o["hidden_search_entity_ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
         allowEdit = o["allow_edit"]?.jsonPrimitive?.booleanOrNull ?: true,
         aestheticsOnly = o["aesthetics_only"]?.jsonPrimitive?.booleanOrNull ?: false,
         showGlobalSearch = o["show_global_search"]?.jsonPrimitive?.booleanOrNull ?: true,
         showFlows = o["show_flows"]?.jsonPrimitive?.booleanOrNull ?: true,
+        allowDashboardSwitch = o["allow_dashboard_switch"]?.jsonPrimitive?.booleanOrNull ?: true,
+        allowDashboardCreate = o["allow_dashboard_create"]?.jsonPrimitive?.booleanOrNull ?: true,
+        allowReimport = o["allow_reimport"]?.jsonPrimitive?.booleanOrNull ?: true,
+        roomFollow = (o["room_follow"] as? JsonObject)?.let { follow ->
+            Hki7RoomFollow(
+                sensorEntityId = follow["sensor_entity_id"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() },
+                enabled = follow["enabled"]?.jsonPrimitive?.booleanOrNull ?: false,
+                openOnLaunch = follow["open_on_launch"]?.jsonPrimitive?.booleanOrNull ?: true,
+                promptOnMove = follow["prompt_on_move"]?.jsonPrimitive?.booleanOrNull ?: true,
+                dwellSeconds = follow["dwell_seconds"]?.jsonPrimitive?.intOrNull
+                    ?: Hki7RoomFollow.DEFAULT_DWELL_SECONDS,
+                stateRooms = (follow["state_rooms"] as? JsonObject)
+                    ?.mapNotNull { (state, area) -> area.jsonPrimitive.contentOrNull?.let { state to it } }
+                    ?.toMap()
+                    .orEmpty()
+            )
+        } ?: Hki7RoomFollow(),
     )
+
+    /** The household's room-presence sensor ids, for the people-per-room counter. Readable by any
+     *  user. Null when the command is unavailable (older or absent component), so the caller can
+     *  tell "no sensors configured" apart from "this component can't answer". */
+    open suspend fun hki7RoomFollowRoster(): List<String>? = withWebSocket {
+        val response = sendCommand("hki7/room_follow/roster")
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket null
+        response["result"]?.jsonObject?.get("sensors")?.jsonArray
+            ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+            ?: emptyList()
+    }
 
     private fun parseDashboardMeta(o: JsonObject): Hki7SharedDashboardMeta? {
         val id = o["id"]?.jsonPrimitive?.contentOrNull ?: return null
@@ -916,6 +995,39 @@ open class HomeAssistantClient(
         }
     }
 
+    /** Emits the shared dashboard id whenever HKI 7 Cloud publishes or unpublishes a dashboard.
+     * Access control remains enforced by the subsequent list/get calls; this event is only an
+     * invalidation signal. Older components simply never emit it, while startup/foreground sync
+     * remains the compatibility fallback. */
+    open fun subscribeHki7DashboardUpdates(): Flow<String?> = flow {
+        val conn = ensureConnected()
+        val id = messageId.getAndIncrement()
+        val channel = Channel<JsonObject>(Channel.UNLIMITED)
+        conn.channels[id] = channel
+        try {
+            conn.session.send(buildJsonObject {
+                put("id", id)
+                put("type", "subscribe_events")
+                put("event_type", "hki7_dashboard_updated")
+            }.toString())
+
+            for (message in channel) {
+                if (message["type"]?.jsonPrimitive?.contentOrNull != "event") continue
+                val data = message["event"]?.jsonObject?.get("data")?.jsonObject
+                emit(data?.get("dashboard_id")?.jsonPrimitive?.contentOrNull)
+            }
+        } finally {
+            conn.channels.remove(id)
+            runCatching {
+                conn.session.send(buildJsonObject {
+                    put("id", messageId.getAndIncrement())
+                    put("type", "unsubscribe_events")
+                    put("subscription", id)
+                }.toString())
+            }
+        }
+    }
+
     /** Long-term statistics (recorder): pre-aggregated per-hour/per-day mean and change values —
      *  the same source HA's own energy dashboard uses. Tiny payloads compared to raw history,
      *  which for a per-second P1 meter can run into millions of rows over a month. */
@@ -1050,6 +1162,48 @@ open class HomeAssistantClient(
                 throw Exception("Service call failed: ${response.status.value} ${response.bodyAsText().take(200)}")
             }
         }
+    }
+
+    /**
+     * Raw bytes of a camera entity's current frame. Needed for Valetudo map cameras, whose PNG is a
+     * container for deflated map JSON rather than a picture — Coil would decode and cache the blank
+     * pixels and throw the payload away.
+     */
+    open suspend fun getCameraImageBytes(entityId: String): ByteArray = withAuthHandling {
+        val response = client.get("$baseUrl/api/camera_proxy/$entityId") {
+            header(HttpHeaders.Authorization, "Bearer $accessToken")
+        }
+        if (!response.status.isSuccess()) {
+            throw Exception("Camera image fetch failed: HTTP ${response.status.value}")
+        }
+        response.body<ByteArray>()
+    }
+
+    /**
+     * The vacuum's segment-to-area mapping, as configured in Home Assistant's segment mapping
+     * dialog: `{ area_id: [segment_id, …] }`. `vacuum.clean_area` targets Home Assistant areas
+     * rather than robot segments, so this is what turns a tapped map segment into a callable area.
+     *
+     * Lives in the entity registry entry's `options`, which `config/entity_registry/list` omits —
+     * only the per-entity `get` returns the extended dict.
+     */
+    open suspend fun getVacuumAreaMapping(entityId: String): Map<String, List<String>> = withWebSocket {
+        val response = sendCommand(
+            "config/entity_registry/get",
+            mapOf("entity_id" to JsonPrimitive(entityId))
+        )
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket emptyMap()
+        val mapping = response["result"]?.jsonObject
+            ?.get("options")?.jsonObject
+            ?.get("vacuum")?.jsonObject
+            ?.get("area_mapping")?.jsonObject
+            ?: return@withWebSocket emptyMap()
+
+        mapping.mapValues { (_, segments) ->
+            runCatching {
+                segments.jsonArray.mapNotNull { it.jsonPrimitive.contentOrNull }
+            }.getOrDefault(emptyList())
+        }.filterValues { it.isNotEmpty() }
     }
 
     /** Calls an arbitrary service with a free-form JSON payload (target + service data), for

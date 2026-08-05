@@ -2,6 +2,10 @@
 
 package com.jimz011apps.hki7.ui.screens
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import com.jimz011apps.hki7.ui.components.toVisibilitySpec
 import com.jimz011apps.hki7.ui.components.ModernAlertDialog as AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -49,6 +54,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.jimz011apps.hki7.data.HKIMarkdownWidget
+import com.jimz011apps.hki7.data.isWidgetVisibleNow
 import com.jimz011apps.hki7.ui.components.EditRemoveBadge
 import com.jimz011apps.hki7.ui.components.EditSettingsButton
 import com.jimz011apps.hki7.ui.components.WidgetWidthSelector
@@ -68,7 +74,7 @@ fun MarkdownWidgetItem(
     onSettings: () -> Unit,
     currentUrl: String = ""
 ) {
-    if (widget.isHidden && !isEditMode) return
+    if (!isWidgetVisibleNow(widget) && !isEditMode) return
     val appColors = LocalHKIAppColors.current
     Box {
         Surface(
@@ -93,7 +99,7 @@ fun MarkdownWidgetItem(
             ) {
                 if (widget.content.isBlank()) {
                     Text(
-                        "Empty markdown widget — open its settings in edit mode to write content.",
+                        stringResource(R.string.ui_empty_markdown_widget_open_its_settings_in_edit_mode_b65072d),
                         style = MaterialTheme.typography.bodySmall, color = appColors.onMuted
                     )
                 } else {
@@ -179,7 +185,7 @@ fun MarkdownContent(markdown: String) {
             trimmed.matches(Regex("^\\d+\\.\\s.*")) -> {
                 val number = trimmed.substringBefore('.')
                 Row {
-                    Text("$number.", style = MaterialTheme.typography.bodyMedium, color = appColors.onSurface)
+                    Text(stringResource(R.string.ui_text_68fdf13, number), style = MaterialTheme.typography.bodyMedium, color = appColors.onSurface)
                     Spacer(Modifier.width(8.dp))
                     Text(
                         markdownInline(trimmed.substringAfter('.').trim()),
@@ -278,10 +284,20 @@ fun MarkdownWidgetSettingsDialog(
     var radius by remember(widget) { mutableIntStateOf(widget.cornerRadius) }
     var backgroundUrl by remember(widget) { mutableStateOf(widget.backgroundUrl) }
     var settingsPage by remember(widget) { mutableStateOf("content") }
+    var visSpec by remember(widget) {
+        mutableStateOf(
+            widget.toVisibilitySpec()
+        )
+    }
     AlertDialog(
         stableHeight = true,
         onDismissRequest = onDismiss,
-        title = { com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle("Markdown", "Content and card appearance") },
+        title = {
+            com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle(
+                stringResource(R.string.widgets_markdown_title),
+                stringResource(R.string.widgets_markdown_subtitle)
+            )
+        },
         text = {
             val scroll = rememberScrollState()
             Column(
@@ -289,43 +305,60 @@ fun MarkdownWidgetSettingsDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 com.jimz011apps.hki7.ui.components.SettingsTabRow(
-                    tabs = listOf("content" to "Content", "appearance" to "Appearance"),
+                    tabs = listOf(
+                        "content" to stringResource(R.string.widgets_tab_content),
+                        "appearance" to stringResource(R.string.widgets_tab_appearance),
+                        "visibility" to stringResource(R.string.ui_visibility_7d9ff4f)
+                    ),
                     selected = settingsPage,
                     onSelect = { settingsPage = it }
                 )
                 if (settingsPage == "content") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Content", "Write the information shown on this card")
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_content_4f9be05), stringResource(R.string.ui_write_the_information_shown_on_this_card_4ca5db7))
                 OutlinedTextField(
                     value = content,
                     onValueChange = { content = it },
-                    label = { Text("Markdown") },
-                    placeholder = { Text("# Heading\nSome **bold** text, a list:\n- item one\n- item two") },
+                    label = { Text(stringResource(R.string.ui_markdown_23e67fc)) },
+                    placeholder = { Text(stringResource(R.string.ui_heading_some_bold_text_a_list_item_one_item_b7f049b)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp),
                     textStyle = TextStyle(fontFamily = FontFamily.Monospace)
                 )
                 Text(
-                    "Supports # headings, lists, > quotes, ``` code, **bold**, *italic*, `code`, ~~strike~~ and [links](https://…).",
+                    stringResource(R.string.ui_supports_headings_lists_quotes_code_bold_italic_code_strik_e295744),
                     style = MaterialTheme.typography.labelSmall,
                     color = LocalHKIAppColors.current.onMuted
                 )
                 }
                 if (settingsPage == "appearance") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Appearance", "Size, shape, and background")
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_appearance_41def7a), stringResource(R.string.ui_size_shape_and_background_24dd9b6))
                 WidgetWidthSelector(width = width, onWidthChange = { width = it })
-                Text("Shape", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_shape_ea5c1a2), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = !square, onClick = { square = false }, label = { Text("Standard") })
-                    FilterChip(selected = square, onClick = { square = true }, label = { Text("Square") })
+                    FilterChip(selected = !square, onClick = { square = false }, label = { Text(stringResource(R.string.ui_standard_2dfa660)) })
+                    FilterChip(selected = square, onClick = { square = true }, label = { Text(stringResource(R.string.ui_square_82810cb)) })
                 }
                 WidgetBackgroundSelector(backgroundUrl) { backgroundUrl = it }
+                }
+                if (settingsPage == "visibility") {
+                    com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_visibility_7d9ff4f), stringResource(R.string.ui_hide_this_button_or_schedule_when_it_appears_a28bf66))
+                    com.jimz011apps.hki7.ui.components.VisibilityEditor(visSpec) { visSpec = it }
                 }
             }
         },
         confirmButton = {
             Button(onClick = {
-                onSave(widget.copy(content = content, width = width, isSquare = square, cornerRadius = radius, backgroundUrl = backgroundUrl))
-            }) { Text("Save") }
+                onSave(widget.copy(
+                    content = content, width = width, isSquare = square, cornerRadius = radius, backgroundUrl = backgroundUrl,
+                    isHidden = visSpec.hidden, visibilityStart = visSpec.start, visibilityEnd = visSpec.end,
+                    visibilityRangeMode = visSpec.rangeMode, visibilityRecurrence = visSpec.recurrence,
+ visibilityConditionEntityId = visSpec.conditionEntityId,
+ visibilityConditionState = visSpec.conditionState,
+ visibilityConditionNegate = visSpec.conditionNegate,
+ visibilityConditions = visSpec.conditions,
+ visibilityMatch = visSpec.match
+                ))
+            }) { Text(stringResource(R.string.ui_save_efc007a)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
     )
 }

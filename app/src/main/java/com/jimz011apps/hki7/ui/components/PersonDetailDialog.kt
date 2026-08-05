@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -62,9 +66,10 @@ fun PersonDetailDialog(
     val appColors = LocalHKIAppColors.current
     val currentUrl by viewModel.currentUrl.collectAsState()
     val isEditMode by viewModel.isEditMode.collectAsState()
+    val aestheticsOnly by viewModel.aestheticsOnlyEditing.collectAsState()
     // Settings needs the full catalog for the entity pickers; normal view only the person.
-    val personEntityFlow = remember(viewModel, person.entity_id, isEditMode) {
-        if (isEditMode) viewModel.entitiesMatching { true }
+    val personEntityFlow = remember(viewModel, person.entity_id, isEditMode, aestheticsOnly) {
+        if (isEditMode && !aestheticsOnly) viewModel.entitiesMatching { true }
         else viewModel.entitiesFor(listOf(person.entity_id))
     }
     val allEntities by personEntityFlow.collectAsState()
@@ -80,7 +85,7 @@ fun PersonDetailDialog(
 
     // Edit mode: tapping a person opens its individual settings (the entity dialog auto-dismisses in edit
     // mode, so the settings live in their own dialog here rather than inside the person dialog).
-    if (isEditMode) {
+    if (isEditMode && !aestheticsOnly) {
         PersonSettingsDialog(
             person = livePerson,
             viewModel = viewModel,
@@ -112,11 +117,13 @@ fun PersonDetailDialog(
         customButtons = personButtons
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Map
+            // Map. Takes the height left over after the address pill rather than a fixed square:
+            // a square keyed off the width overflows the dialog on a tablet or unfolded foldable,
+            // where the card is up to 620dp wide but no taller than on a phone.
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(1f)
+                    .weight(1f)
                     .padding(horizontal = 16.dp)
                     .clip(itemCornerShape()),
                 color = if (lat != null && lon != null) Color.Black else appColors.elevated
@@ -128,7 +135,7 @@ fun PersonDetailDialog(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Default.Map, contentDescription = null, tint = appColors.onMuted, modifier = Modifier.size(48.dp))
                             Spacer(Modifier.height(8.dp))
-                            Text("Location Unavailable", color = appColors.onMuted)
+                            Text(stringResource(R.string.ui_location_unavailable_3a57dda), color = appColors.onMuted)
                         }
                     }
                 }
@@ -153,7 +160,7 @@ fun PersonDetailDialog(
                         ) {
                             Icon(Icons.Default.Place, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                             Text(
-                                address ?: "Locating…",
+                                address ?: stringResource(R.string.ui_locating_e46bab0),
                                 color = appColors.onSurface,
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -179,7 +186,7 @@ private fun PersonSettingsDialog(
     onDismiss: () -> Unit
 ) {
     ModernSettingsDialogFrame(
-        title = "Person settings",
+        title = stringResource(R.string.ui_person_settings_977e009),
         subtitle = person.friendlyName ?: person.entity_id,
         icon = Icons.Default.Person,
         onDismiss = onDismiss,
@@ -195,7 +202,7 @@ private fun PersonSettingsDialog(
                 showHeader = false
             )
         },
-        footer = { Button(onClick = onDismiss) { Text("Done") } }
+        footer = { Button(onClick = onDismiss) { Text(stringResource(R.string.ui_done_e9b450d)) } }
     )
 }
 
@@ -221,7 +228,7 @@ fun PersonSettingsView(
     ) {
         if (showHeader) {
             ModernSettingsHeader(
-                title = "Person settings",
+                title = stringResource(R.string.ui_person_settings_977e009),
                 subtitle = person.friendlyName ?: person.entity_id,
                 icon = Icons.Default.Person,
                 onClose = onBack
@@ -229,7 +236,7 @@ fun PersonSettingsView(
             Spacer(Modifier.height(16.dp))
         }
 
-        SettingsSubcategory("Visibility", "Choose whether this person appears in the Home header")
+        SettingsSubcategory(stringResource(R.string.ui_visibility_7d9ff4f), stringResource(R.string.ui_choose_whether_this_person_appears_in_the_home_header_49f0ec2))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(
                 checked = isVisible,
@@ -246,12 +253,12 @@ fun PersonSettingsView(
                     )
                 }
             )
-            Text("Show in header", color = appColors.onSurface)
+            Text(stringResource(R.string.ui_show_in_header_43f0dfd), color = appColors.onSurface)
         }
 
         Spacer(Modifier.height(16.dp))
 
-        SettingsSubcategory("Quick actions", "Buttons available from this person's detail dialog")
+        SettingsSubcategory(stringResource(R.string.ui_quick_actions_e47e804), stringResource(R.string.ui_buttons_available_from_this_person_s_detail_dialog_ab3f9f9))
         Spacer(Modifier.height(8.dp))
         CustomButtonsEditor(
             buttons = personButtons,
@@ -291,6 +298,7 @@ private suspend fun reverseGeocode(lat: Double, lon: Double): String? = withCont
 private fun OpenStreetMapPreview(lat: Double, lon: Double, imageUrl: String?) {
     var zoom by remember(lat, lon) { mutableIntStateOf(15) }
     val context = LocalContext.current
+    val darkTiles = MapTiles.useDarkTiles()
     val density = LocalDensity.current
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
     val tileSizePx = with(density) { 256.dp.toPx() }
@@ -364,7 +372,7 @@ private fun OpenStreetMapPreview(lat: Double, lon: Double, imageUrl: String?) {
                     val wrappedX = wrapTileX(tileX, zoom)
                     AsyncImage(
                         model = ImageRequest.Builder(context)
-                            .data("https://tile.openstreetmap.org/$zoom/$wrappedX/$tileY.png")
+                            .data(MapTiles.url(zoom, wrappedX, tileY, darkTiles))
                             .httpHeaders(NetworkHeaders.Builder().add("User-Agent", "HKI7 Android").build())
                             .crossfade(true)
                             .build(),
@@ -427,7 +435,7 @@ private fun OpenStreetMapPreview(lat: Double, lon: Double, imageUrl: String?) {
             shape = RoundedCornerShape(8.dp)
         ) {
             Text(
-                "OpenStreetMap",
+                MapTiles.MAP_ATTRIBUTION,
                 color = Color.White.copy(alpha = 0.75f),
                 fontSize = 9.sp,
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
@@ -449,26 +457,4 @@ private fun MapZoomButton(icon: androidx.compose.ui.graphics.vector.ImageVector,
     }
 }
 
-private data class WorldPoint(val x: Double, val y: Double)
-
-private fun latLonToWorld(lat: Double, lon: Double, zoom: Int, tileSizePx: Float): WorldPoint {
-    val clampedLat = lat.coerceIn(-85.05112878, 85.05112878)
-    val latRad = Math.toRadians(clampedLat)
-    val tileCount = 1 shl zoom
-    val x = (lon + 180.0) / 360.0 * tileCount
-    val y = (1.0 - ln(tan(latRad) + 1.0 / cos(latRad)) / PI) / 2.0 * tileCount
-    return WorldPoint(x * tileSizePx, y.coerceIn(0.0, tileCount - 1.0) * tileSizePx)
-}
-
-private fun clampWorldPoint(point: WorldPoint, zoom: Int, tileSizePx: Float): WorldPoint {
-    val worldSize = (1 shl zoom) * tileSizePx
-    return WorldPoint(
-        x = ((point.x % worldSize) + worldSize) % worldSize,
-        y = point.y.coerceIn(0.0, worldSize.toDouble())
-    )
-}
-
-private fun wrapTileX(x: Int, zoom: Int): Int {
-    val tileCount = 1 shl zoom
-    return ((x % tileCount) + tileCount) % tileCount
-}
+// Web-Mercator helpers now live in MapTiles.kt, shared with the Find my devices map.

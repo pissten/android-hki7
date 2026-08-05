@@ -93,4 +93,46 @@ class ButtonVisibilityTest {
         assertTrue(isButtonVisibleAt(nightly, LocalDateTime.parse("2026-07-15T22:30")))
         assertFalse(isButtonVisibleAt(nightly, LocalDateTime.parse("2026-07-15T09:00")))
     }
+
+    @Test
+    fun `mixed connectors use AND precedence within OR groups`() {
+        val config = HKIButtonConfig(
+            visibilityConditions = listOf(
+                HKIVisibilityCondition(entityId = "binary_sensor.a", state = "on"),
+                HKIVisibilityCondition(connector = VISIBILITY_CONNECTOR_OR, entityId = "binary_sensor.b", state = "on"),
+                HKIVisibilityCondition(connector = VISIBILITY_CONNECTOR_AND, entityId = "binary_sensor.c", state = "on"),
+            )
+        )
+        val states = mapOf("binary_sensor.a" to "off", "binary_sensor.b" to "on", "binary_sensor.c" to "off")
+        assertFalse(isButtonVisibleAt(config, dec25, resolveEntityState = { states[it] }))
+        assertTrue(isButtonVisibleAt(config, dec25, resolveEntityState = { id -> if (id == "binary_sensor.a") "on" else states[id] }))
+    }
+
+    @Test
+    fun `person condition matches the signed-in Home Assistant user`() {
+        val config = HKIButtonConfig(
+            visibilityConditions = listOf(
+                HKIVisibilityCondition(type = VISIBILITY_TYPE_PERSON, userId = "user-alex")
+            )
+        )
+
+        assertTrue(isButtonVisibleAt(config, dec25, currentUserId = "user-alex"))
+        assertFalse(isButtonVisibleAt(config, dec25, currentUserId = "user-sam"))
+        // Identity may still be loading or the companion component may be unavailable. Fail open
+        // so an unresolved account never makes dashboard controls permanently unreachable.
+        assertTrue(isButtonVisibleAt(config, dec25, currentUserId = null))
+    }
+
+    @Test
+    fun `negated person condition excludes only that user`() {
+        val config = HKIButtonConfig(
+            visibilityConditions = listOf(
+                HKIVisibilityCondition(type = VISIBILITY_TYPE_PERSON, userId = "user-child", negate = true)
+            )
+        )
+
+        assertFalse(isButtonVisibleAt(config, dec25, currentUserId = "user-child"))
+        assertTrue(isButtonVisibleAt(config, dec25, currentUserId = "user-parent"))
+    }
+
 }

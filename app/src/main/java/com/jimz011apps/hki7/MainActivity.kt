@@ -2,6 +2,10 @@
 
 package com.jimz011apps.hki7
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import android.os.Bundle
 import android.Manifest
 import android.annotation.SuppressLint
@@ -87,14 +91,22 @@ import com.jimz011apps.hki7.ui.connectionIssueGraceMillis
 import com.jimz011apps.hki7.ui.HomeAssistantRestartPhase
 import com.jimz011apps.hki7.ui.MainViewModel
 import com.jimz011apps.hki7.data.HaParentalControls
+import com.jimz011apps.hki7.data.HaDashboardSharing
+import com.jimz011apps.hki7.data.VisibilityUserSession
 import com.jimz011apps.hki7.ui.components.IconEffectDefaults
+import com.jimz011apps.hki7.ui.components.RoomMovePrompt
+import com.jimz011apps.hki7.ui.components.LocalEntityCatalogProvider
+import com.jimz011apps.hki7.ui.components.LocalVisibilityFamilyContext
+import com.jimz011apps.hki7.ui.components.VisibilityFamilyContext
 import com.jimz011apps.hki7.ui.components.LocalIconAnimationsEnabled
 import com.jimz011apps.hki7.ui.NavBarConfig
-import com.jimz011apps.hki7.ui.homeAssistantConnectionStatusLabel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import com.jimz011apps.hki7.ui.Screen
+import com.jimz011apps.hki7.ui.localizedTitle
+import com.jimz011apps.hki7.ui.localizedName
 import com.jimz011apps.hki7.ui.components.HKIBottomBar
+import com.jimz011apps.hki7.ui.components.HKITopLevelNavigationItems
 import com.jimz011apps.hki7.ui.components.awaitHorizontalTabSwipes
 import com.jimz011apps.hki7.ui.components.HKIMediaPlayerDialog
 import com.jimz011apps.hki7.ui.components.MediaPlayerMiniBar
@@ -105,6 +117,7 @@ import com.jimz011apps.hki7.ui.components.itemCornerShape
 import com.jimz011apps.hki7.ui.utils.IconPack
 import com.jimz011apps.hki7.ui.utils.IconPreferences
 import com.jimz011apps.hki7.ui.utils.MdiIcon
+import com.jimz011apps.hki7.ui.components.CustomPopupHost
 import com.jimz011apps.hki7.ui.components.NotificationPanel
 import com.jimz011apps.hki7.ui.components.NotificationBannerHost
 import com.jimz011apps.hki7.ui.components.QuickStartGuideDialog
@@ -125,13 +138,14 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Portrait everywhere except fullscreen camera, which temporarily switches to FULL_USER and
-        // restores this on exit. Deliberately set at runtime rather than via
+        // Follow the system's rotation-lock setting rather than hard-locking to portrait: FULL_USER
+        // rotates freely with the sensor when the user allows rotation, and behaves like a lock when
+        // they've disabled auto-rotate. Deliberately set at runtime rather than via
         // android:screenOrientation: Play builds its device catalogue from the manifest only, and a
         // declared portrait lock drops every landscape-only form factor (it cost us all car devices
-        // and a tablet). A runtime lock is invisible to that catalogue while behaving identically
+        // and a tablet). A runtime setting is invisible to that catalogue while behaving identically
         // on phones. Note Android 16+ ignores orientation locks on large screens either way.
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         enableEdgeToEdge()
         applyPreferredRefreshRate()
         val prefs = PreferencesManager(this)
@@ -196,6 +210,7 @@ class MainActivity : ComponentActivity() {
                 })
 
                 val forcedLogoutReason by viewModel.forcedLogoutReason.collectAsState()
+                val aestheticsOnlyEditing by viewModel.aestheticsOnlyEditing.collectAsState()
                 LaunchedEffect(forcedLogoutReason) {
                     val reason = forcedLogoutReason
                     if (reason != null) {
@@ -218,6 +233,38 @@ class MainActivity : ComponentActivity() {
                 val isLoading = serverUrl == loading || internalUrl == loading || accessToken == loading || refreshToken == loading
                 val hasConnectionUrl = !serverUrl.isNullOrBlank() || !internalUrl.isNullOrBlank()
                 val loggedIn = hasConnectionUrl && (!accessToken.isNullOrBlank() || !refreshToken.isNullOrBlank())
+                var visibilityFamilyContext by remember(activeInstanceId) {
+                    mutableStateOf(VisibilityFamilyContext())
+                }
+                LaunchedEffect(loggedIn, activeInstanceId) {
+                    if (!loggedIn) {
+                        visibilityFamilyContext = VisibilityFamilyContext()
+                        VisibilityUserSession.update(null)
+                    } else {
+                        // Never carry one HA account's identity across an instance switch while the
+                        // new companion-component identity is still being resolved.
+                        visibilityFamilyContext = VisibilityFamilyContext()
+                        VisibilityUserSession.update(null)
+                        val identity = runCatching {
+                            HaDashboardSharing.whoami(applicationContext)
+                        }.getOrNull()
+                        val users = if (identity?.isAdmin == true || identity?.isOwner == true) {
+                            runCatching {
+                                HaDashboardSharing.listUsers(applicationContext)
+                            }.getOrDefault(emptyList())
+                        } else {
+                            emptyList()
+                        }
+                        visibilityFamilyContext = VisibilityFamilyContext(
+                            currentUserId = identity?.userId,
+                            isAdmin = identity?.isAdmin == true || identity?.isOwner == true,
+                            users = users,
+                            componentChecked = true,
+                            componentAvailable = identity != null,
+                        )
+                        VisibilityUserSession.update(identity?.userId)
+                    }
+                }
                 // Latch onboarding on once we know the user needs to log in, and keep it on through the
                 // login + permission steps (saving the token mid-flow would otherwise jump to the app).
                 // rememberSaveable so backgrounding on the permission step and returning to a recreated
@@ -263,7 +310,13 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     else -> {
-                        MainApp(prefs, viewModel)
+                        CompositionLocalProvider(
+                            LocalEntityCatalogProvider provides { viewModel.entities.value },
+                            LocalVisibilityFamilyContext provides visibilityFamilyContext,
+                            com.jimz011apps.hki7.ui.components.LocalAestheticsOnlyEditing provides aestheticsOnlyEditing,
+                        ) {
+                            MainApp(prefs, viewModel)
+                        }
                     }
                 }
                 }
@@ -333,6 +386,16 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     })
+    val familyDashboardAccessLost by prefs.familyDashboardAccessLost.collectAsState(initial = false)
+    if (familyDashboardAccessLost) {
+        OnboardingScreen(
+            prefs = prefs,
+            startAtDashboard = true,
+            familyAccessLost = true,
+            onComplete = { viewModel.completeInitialDashboardSetup() },
+        )
+        return
+    }
     
     val connectionStatus by viewModel.status.collectAsState()
     val connectionError by viewModel.connectionError.collectAsState()
@@ -467,6 +530,7 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
     // Refresh this user's policy from the hki7 component whenever we're authenticated.
     LaunchedEffect(Unit) {
         runCatching { HaParentalControls.refreshForCurrentUser(appCtx, prefs) }
+        runCatching { HaParentalControls.refreshRoomFollowRoster(appCtx, prefs) }
     }
     val isEditMode by viewModel.isEditMode.collectAsState()
     val canUndo by viewModel.canUndo.collectAsState()
@@ -481,6 +545,81 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
         if (swipeNavigationDirection != 0) {
             delay(280.milliseconds)
             swipeNavigationDirection = 0
+        }
+    }
+
+    // ── Room following ──────────────────────────────────────────────────
+    val roomFollow by viewModel.roomFollow.collectAsState()
+    val followedAreaId by viewModel.followedAreaId.collectAsState()
+    val pendingRoomMove by viewModel.pendingRoomMove.collectAsState()
+    val parentalHiddenRooms by prefs.parentalHiddenRooms.collectAsState(initial = emptyList())
+    val hiddenRoomIds = remember(parentalHiddenRooms) { parentalHiddenRooms.toSet() }
+    // A room the admin hid from this person must never be opened for them, however they got there.
+    fun canOpenRoom(areaId: String?): Boolean =
+        areaId != null && areaId !in hiddenRoomIds && areas.any { it.area_id == areaId }
+
+    var openedFollowedRoom by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(roomFollow, followedAreaId, areas) {
+        // Once per app start: a later move is the move prompt's job, not a silent jump.
+        if (openedFollowedRoom || !roomFollow.isActive || !roomFollow.openOnLaunch) return@LaunchedEffect
+        if (areas.isEmpty()) return@LaunchedEffect
+        val target = followedAreaId
+        if (!canOpenRoom(target)) return@LaunchedEffect
+        openedFollowedRoom = true
+        navController.navigate(Screen.RoomDetail.createRoute(target!!))
+    }
+
+    // Confirming a move is about elapsed time, not about the sensor repeating itself, so this
+    // ticks rather than reacting to state changes. The room on screen must be read through
+    // rememberUpdatedState: navigating between rooms changes none of the effect's keys, so a
+    // captured value would stay stuck on whatever was open when the loop started and the
+    // "already in that room" check below would never match.
+    val latestAreaId by rememberUpdatedState(currentAreaId)
+    LaunchedEffect(roomFollow.isActive, roomFollow.promptOnMove, isEditMode) {
+        // Turning following off, or entering edit mode, must also retire a prompt already on
+        // screen — otherwise it sits there waiting for an answer to a question no longer asked.
+        // Turning *prompting* off is not a reason to stop: the tracker keeps running and the move
+        // is opened silently instead (see observeRoomPresence).
+        if (!roomFollow.isActive || isEditMode) {
+            viewModel.cancelRoomMovePrompt()
+            return@LaunchedEffect
+        }
+        if (!roomFollow.promptOnMove) viewModel.cancelRoomMovePrompt()
+        while (true) {
+            viewModel.observeRoomPresence(latestAreaId)
+            delay(2.seconds)
+        }
+    }
+
+    // Prompting off: a confirmed move opens straight away, with the same guards the prompt path
+    // applies — never into a room the admin hid, and never into the room already on screen.
+    val autoRoomMove by viewModel.autoRoomMove.collectAsState()
+    LaunchedEffect(autoRoomMove, isEditMode, roomFollow.isActive) {
+        val target = autoRoomMove ?: return@LaunchedEffect
+        // Re-checked here and not just where the move was confirmed: following can be switched off
+        // between confirming a move and this effect running, and navigating then would look exactly
+        // like the toggle being ignored.
+        if (isEditMode || !roomFollow.isActive) return@LaunchedEffect
+        if (canOpenRoom(target) && target != latestAreaId) {
+            navController.navigate(Screen.RoomDetail.createRoute(target))
+        }
+        viewModel.consumeAutoRoomMove(target)
+    }
+
+    pendingRoomMove?.let { targetAreaId ->
+        val roomName = areas.firstOrNull { it.area_id == targetAreaId }?.name
+        if (roomName == null || !canOpenRoom(targetAreaId)) {
+            LaunchedEffect(targetAreaId) { viewModel.resolveRoomMove(accepted = false) }
+        } else {
+            RoomMovePrompt(
+                roomName = roomName,
+                onSwitch = {
+                    viewModel.resolveRoomMove(accepted = true)
+                    navController.navigate(Screen.RoomDetail.createRoute(targetAreaId))
+                },
+                onStay = { viewModel.resolveRoomMove(accepted = false) },
+                onSilenceUntilRestart = { viewModel.silenceRoomMovePromptUntilRestart() }
+            )
         }
     }
     val currentTopLevelIndex = screens.indexOfFirst { screen ->
@@ -777,6 +916,10 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
 
         NotificationBannerHost(viewModel, Modifier.align(Alignment.TopCenter))
 
+        // Popup actions can fire from any surface (buttons, badges, dialog nav bars), so their
+        // dialog is hosted here once instead of being threaded through every screen.
+        CustomPopupHost(viewModel, navController)
+
         // Opaque strip behind three-button navigation, painted over the page but under the floating
         // bar, so scrolling content no longer shows through the system buttons. Collapses to nothing
         // under gesture navigation, where the inset is 0 and content is meant to run to the edge.
@@ -870,12 +1013,25 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
             } else Modifier
         ) {
             if (isEditMode) {
-                EditNavButton(Icons.AutoMirrored.Filled.Undo, "Undo", enabled = canUndo) { viewModel.undo() }
-                EditNavButton(Icons.AutoMirrored.Filled.Redo, "Redo", enabled = canRedo) { viewModel.redo() }
-                EditNavButton(Icons.Default.CheckCircle, "Done") { viewModel.toggleEditMode() }
+                EditNavButton(
+                    Icons.AutoMirrored.Filled.Undo,
+                    stringResource(R.string.action_undo),
+                    enabled = canUndo
+                ) { viewModel.undo() }
+                EditNavButton(
+                    Icons.AutoMirrored.Filled.Redo,
+                    stringResource(R.string.action_redo),
+                    enabled = canRedo
+                ) { viewModel.redo() }
+                EditNavButton(
+                    Icons.Default.CheckCircle,
+                    stringResource(R.string.ui_done_e9b450d)
+                ) { viewModel.toggleEditMode() }
             } else {
-                screens.forEach { screen ->
-                        val isSelected = when (screen) {
+                HKITopLevelNavigationItems(
+                    screens = screens,
+                    isSelected = { screen ->
+                        when (screen) {
                             is Screen.Custom ->
                                 currentDestination?.route == Screen.CUSTOM_PAGE_ROUTE &&
                                     navBackStackEntry?.arguments?.getString("pageId") == screen.page.id
@@ -887,49 +1043,11 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
                                     currentDestination?.hierarchy?.any { it.route == screen.route } == true
                             else -> currentDestination?.hierarchy?.any { it.route == screen.route } == true
                         }
-
-                        Column(
-                            modifier = Modifier
-                                .then(
-                                    // weight() needs a bounded row; scrollable rows use fixed-width tabs.
-                                    if (navBarScrollable) Modifier.width(68.dp) else Modifier.weight(1f)
-                                )
-                                .fillMaxHeight()
-                                .clickable { navigateToTopLevel(screen) },
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(width = 56.dp, height = 32.dp)
-                                    .clip(itemCornerShape())
-                                    .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.Transparent),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val iconTint = if (isSelected) MaterialTheme.colorScheme.primary else appColors.onMuted
-                                if (screen.mdiIcon != null) {
-                                    MdiIcon(
-                                        name = screen.mdiIcon,
-                                        tint = iconTint,
-                                        size = 24.dp
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = screen.icon,
-                                        contentDescription = null,
-                                        tint = iconTint,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                            Text(
-                                text = screen.title,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isSelected) appColors.onSurface else appColors.onMuted,
-                                fontSize = 10.sp
-                            )
-                        }
-                    }
+                    },
+                    onSelect = navigateToTopLevel,
+                    labelFor = { screen -> screen.localizedTitle() },
+                    scrollable = navBarScrollable,
+                )
             }
         }
         // Handlebar affordance: shows when the media bar is tucked away; swipe up here to restore it.
@@ -1052,10 +1170,12 @@ private fun InstanceSwitcherPanel(
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Switch home", style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                            Text("Choose the Home Assistant shown in HKI 7", style = MaterialTheme.typography.bodySmall, color = appColors.onMuted)
+                            Text(stringResource(R.string.ui_switch_home_e6ceda2), style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                            Text(stringResource(R.string.ui_choose_the_home_assistant_shown_in_hki_7_b29bc26), style = MaterialTheme.typography.bodySmall, color = appColors.onMuted)
                         }
-                        IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close") }
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, stringResource(R.string.ui_close_bbfa773))
+                        }
                     }
                     HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.20f))
                     Column(
@@ -1093,7 +1213,13 @@ private fun InstanceSwitcherPanel(
                                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                         )
                                     }
-                                    if (selected) Icon(Icons.Default.CheckCircle, "Active", tint = MaterialTheme.colorScheme.primary)
+                                    if (selected) {
+                                        Icon(
+                                            Icons.Default.CheckCircle,
+                                            stringResource(R.string.ui_active_a733b80),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1105,10 +1231,10 @@ private fun InstanceSwitcherPanel(
                     ) {
                         Icon(Icons.Default.Add, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Add Home Assistant")
+                        Text(stringResource(R.string.ui_add_home_assistant_a6ccea8))
                     }
                     Text(
-                        "Open this panel by swiping left from the upper-right edge of any page header.",
+                        stringResource(R.string.ui_open_this_panel_by_swiping_left_from_the_upper_671e63c),
                         modifier = Modifier.fillMaxWidth(),
                         style = MaterialTheme.typography.labelSmall,
                         color = appColors.onMuted,
@@ -1137,11 +1263,11 @@ private fun ConnectionErrorOverlay(viewModel: MainViewModel) {
         ) {
             Icon(Icons.Default.CloudOff, null, tint = appColors.onMuted, modifier = Modifier.size(56.dp))
             Spacer(Modifier.height(18.dp))
-            Text("Unable to connect", style = MaterialTheme.typography.headlineSmall, color = appColors.onSurface)
+            Text(stringResource(R.string.ui_unable_to_connect_8207f1b), style = MaterialTheme.typography.headlineSmall, color = appColors.onSurface)
             Spacer(Modifier.height(8.dp))
             Text(
-                if (currentUrl.isBlank()) "Couldn't reach your Home Assistant server."
-                else "Couldn't reach $currentUrl",
+                if (currentUrl.isBlank()) stringResource(R.string.ui_couldn_t_reach_your_home_assistant_server_2a17c09)
+                else stringResource(R.string.ui_couldn_t_reach_a30cc1b, currentUrl),
                 style = MaterialTheme.typography.bodyMedium,
                 color = appColors.onMuted,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1149,7 +1275,7 @@ private fun ConnectionErrorOverlay(viewModel: MainViewModel) {
             connectionError?.takeIf { it.isNotBlank() }?.let { error ->
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    error,
+                    localizedConnectionError(error),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1175,11 +1301,11 @@ private fun ConnectionErrorOverlay(viewModel: MainViewModel) {
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(Modifier.width(10.dp))
-                    Text("Connecting…")
+                    Text(stringResource(R.string.ui_connecting_fd3e796))
                 } else {
                     Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Refresh")
+                    Text(stringResource(R.string.ui_refresh_56e3bad))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -1191,16 +1317,52 @@ private fun ConnectionErrorOverlay(viewModel: MainViewModel) {
             ) {
                 Icon(Icons.AutoMirrored.Filled.Login, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Log in again")
+                Text(stringResource(R.string.ui_log_in_again_1ee6e18))
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                "Logging in again keeps your dashboard and settings.",
+                stringResource(R.string.ui_logging_in_again_keeps_your_dashboard_and_settings_9a8ed6f),
                 style = MaterialTheme.typography.labelSmall,
                 color = appColors.onMuted
             )
         }
     }
+}
+
+@Composable
+private fun localizedConnectionError(error: String): String = when (error) {
+    "Server address could not be found" -> stringResource(R.string.connection_server_not_found)
+    "Connection timed out" -> stringResource(R.string.connection_timed_out)
+    "No network route to Home Assistant" -> stringResource(R.string.connection_no_route)
+    "Could not connect to Home Assistant" -> stringResource(R.string.connection_could_not_connect)
+    "Secure connection failed" -> stringResource(R.string.connection_secure_failed)
+    "Session expired · Refreshing login…" -> stringResource(R.string.connection_session_expired_refreshing)
+    "Connection was interrupted" -> stringResource(R.string.connection_interrupted)
+    else -> error
+}
+
+@Composable
+private fun localizedConnectionStatusLabel(
+    status: ConnectionStatus,
+    restartPhase: HomeAssistantRestartPhase,
+    isAutoGenerating: Boolean,
+    connectionError: String?
+): String = when {
+    restartPhase == HomeAssistantRestartPhase.STOPPING ->
+        stringResource(R.string.connection_stopping_for_restart)
+    restartPhase == HomeAssistantRestartPhase.STARTING ->
+        stringResource(R.string.connection_starting)
+    restartPhase == HomeAssistantRestartPhase.RESTORING ->
+        stringResource(R.string.connection_restoring_dashboard)
+    restartPhase == HomeAssistantRestartPhase.RESTARTING ->
+        stringResource(R.string.connection_restarting)
+    status != ConnectionStatus.CONNECTED && !connectionError.isNullOrBlank() ->
+        localizedConnectionError(connectionError)
+    isAutoGenerating -> stringResource(R.string.connection_auto_generating)
+    status == ConnectionStatus.CONNECTING -> stringResource(R.string.connection_reconnecting)
+    status == ConnectionStatus.ERROR -> stringResource(R.string.connection_unavailable_retrying)
+    status == ConnectionStatus.IDLE -> stringResource(R.string.connection_paused)
+    else -> stringResource(R.string.connection_connected)
 }
 
 @Composable
@@ -1212,13 +1374,13 @@ private fun HomeAssistantConnectionBar(
     modifier: Modifier = Modifier
 ) {
     val appColors = LocalHKIAppColors.current
-    val label = homeAssistantConnectionStatusLabel(
+    val label = localizedConnectionStatusLabel(
         status,
         restartPhase,
         isAutoGenerating,
         connectionError
     )
-    val title = if (isAutoGenerating) "Building your dashboard" else "Home Assistant"
+    val title = if (isAutoGenerating) stringResource(R.string.ui_building_your_dashboard_2943961) else stringResource(R.string.ui_home_assistant_c8fd3bb)
     val showingError = restartPhase == HomeAssistantRestartPhase.NONE &&
         status != ConnectionStatus.CONNECTED &&
         !connectionError.isNullOrBlank()
@@ -1286,9 +1448,9 @@ private fun HomeAssistantConnectionSwitchBar(
                 modifier = Modifier.size(24.dp)
             )
             Column {
-                Text("Home Assistant", color = appColors.onSurface, style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_home_assistant_c8fd3bb), color = appColors.onSurface, style = MaterialTheme.typography.labelLarge)
                 Text(
-                    "Connection switched to ${route.displayName}",
+                    stringResource(R.string.ui_connection_switched_to_8f04753, route.localizedName()),
                     color = Color(0xFF6AC36A),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1

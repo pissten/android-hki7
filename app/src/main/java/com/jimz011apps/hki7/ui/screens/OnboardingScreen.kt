@@ -2,7 +2,12 @@
 
 package com.jimz011apps.hki7.ui.screens
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.PowerManager
@@ -16,6 +21,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -40,9 +46,11 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,6 +73,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.jimz011apps.hki7.data.HaDashboardSharing
+import com.jimz011apps.hki7.data.HaBackupStorage
+import com.jimz011apps.hki7.data.CloudBackupFile
+import com.jimz011apps.hki7.data.CloudBackupStorage
+import com.jimz011apps.hki7.data.Hki7BackupMeta
 import com.jimz011apps.hki7.data.Hki7SharedDashboardMeta
 import com.jimz011apps.hki7.data.HomeAssistantClient
 import com.jimz011apps.hki7.data.HomeAssistantConnectionRoute
@@ -73,12 +85,15 @@ import com.jimz011apps.hki7.data.PreferencesManager
 import com.jimz011apps.hki7.data.PushForegroundService
 import com.jimz011apps.hki7.data.classifyHomeAssistantConnectionRoute
 import com.jimz011apps.hki7.data.splitHomeAssistantConnectionUrl
+import com.jimz011apps.hki7.data.driveAuthorizationRequest
 import com.jimz011apps.hki7.ui.components.LocationDisclosureDialog
 import com.jimz011apps.hki7.ui.components.ModernSettingsHeader
 import com.jimz011apps.hki7.ui.theme.LocalHKIAppColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import java.net.URLEncoder
+import com.google.android.gms.auth.api.identity.Identity
 
 private enum class OnboardStep { WELCOME, SERVER, NAME, LOGIN, PERMISSIONS, CONNECTION, DASHBOARD }
 private enum class AddInstanceStep { SERVER, LOGIN }
@@ -90,7 +105,13 @@ private enum class AddInstanceStep { SERVER, LOGIN }
  * Calls [onComplete] when finished so the host can show the main app.
  */
 @Composable
-fun OnboardingScreen(prefs: PreferencesManager, startAtLogin: Boolean = false, onComplete: () -> Unit) {
+fun OnboardingScreen(
+    prefs: PreferencesManager,
+    startAtLogin: Boolean = false,
+    startAtDashboard: Boolean = false,
+    familyAccessLost: Boolean = false,
+    onComplete: () -> Unit,
+) {
     // Re-login mode (e.g. session expired or the dashboard stopped connecting): the server is
     // already known, so jump straight to the login step and skip the rest of onboarding.
     val loadingSentinel = "__hki_loading__"
@@ -107,12 +128,14 @@ fun OnboardingScreen(prefs: PreferencesManager, startAtLogin: Boolean = false, o
     val savedLoginUrl = savedServerUrl?.takeIf { it.isNotBlank() }
         ?: savedInternalUrl?.takeIf { it.isNotBlank() }
     val loginOnly = remember { startAtLogin && !savedLoginUrl.isNullOrBlank() }
-    LaunchedEffect(loginOnly) {
-        if (!loginOnly) prefs.prepareForInitialDashboardChoice()
+    LaunchedEffect(loginOnly, startAtDashboard) {
+        if (!loginOnly && !startAtDashboard) prefs.prepareForInitialDashboardChoice()
     }
     // Saveable so that backgrounding mid-onboarding (e.g. on the permission step) and returning to a
     // recreated Activity resumes the same step instead of being lost.
-    var step by rememberSaveable { mutableStateOf(if (loginOnly) OnboardStep.LOGIN else OnboardStep.WELCOME) }
+    var step by rememberSaveable {
+        mutableStateOf(if (startAtDashboard) OnboardStep.DASHBOARD else if (loginOnly) OnboardStep.LOGIN else OnboardStep.WELCOME)
+    }
     var serverUrl by rememberSaveable {
         mutableStateOf(if (loginOnly) savedLoginUrl.orEmpty().removeSuffix("/") else "")
     }
@@ -122,7 +145,7 @@ fun OnboardingScreen(prefs: PreferencesManager, startAtLogin: Boolean = false, o
     AnimatedContent(
         targetState = step,
         transitionSpec = { fadeIn() togetherWith fadeOut() },
-        label = "onboard_step"
+        label = stringResource(R.string.ui_onboard_step_fefaac1)
     ) { current ->
         when (current) {
             OnboardStep.WELCOME -> WelcomeStep(
@@ -159,7 +182,7 @@ fun OnboardingScreen(prefs: PreferencesManager, startAtLogin: Boolean = false, o
             )
             OnboardStep.PERMISSIONS -> PermissionsStep(onFinish = { step = OnboardStep.CONNECTION })
             OnboardStep.CONNECTION -> ConnectionInfoStep(serverUrl, onContinue = { step = OnboardStep.DASHBOARD })
-            OnboardStep.DASHBOARD -> DashboardSetupStep(prefs, onComplete)
+            OnboardStep.DASHBOARD -> DashboardSetupStep(prefs, familyAccessLost, onComplete)
         }
     }
 }
@@ -184,7 +207,7 @@ fun AddHomeAssistantInstanceDialog(
         AnimatedContent(
             targetState = step,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "add_instance_step"
+            label = stringResource(R.string.ui_add_instance_step_df337b3)
         ) { current ->
             when (current) {
                 AddInstanceStep.SERVER -> ServerStep(
@@ -220,30 +243,30 @@ private fun ConnectionInfoStep(serverUrl: String, onContinue: () -> Unit) {
     }
     val content = when (route) {
         HomeAssistantConnectionRoute.LOCAL -> ConnectionInfoContent(
-            title = "Local Only",
-            subtitle = "Connected through your home network",
+            title = stringResource(R.string.ui_local_only_05ed059),
+            subtitle = stringResource(R.string.ui_connected_through_your_home_network_cdf4e0f),
             icon = Icons.Default.Wifi,
             paragraphs = listOf(
-                "Your smart home is currently available to HKI 7 only while this device can reach your local Home Assistant network.",
-                "To connect while you're away from home, add a Nabu Casa or external URL later in Settings > Connection."
+                stringResource(R.string.uif_onboarding_local_access_explanation),
+                stringResource(R.string.uif_onboarding_add_remote_url_later),
             )
         )
         HomeAssistantConnectionRoute.NABU_CASA -> ConnectionInfoContent(
-            title = "Remote access is ready.",
-            subtitle = "Connected through Home Assistant Cloud",
+            title = stringResource(R.string.ui_remote_access_is_ready_0e26b5a),
+            subtitle = stringResource(R.string.ui_connected_through_home_assistant_cloud_47a54c0),
             icon = Icons.Default.Cloud,
             paragraphs = listOf(
-                "HKI 7 can reach your smart home both at home and while you're away through your Nabu Casa URL.",
-                "For a faster direct connection at home, you can also add an internal URL and your home Wi-Fi networks later in Settings > Connection."
+                stringResource(R.string.uif_onboarding_nabu_casa_access_explanation),
+                stringResource(R.string.uif_onboarding_add_internal_url_later),
             )
         )
         HomeAssistantConnectionRoute.EXTERNAL -> ConnectionInfoContent(
-            title = "Remote access is ready.",
-            subtitle = "Connected through your external Home Assistant address",
+            title = stringResource(R.string.ui_remote_access_is_ready_0e26b5a),
+            subtitle = stringResource(R.string.ui_connected_through_your_external_home_assistant_address_966b0e6),
             icon = Icons.Default.Public,
             paragraphs = listOf(
-                "HKI 7 can reach your smart home both at home and while you're away through the external URL you entered.",
-                "For a faster direct connection at home, you can also add an internal URL and your home Wi-Fi networks later in Settings > Connection."
+                stringResource(R.string.uif_onboarding_external_access_explanation),
+                stringResource(R.string.uif_onboarding_add_internal_url_later),
             )
         )
     }
@@ -257,7 +280,7 @@ private fun ConnectionInfoStep(serverUrl: String, onContinue: () -> Unit) {
                 onClick = onContinue,
                 modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = RoundedCornerShape(16.dp)
-            ) { Text("Got it", fontWeight = FontWeight.Bold) }
+            ) { Text(stringResource(R.string.ui_got_it_5b8027f), fontWeight = FontWeight.Bold) }
         }
     ) {
         Column(
@@ -291,6 +314,7 @@ private fun ConnectionInfoStep(serverUrl: String, onContinue: () -> Unit) {
             }
         }
     }
+
 }
 
 private data class ConnectionInfoContent(
@@ -376,7 +400,11 @@ private fun OnboardingDialogFrame(
 }
 
 @Composable
-private fun DashboardSetupStep(prefs: PreferencesManager, onComplete: () -> Unit) {
+private fun DashboardSetupStep(
+    prefs: PreferencesManager,
+    familyAccessLost: Boolean = false,
+    onComplete: () -> Unit,
+) {
     val colors = LocalHKIAppColors.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -386,19 +414,161 @@ private fun DashboardSetupStep(prefs: PreferencesManager, onComplete: () -> Unit
     var sharedList by remember { mutableStateOf<List<Hki7SharedDashboardMeta>>(emptyList()) }
     var usingSharedId by remember { mutableStateOf<String?>(null) }
     var familyError by remember { mutableStateOf<String?>(null) }
+    var showRestoreSource by remember { mutableStateOf(false) }
+    var showCloudRestore by remember { mutableStateOf(false) }
+    var showHaRestore by remember { mutableStateOf(false) }
+    var cloudRestoreFiles by remember { mutableStateOf<List<CloudBackupFile>>(emptyList()) }
+    var haRestoreFiles by remember { mutableStateOf<List<Hki7BackupMeta>>(emptyList()) }
+    var restoreBusy by remember { mutableStateOf(false) }
+    var restoreError by remember { mutableStateOf<String?>(null) }
+    val allowDashboardCreate by prefs.enforcedAllowDashboardCreate.collectAsState(initial = true)
+    val allowDashboardSwitch by prefs.enforcedAllowDashboardSwitch.collectAsState(initial = true)
+    var showAccessLostMessage by remember(familyAccessLost) { mutableStateOf(familyAccessLost) }
+    val importFailedTemplate = stringResource(R.string.uif_onboarding_shared_import_failed)
+    val unknownError = stringResource(R.string.settings_extra_unknown_error)
+
+    fun restoreRaw(raw: String) {
+        if (restoreBusy || savingMode != null) return
+        restoreBusy = true
+        restoreError = null
+        scope.launch {
+            runCatching {
+                prefs.restoreUiBackup(raw)
+                prefs.useRestoredBackupAsInitial()
+                prefs.clearFamilyDashboardSubscription()
+            }.onSuccess {
+                onComplete()
+            }.onFailure { error ->
+                restoreError = context.getString(
+                    R.string.settings_extra_restore_failed,
+                    error.message ?: unknownError,
+                )
+                restoreBusy = false
+            }
+        }
+    }
+
+    val localRestoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let {
+            scope.launch {
+                runCatching {
+                    context.contentResolver.openInputStream(it)?.bufferedReader()?.use { reader -> reader.readText() }
+                        ?: error(context.getString(R.string.settings_extra_selected_file_open_failed))
+                }.onSuccess(::restoreRaw).onFailure { error ->
+                    restoreError = context.getString(
+                        R.string.settings_extra_restore_failed,
+                        error.message ?: unknownError,
+                    )
+                }
+            }
+        }
+    }
+
+    val loadDriveBackups: () -> Unit = {
+        restoreBusy = true
+        restoreError = null
+        scope.launch {
+            runCatching { CloudBackupStorage.backups(context) }
+                .onSuccess { backups ->
+                    cloudRestoreFiles = backups
+                    restoreBusy = false
+                    if (backups.isEmpty()) {
+                        restoreError = context.getString(R.string.settings_extra_no_drive_backups)
+                    } else {
+                        showCloudRestore = true
+                    }
+                }
+                .onFailure { error ->
+                    restoreBusy = false
+                    restoreError = context.getString(
+                        R.string.settings_extra_drive_backups_load_failed,
+                        error.message ?: unknownError,
+                    )
+                }
+        }
+    }
+    val driveAuthorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            runCatching {
+                Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data!!)
+            }.onSuccess { authorization ->
+                if (authorization.accessToken != null) loadDriveBackups()
+                else {
+                    restoreBusy = false
+                    restoreError = context.getString(R.string.settings_extra_drive_access_token_missing)
+                }
+            }.onFailure { error ->
+                restoreBusy = false
+                restoreError = context.getString(
+                    R.string.settings_extra_drive_authorization_failed,
+                    error.message ?: unknownError,
+                )
+            }
+        } else {
+            restoreBusy = false
+            restoreError = context.getString(R.string.settings_extra_drive_authorization_cancelled)
+        }
+    }
+    val requestDriveRestore = {
+        restoreBusy = true
+        restoreError = null
+        Identity.getAuthorizationClient(context).authorize(driveAuthorizationRequest())
+            .addOnSuccessListener { authorization ->
+                if (authorization.hasResolution()) {
+                    authorization.pendingIntent?.let { pendingIntent ->
+                        driveAuthorizationLauncher.launch(
+                            IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                        )
+                    } ?: run {
+                        restoreBusy = false
+                        restoreError = context.getString(R.string.settings_extra_drive_authorization_open_failed)
+                    }
+                } else if (authorization.accessToken != null) {
+                    loadDriveBackups()
+                } else {
+                    restoreBusy = false
+                    restoreError = context.getString(R.string.settings_extra_drive_access_token_missing)
+                }
+            }
+            .addOnFailureListener { error ->
+                restoreBusy = false
+                restoreError = context.getString(
+                    R.string.settings_extra_drive_authorization_failed,
+                    error.message ?: unknownError,
+                )
+            }
+    }
     LaunchedEffect(Unit) {
-        val id = runCatching { HaDashboardSharing.whoami(context) }.getOrNull()
-        cloudAvailable = id != null
-        sharedList = if (id != null)
-            runCatching { HaDashboardSharing.listSharedForMe(context) }.getOrDefault(emptyList())
-        else emptyList()
+        do {
+            runCatching { com.jimz011apps.hki7.data.HaParentalControls.refreshForCurrentUser(context, prefs) }
+            val id = runCatching { HaDashboardSharing.whoami(context) }.getOrNull()
+            cloudAvailable = id != null
+            sharedList = if (id != null)
+                runCatching { HaDashboardSharing.listSharedForMe(context) }.getOrDefault(emptyList())
+            else emptyList()
+            // While access is blocked, keep the chooser live so a newly shared dashboard or relaxed
+            // permission appears without requiring the user to restart the app.
+            if (familyAccessLost) delay(5_000)
+        } while (familyAccessLost)
     }
     fun finish(auto: Boolean) {
-        if (savingMode != null) return
+        if (savingMode != null || !allowDashboardCreate) return
         savingMode = auto
         scope.launch {
-            prefs.configureInitialDashboard(auto)
-            onComplete()
+            if (familyAccessLost) {
+                val name = if (auto) "Default (auto generated)" else "Default"
+                val created = prefs.createDashboard(name, auto)
+                if (created == null) {
+                    savingMode = null
+                    return@launch
+                }
+                prefs.clearFamilyDashboardSubscription()
+                onComplete()
+            } else {
+                prefs.clearFamilyDashboardSubscription()
+                prefs.configureInitialDashboard(auto)
+                onComplete()
+            }
         }
     }
     fun useShared(meta: Hki7SharedDashboardMeta) {
@@ -408,17 +578,18 @@ private fun DashboardSetupStep(prefs: PreferencesManager, onComplete: () -> Unit
         scope.launch {
             val localId = runCatching { HaDashboardSharing.import(context, prefs, meta) }.getOrNull()
             if (localId != null) {
-                prefs.useSharedDashboardAsInitial(localId)
+                val discardOtherDashboards = !prefs.enforcedAllowDashboardSwitch.first()
+                prefs.useSharedDashboardAsInitial(localId, discardOtherDashboards)
                 onComplete()
             } else {
-                familyError = "Could not import \"${meta.name}\". Try again."
+                familyError = importFailedTemplate.format(meta.name)
                 usingSharedId = null
             }
         }
     }
     OnboardingDialogFrame(
-        title = "Choose your dashboard",
-        subtitle = "Pick a starting point; everything remains editable",
+        title = stringResource(R.string.ui_choose_your_dashboard_1ec85e9),
+        subtitle = stringResource(R.string.ui_pick_a_starting_point_everything_remains_editable_340924e),
         icon = Icons.Default.DashboardCustomize
     ) {
         Column(
@@ -428,32 +599,75 @@ private fun DashboardSetupStep(prefs: PreferencesManager, onComplete: () -> Unit
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             DashboardChoiceCard(
-                title = "Auto generate",
-                subtitle = "Let HKI 7 create the first version for you.",
+                title = stringResource(R.string.ui_auto_generate_1502534),
+                subtitle = stringResource(R.string.ui_let_hki_7_create_the_first_version_for_you_dc36439),
                 icon = Icons.Default.AutoAwesome,
                 recommended = true,
                 bullets = listOf(
-                    "Creates rooms and floors from Home Assistant areas",
-                    "Finds suitable Climate, Security, Energy and Battery entities",
-                    "Everything can be changed afterward in Edit mode"
+                    stringResource(R.string.uif_onboarding_auto_rooms_floors),
+                    stringResource(R.string.uif_onboarding_auto_entities),
+                    stringResource(R.string.uif_onboarding_everything_editable),
                 ),
-                buttonText = if (savingMode == true) "Building dashboard…" else "Auto generate",
-                enabled = savingMode == null,
+                buttonText = if (savingMode == true) {
+                    stringResource(R.string.uif_onboarding_building_dashboard)
+                } else {
+                    stringResource(R.string.uif_onboarding_auto_generate)
+                },
+                enabled = savingMode == null && allowDashboardCreate,
+                disabledReason = if (!allowDashboardCreate) {
+                    stringResource(R.string.family_dashboard_create_disabled_reason)
+                } else null,
                 onClick = { finish(true) }
             )
             DashboardChoiceCard(
-                title = "Start empty",
-                subtitle = "Build the interface entirely your way.",
+                title = stringResource(R.string.ui_start_empty_25336ee),
+                subtitle = stringResource(R.string.ui_build_the_interface_entirely_your_way_e94582f),
                 icon = Icons.Default.DashboardCustomize,
                 recommended = false,
                 bullets = listOf(
-                    "Starts without imported rooms, widgets or view entities",
-                    "Add everything yourself using Edit mode"
+                    stringResource(R.string.uif_onboarding_starts_empty),
+                    stringResource(R.string.uif_onboarding_add_in_edit_mode),
                 ),
-                buttonText = if (savingMode == false) "Preparing dashboard…" else "Start empty",
-                enabled = savingMode == null,
+                buttonText = if (savingMode == false) {
+                    stringResource(R.string.uif_onboarding_preparing_dashboard)
+                } else {
+                    stringResource(R.string.uif_onboarding_start_empty)
+                },
+                enabled = savingMode == null && allowDashboardCreate,
+                disabledReason = if (!allowDashboardCreate) {
+                    stringResource(R.string.family_dashboard_create_disabled_reason)
+                } else null,
                 onClick = { finish(false) }
             )
+            DashboardChoiceCard(
+                title = stringResource(R.string.ui_restore_backup_a65eaa8),
+                subtitle = stringResource(R.string.ui_choose_where_to_restore_the_dashboard_configuration_from_bb40b34),
+                icon = Icons.Default.Restore,
+                recommended = false,
+                bullets = buildList {
+                    add(stringResource(R.string.ui_local_file_576d5ac))
+                    add(stringResource(R.string.ui_google_drive_07c2964))
+                    if (cloudAvailable == true) add(stringResource(R.string.ui_home_assistant_c8fd3bb))
+                },
+                buttonText = if (restoreBusy) {
+                    stringResource(R.string.connection_restoring_dashboard)
+                } else {
+                    stringResource(R.string.ui_restore_backup_a65eaa8)
+                },
+                enabled = savingMode == null && !restoreBusy && allowDashboardSwitch,
+                disabledReason = if (!allowDashboardSwitch) {
+                    stringResource(R.string.family_dashboard_restore_disabled_reason)
+                } else null,
+                onClick = { showRestoreSource = true }
+            )
+            restoreError?.let { error ->
+                Text(
+                    error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
             // Import from family: shown whenever the option is relevant, with guidance when the
             // cloud component isn't set up yet.
             Surface(
@@ -474,25 +688,25 @@ private fun DashboardSetupStep(prefs: PreferencesManager, onComplete: () -> Unit
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Import from family", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.onSurface)
-                            Text("Use a dashboard an admin has shared with you.", style = MaterialTheme.typography.bodySmall, color = colors.onMuted)
+                            Text(stringResource(R.string.ui_import_from_family_f9eb88d), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colors.onSurface)
+                            Text(stringResource(R.string.ui_use_a_dashboard_an_admin_has_shared_with_you_8b1cfdb), style = MaterialTheme.typography.bodySmall, color = colors.onMuted)
                         }
                     }
                     Spacer(Modifier.height(12.dp))
                     when {
                         cloudAvailable == null -> {
-                            Text("Checking for shared dashboards…", style = MaterialTheme.typography.bodySmall, color = colors.onMuted)
+                            Text(stringResource(R.string.ui_checking_for_shared_dashboards_5f2f823), style = MaterialTheme.typography.bodySmall, color = colors.onMuted)
                         }
                         cloudAvailable == false -> {
                             Text(
-                                "An admin needs to install the HKI 7 Cloud component and share a dashboard first.",
+                                stringResource(R.string.ui_an_admin_needs_to_install_the_hki_7_cloud_0e9241b),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colors.onMuted
                             )
                         }
                         sharedList.isEmpty() -> {
                             Text(
-                                "No dashboards have been shared with you yet. Ask an admin to share one, or pick another option above.",
+                                stringResource(R.string.ui_no_dashboards_have_been_shared_with_you_yet_ask_38b2c0d),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colors.onMuted
                             )
@@ -509,7 +723,7 @@ private fun DashboardSetupStep(prefs: PreferencesManager, onComplete: () -> Unit
                                             Text(meta.name, color = colors.onSurface, fontWeight = FontWeight.SemiBold)
                                             val updated = meta.updated.take(19).replace('T', ' ')
                                             Text(
-                                                if (updated.isNotBlank()) "Updated $updated" else "Shared dashboard",
+                                                if (updated.isNotBlank()) stringResource(R.string.ui_updated_62d2331, updated) else stringResource(R.string.ui_shared_dashboard_86876c0),
                                                 color = colors.onMuted,
                                                 style = MaterialTheme.typography.bodySmall
                                             )
@@ -521,7 +735,7 @@ private fun DashboardSetupStep(prefs: PreferencesManager, onComplete: () -> Unit
                                         ) {
                                             Icon(Icons.Default.Download, null, modifier = Modifier.size(18.dp))
                                             Spacer(Modifier.width(6.dp))
-                                            Text(if (usingSharedId == meta.id) "Importing…" else "Use")
+                                            Text(if (usingSharedId == meta.id) stringResource(R.string.ui_importing_820599d) else stringResource(R.string.ui_use_1d4d43c))
                                         }
                                     }
                                 }
@@ -540,13 +754,226 @@ private fun DashboardSetupStep(prefs: PreferencesManager, onComplete: () -> Unit
                 color = colors.subtleSurface
             ) {
                 Text(
-                    "Auto generation is a one-time starting point. The Home page starts empty in either mode, and you can re-import Home Assistant data later from individual views.",
+                    stringResource(R.string.ui_auto_generation_is_a_one_time_starting_point_the_6b317fe),
                     modifier = Modifier.padding(14.dp),
                     color = colors.onMuted,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
         }
+    }
+
+    OnboardingRestoreDialogs(
+        showSource = showRestoreSource,
+        showCloud = showCloudRestore,
+        showHomeAssistant = showHaRestore,
+        cloudComponentAvailable = cloudAvailable == true,
+        busy = restoreBusy,
+        cloudFiles = cloudRestoreFiles,
+        homeAssistantFiles = haRestoreFiles,
+        onDismissSource = { showRestoreSource = false },
+        onDismissCloud = { showCloudRestore = false },
+        onDismissHomeAssistant = { showHaRestore = false },
+        onLocal = {
+            showRestoreSource = false
+            localRestoreLauncher.launch(arrayOf("application/json", "text/plain"))
+        },
+        onGoogleDrive = {
+            showRestoreSource = false
+            requestDriveRestore()
+        },
+        onHomeAssistant = {
+            showRestoreSource = false
+            restoreBusy = true
+            restoreError = null
+            scope.launch {
+                runCatching { HaBackupStorage.list(context) }
+                    .onSuccess { backups ->
+                        haRestoreFiles = backups
+                        restoreBusy = false
+                        if (backups.isEmpty()) {
+                            restoreError = context.getString(R.string.settings_extra_no_ha_backups)
+                        } else {
+                            showHaRestore = true
+                        }
+                    }
+                    .onFailure { error ->
+                        restoreBusy = false
+                        restoreError = context.getString(
+                            R.string.settings_extra_ha_backups_load_failed,
+                            error.message ?: unknownError,
+                        )
+                    }
+            }
+        },
+        onCloudFile = { file ->
+            showCloudRestore = false
+            restoreBusy = true
+            scope.launch {
+                runCatching { CloudBackupStorage.read(context, file.id) }
+                    .onSuccess { raw ->
+                        restoreBusy = false
+                        restoreRaw(raw)
+                    }
+                    .onFailure { error ->
+                        restoreBusy = false
+                        restoreError = context.getString(
+                            R.string.settings_extra_restore_failed,
+                            error.message ?: unknownError,
+                        )
+                    }
+            }
+        },
+        onHomeAssistantFile = { meta ->
+            showHaRestore = false
+            restoreBusy = true
+            scope.launch {
+                runCatching {
+                    HaBackupStorage.read(context, meta.id)
+                        ?: error(context.getString(R.string.settings_extra_backup_unreadable))
+                }.onSuccess { raw ->
+                    restoreBusy = false
+                    restoreRaw(raw)
+                }.onFailure { error ->
+                    restoreBusy = false
+                    restoreError = context.getString(
+                        R.string.settings_extra_restore_failed,
+                        error.message ?: unknownError,
+                    )
+                }
+            }
+        },
+    )
+
+    if (showAccessLostMessage) {
+        AlertDialog(
+            onDismissRequest = { showAccessLostMessage = false },
+            title = { Text(stringResource(R.string.family_dashboard_access_lost_title)) },
+            text = { Text(stringResource(R.string.family_dashboard_access_lost_message)) },
+            confirmButton = {
+                Button(onClick = { showAccessLostMessage = false }) {
+                    Text(stringResource(R.string.ui_continue_2e02623))
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun OnboardingRestoreDialogs(
+    showSource: Boolean,
+    showCloud: Boolean,
+    showHomeAssistant: Boolean,
+    cloudComponentAvailable: Boolean,
+    busy: Boolean,
+    cloudFiles: List<CloudBackupFile>,
+    homeAssistantFiles: List<Hki7BackupMeta>,
+    onDismissSource: () -> Unit,
+    onDismissCloud: () -> Unit,
+    onDismissHomeAssistant: () -> Unit,
+    onLocal: () -> Unit,
+    onGoogleDrive: () -> Unit,
+    onHomeAssistant: () -> Unit,
+    onCloudFile: (CloudBackupFile) -> Unit,
+    onHomeAssistantFile: (Hki7BackupMeta) -> Unit,
+) {
+    val colors = LocalHKIAppColors.current
+    if (showSource) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) onDismissSource() },
+            title = { Text(stringResource(R.string.ui_restore_backup_a65eaa8)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.ui_choose_where_to_restore_the_dashboard_configuration_from_bb40b34))
+                    TextButton(enabled = !busy, onClick = onLocal, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.ui_local_file_576d5ac))
+                    }
+                    TextButton(enabled = !busy, onClick = onGoogleDrive, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.ui_google_drive_07c2964))
+                    }
+                    if (cloudComponentAvailable) {
+                        TextButton(enabled = !busy, onClick = onHomeAssistant, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(R.string.ui_home_assistant_c8fd3bb))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !busy, onClick = onDismissSource) {
+                    Text(stringResource(R.string.ui_cancel_77dfd21))
+                }
+            },
+        )
+    }
+    if (showCloud) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) onDismissCloud() },
+            title = { Text(stringResource(R.string.ui_restore_from_cloud_52b6663)) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    cloudFiles.forEach { file ->
+                        TextButton(
+                            enabled = !busy,
+                            onClick = { onCloudFile(file) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(file.name)
+                                Text(
+                                    file.modifiedTime.take(19).replace('T', ' '),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colors.onMuted,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !busy, onClick = onDismissCloud) {
+                    Text(stringResource(R.string.ui_cancel_77dfd21))
+                }
+            },
+        )
+    }
+    if (showHomeAssistant) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) onDismissHomeAssistant() },
+            title = { Text(stringResource(R.string.ui_restore_from_home_assistant_13aec1d)) },
+            text = {
+                Column(
+                    modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    homeAssistantFiles.forEach { meta ->
+                        TextButton(
+                            enabled = !busy,
+                            onClick = { onHomeAssistantFile(meta) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(meta.label.ifBlank { meta.created.take(19).replace('T', ' ') })
+                                if (meta.label.isNotBlank()) {
+                                    Text(
+                                        meta.created.take(19).replace('T', ' '),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colors.onMuted,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !busy, onClick = onDismissHomeAssistant) {
+                    Text(stringResource(R.string.ui_cancel_77dfd21))
+                }
+            },
+        )
     }
 }
 
@@ -559,6 +986,7 @@ private fun DashboardChoiceCard(
     bullets: List<String>,
     buttonText: String,
     enabled: Boolean,
+    disabledReason: String? = null,
     onClick: () -> Unit
 ) {
     val colors = LocalHKIAppColors.current
@@ -588,7 +1016,7 @@ private fun DashboardChoiceCard(
                             Spacer(Modifier.width(8.dp))
                             Surface(shape = RoundedCornerShape(9.dp), color = accent.copy(alpha = 0.18f)) {
                                 Text(
-                                    "RECOMMENDED",
+                                    stringResource(R.string.ui_recommended_e37d21e),
                                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
@@ -629,6 +1057,14 @@ private fun DashboardChoiceCard(
                     shape = RoundedCornerShape(16.dp)
                 ) { Text(buttonText, fontWeight = FontWeight.Bold) }
             }
+            if (!enabled && disabledReason != null) {
+                Spacer(Modifier.height(9.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = colors.onMuted, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(7.dp))
+                    Text(disabledReason, style = MaterialTheme.typography.bodySmall, color = colors.onMuted, modifier = Modifier.weight(1f))
+                }
+            }
         }
     }
 }
@@ -667,10 +1103,10 @@ private fun WelcomeStep(onNext: () -> Unit, onDemo: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(28.dp))
-            Text("Welcome to HKI 7", style = MaterialTheme.typography.displaySmall, color = appColors.onSurface, textAlign = TextAlign.Center)
+            Text(stringResource(R.string.ui_welcome_to_hki_7_9e317bb), style = MaterialTheme.typography.displaySmall, color = appColors.onSurface, textAlign = TextAlign.Center)
             Spacer(Modifier.height(12.dp))
             Text(
-                "A fast, auto-generating dashboard for Home Assistant\nLet's connect to your server.",
+                stringResource(R.string.ui_a_fast_auto_generating_dashboard_for_home_assistant_let_0fad4a9),
                 style = MaterialTheme.typography.bodyLarge,
                 color = appColors.onMuted,
                 textAlign = TextAlign.Center
@@ -689,12 +1125,12 @@ private fun WelcomeStep(onNext: () -> Unit, onDemo: () -> Unit) {
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Get Started")
+                Text(stringResource(R.string.ui_get_started_bd2cb05))
                 Spacer(Modifier.width(8.dp))
                 Icon(Icons.Default.ChevronRight, contentDescription = null)
             }
             TextButton(onClick = onDemo, modifier = Modifier.padding(top = 6.dp)) {
-                Text("Try the demo home — no server needed")
+                Text(stringResource(R.string.ui_try_the_demo_home_no_server_needed_bc58247))
             }
         }
     }
@@ -711,8 +1147,8 @@ private fun ServerStep(onBack: () -> Unit, onServerChosen: (String) -> Unit) {
     var manualUrl by remember { mutableStateOf("") }
 
     OnboardingDialogFrame(
-        title = "Find Home Assistant locally",
-        subtitle = "We'll check your home network first; you can also enter an address",
+        title = stringResource(R.string.ui_find_home_assistant_locally_c992bdf),
+        subtitle = stringResource(R.string.ui_we_ll_check_your_home_network_first_you_can_c7ca0f0),
         icon = Icons.Default.Home,
         onBack = onBack,
         footer = {
@@ -722,7 +1158,7 @@ private fun ServerStep(onBack: () -> Unit, onServerChosen: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Connect")
+                Text(stringResource(R.string.ui_connect_b65463c))
                 Spacer(Modifier.width(8.dp))
                 Icon(Icons.Default.ChevronRight, contentDescription = null)
             }
@@ -733,19 +1169,19 @@ private fun ServerStep(onBack: () -> Unit, onServerChosen: (String) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Discovered", style = MaterialTheme.typography.titleSmall, color = appColors.onSurface)
+                Text(stringResource(R.string.ui_discovered_acbb9e0), style = MaterialTheme.typography.titleSmall, color = appColors.onSurface)
                 Spacer(Modifier.width(8.dp))
                 if (discovered.isEmpty()) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("Scanning…", style = MaterialTheme.typography.labelSmall, color = appColors.onMuted)
+                    Text(stringResource(R.string.ui_scanning_36c4a06), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted)
                 }
             }
 
             if (discovered.isEmpty()) {
                 Surface(shape = RoundedCornerShape(16.dp), color = appColors.subtleSurface, modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        "No servers found yet. Make sure you're on the same Wi-Fi, or enter the address below.",
+                        stringResource(R.string.ui_no_servers_found_yet_make_sure_you_re_on_7e6832d),
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = appColors.onMuted
@@ -774,12 +1210,12 @@ private fun ServerStep(onBack: () -> Unit, onServerChosen: (String) -> Unit) {
             }
 
             Spacer(Modifier.height(8.dp))
-            Text("Enter an address manually", style = MaterialTheme.typography.titleSmall, color = appColors.onSurface)
+            Text(stringResource(R.string.ui_enter_an_address_manually_5eda99d), style = MaterialTheme.typography.titleSmall, color = appColors.onSurface)
             OutlinedTextField(
                 value = manualUrl,
                 onValueChange = { manualUrl = it },
-                label = { Text("Server URL") },
-                placeholder = { Text("http://homeassistant.local:8123") },
+                label = { Text(stringResource(R.string.ui_server_url_1d5d1ef)) },
+                placeholder = { Text(stringResource(R.string.ui_http_homeassistant_local_8123_67b2235)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 singleLine = true
@@ -805,8 +1241,8 @@ private fun NameStep(prefs: PreferencesManager, onBack: () -> Unit, onNext: () -
     var saving by remember { mutableStateOf(false) }
 
     OnboardingDialogFrame(
-        title = "Name this device",
-        subtitle = "Choose how this phone or tablet appears in Home Assistant",
+        title = stringResource(R.string.ui_name_this_device_4d603e2),
+        subtitle = stringResource(R.string.ui_choose_how_this_phone_or_tablet_appears_in_home_419da67),
         icon = Icons.Default.PhoneAndroid,
         onBack = onBack,
         footer = {
@@ -821,7 +1257,7 @@ private fun NameStep(prefs: PreferencesManager, onBack: () -> Unit, onNext: () -
                 modifier = Modifier.fillMaxWidth().height(54.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text(if (saving) "Saving…" else "Continue")
+                Text(if (saving) stringResource(R.string.ui_saving_56a2285) else stringResource(R.string.ui_continue_2e02623))
                 Spacer(Modifier.width(8.dp))
                 Icon(Icons.Default.ChevronRight, contentDescription = null)
             }
@@ -852,7 +1288,7 @@ private fun NameStep(prefs: PreferencesManager, onBack: () -> Unit, onNext: () -
                     }
                     Spacer(Modifier.width(13.dp))
                     Text(
-                        "Use a recognizable name, such as ‘Kitchen tablet’ or ‘Jimmy’s phone’.",
+                        stringResource(R.string.ui_use_a_recognizable_name_such_as_kitchen_tablet_or_ca9f431),
                         style = MaterialTheme.typography.bodyMedium,
                         color = appColors.onMuted,
                         modifier = Modifier.weight(1f)
@@ -862,8 +1298,8 @@ private fun NameStep(prefs: PreferencesManager, onBack: () -> Unit, onNext: () -
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Device name") },
-                supportingText = { Text("This name is used when the device registers with Home Assistant.") },
+                label = { Text(stringResource(R.string.ui_device_name_79d7a15)) },
+                supportingText = { Text(stringResource(R.string.ui_this_name_is_used_when_the_device_registers_with_8aba2f2)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
@@ -895,6 +1331,10 @@ private fun LoginStep(
     var pageLoading by remember { mutableStateOf(true) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    val loginFailedTemplate = stringResource(R.string.uif_onboarding_login_failed)
+    val noAuthorizationCode = stringResource(R.string.uif_onboarding_no_authorization_code)
+    val connectionFailed = stringResource(R.string.uif_onboarding_connection_failed)
+    val serverHttpErrorTemplate = stringResource(R.string.uif_onboarding_server_http_error)
     val authUrl = "${serverUrl.removeSuffix("/")}/auth/authorize?client_id=${URLEncoder.encode("https://home-assistant.io/android", "UTF-8")}&redirect_uri=${URLEncoder.encode("homeassistant://auth-callback", "UTF-8")}"
 
     fun handleAuthCallback(rawUrl: String?): Boolean {
@@ -908,7 +1348,7 @@ private fun LoginStep(
         val callbackError = callbackUri.getQueryParameter("error_description")
             ?: callbackUri.getQueryParameter("error")
         if (callbackError != null) {
-            errorMessage = "Login failed: $callbackError"
+            errorMessage = loginFailedTemplate.format(callbackError)
         } else if (code != null && !authInProgress) {
             authInProgress = true
             errorMessage = null
@@ -936,12 +1376,12 @@ private fun LoginStep(
                     if (prefs.shouldUsePushService.first()) PushForegroundService.start(appCtx)
                     onLoggedIn()
                 } catch (e: Exception) {
-                    errorMessage = "Login failed: ${e.message}"
+                    errorMessage = loginFailedTemplate.format(e.message.orEmpty())
                     authInProgress = false
                 }
             }
         } else if (code == null) {
-            errorMessage = "Login failed: Home Assistant returned no authorization code."
+            errorMessage = noAuthorizationCode
         }
         return true
     }
@@ -977,14 +1417,14 @@ private fun LoginStep(
 
                         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                             if (request?.isForMainFrame == true) {
-                                loadError = error?.description?.toString() ?: "Connection failed"
+                                loadError = error?.description?.toString() ?: connectionFailed
                                 pageLoading = false
                             }
                         }
 
                         override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) {
                             if (request?.isForMainFrame == true && (errorResponse?.statusCode ?: 0) >= 400) {
-                                loadError = "The server answered with HTTP ${errorResponse?.statusCode}"
+                                loadError = serverHttpErrorTemplate.format(errorResponse?.statusCode ?: 0)
                                 pageLoading = false
                             }
                         }
@@ -1016,7 +1456,7 @@ private fun LoginStep(
             ) {
                 CircularProgressIndicator()
                 Spacer(Modifier.height(18.dp))
-                Text("Contacting your Home Assistant server…", color = appColors.onMuted)
+                Text(stringResource(R.string.ui_contacting_your_home_assistant_server_e0a53d1), color = appColors.onMuted)
                 Spacer(Modifier.height(6.dp))
                 Text(serverUrl, style = MaterialTheme.typography.bodySmall, color = appColors.onMuted)
             }
@@ -1036,7 +1476,7 @@ private fun LoginStep(
                 )
                 Spacer(Modifier.height(18.dp))
                 Text(
-                    "Can't reach the server",
+                    stringResource(R.string.ui_can_t_reach_the_server_73079bd),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = appColors.onSurface
@@ -1053,8 +1493,8 @@ private fun LoginStep(
                         webViewRef?.loadUrl(authUrl)
                     },
                     shape = RoundedCornerShape(16.dp)
-                ) { Text("Try again") }
-                TextButton(onClick = onBack) { Text("Choose a different server") }
+                ) { Text(stringResource(R.string.ui_try_again_042c862)) }
+                TextButton(onClick = onBack) { Text(stringResource(R.string.ui_choose_a_different_server_47e6ce6)) }
             }
         }
 
@@ -1066,7 +1506,7 @@ private fun LoginStep(
             ) {
                 CircularProgressIndicator()
                 Spacer(Modifier.height(18.dp))
-                Text("Signing you in…", color = appColors.onMuted)
+                Text(stringResource(R.string.ui_signing_you_in_10d0636), color = appColors.onMuted)
             }
         }
 
@@ -1079,7 +1519,7 @@ private fun LoginStep(
                 .size(48.dp),
             colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f))
         ) {
-            Icon(Icons.Default.Close, contentDescription = "Back", tint = Color.White)
+            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_back_b52b36b), tint = Color.White)
         }
         errorMessage?.let { msg ->
             Surface(
@@ -1209,8 +1649,8 @@ private fun PermissionsStep(onFinish: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 ModernSettingsHeader(
-                    title = "Permissions",
-                    subtitle = "Enable the features HKI 7 may use in the background",
+                    title = stringResource(R.string.ui_permissions_d06d555),
+                    subtitle = stringResource(R.string.ui_enable_the_features_hki_7_may_use_in_the_52e596d),
                     icon = Icons.Default.Notifications
                 )
 
@@ -1229,8 +1669,8 @@ private fun PermissionsStep(onFinish: () -> Unit) {
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Setup progress", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                            Text("$enabledCount of 3 enabled", style = MaterialTheme.typography.labelMedium, color = appColors.onMuted)
+                            Text(stringResource(R.string.ui_setup_progress_1a8adef), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.ui_of_3_enabled_5cdedd4, enabledCount), style = MaterialTheme.typography.labelMedium, color = appColors.onMuted)
                         }
                         Box(
                             modifier = Modifier
@@ -1259,22 +1699,22 @@ private fun PermissionsStep(onFinish: () -> Unit) {
                 ) {
                     PermissionCard(
                         icon = Icons.Default.Notifications,
-                        title = "Notifications",
-                        description = "Receive Home Assistant alerts and actionable notifications on this device.",
+                        title = stringResource(R.string.ui_notifications_753a22b),
+                        description = stringResource(R.string.ui_receive_home_assistant_alerts_and_actionable_notifications_386435f),
                         granted = notifGranted,
-                        actionLabel = "Enable",
+                        actionLabel = stringResource(R.string.uif_enable),
                         onAction = { notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
                     )
 
                     PermissionCard(
                         icon = Icons.Default.LocationOn,
-                        title = "Background location",
-                        description = "Keeps presence detection and zone automations working. Android should show ‘Allow all the time’.",
+                        title = stringResource(R.string.ui_background_location_5f56f21),
+                        description = stringResource(R.string.ui_keeps_presence_detection_and_zone_automations_working_andr_c48598a),
                         granted = locationGranted,
                         actionLabel = when {
-                            !fineGranted -> "Enable location"
-                            !backgroundGranted -> "Allow all the time"
-                            else -> "Enabled"
+                            !fineGranted -> stringResource(R.string.uif_enable_location)
+                            !backgroundGranted -> stringResource(R.string.uif_allow_all_the_time)
+                            else -> stringResource(R.string.uif_enabled)
                         },
                         onAction = {
                             when {
@@ -1289,21 +1729,23 @@ private fun PermissionsStep(onFinish: () -> Unit) {
                                 else -> {}
                             }
                         },
-                        secondaryLabel = if (fineGranted && !backgroundGranted) "Open Settings" else null,
+                        secondaryLabel = if (fineGranted && !backgroundGranted) {
+                            stringResource(R.string.uif_open_settings)
+                        } else null,
                         onSecondary = { openAppSettings() }
                     )
 
                     PermissionCard(
                         icon = Icons.Default.BatterySaver,
-                        title = "Unrestricted background",
-                        description = "Prevents Android from delaying battery, charging, and presence updates while the device is idle.",
+                        title = stringResource(R.string.ui_unrestricted_background_cebdb1e),
+                        description = stringResource(R.string.ui_prevents_android_from_delaying_battery_charging_and_presen_623b898),
                         granted = batteryUnrestricted,
-                        actionLabel = "Allow",
+                        actionLabel = stringResource(R.string.uif_allow),
                         onAction = { requestBatteryUnrestricted() }
                     )
 
                     Text(
-                        "These permissions are optional and can be changed later in Android Settings.",
+                        stringResource(R.string.ui_these_permissions_are_optional_and_can_be_changed_later_aa7a106),
                         style = MaterialTheme.typography.bodySmall,
                         color = appColors.onMuted,
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
@@ -1316,7 +1758,7 @@ private fun PermissionsStep(onFinish: () -> Unit) {
                     modifier = Modifier.fillMaxWidth().height(54.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Text(if (notifGranted && locationGranted) "Done" else "Continue")
+                    Text(if (notifGranted && locationGranted) stringResource(R.string.ui_done_e9b450d) else stringResource(R.string.ui_continue_2e02623))
                     Spacer(Modifier.width(8.dp))
                     Icon(Icons.Default.ChevronRight, contentDescription = null)
                 }
@@ -1377,7 +1819,7 @@ private fun PermissionCard(
                         color = appColors.onSurface
                     )
                     Text(
-                        if (granted) "Ready" else "Permission needed",
+                        if (granted) stringResource(R.string.ui_ready_20c7c55) else stringResource(R.string.ui_permission_needed_7c7a8e5),
                         style = MaterialTheme.typography.bodySmall,
                         color = if (granted) successColor else appColors.onMuted
                     )
@@ -1388,7 +1830,7 @@ private fun PermissionCard(
                         color = successColor.copy(alpha = 0.14f)
                     ) {
                         Text(
-                            "ENABLED",
+                            stringResource(R.string.ui_enabled_e22fb09),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
