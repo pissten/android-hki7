@@ -36,17 +36,17 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jimz011apps.hki7.data.HAEntity
 import com.jimz011apps.hki7.sharedui.HKI7SharedTheme
 import com.jimz011apps.hki7.sharedui.LocalHKIAppColors
 import com.jimz011apps.hki7.sharedui.ha.Hki7ConnectionStatus
-import com.jimz011apps.hki7.sharedui.ha.Hki7EntityState
 import com.jimz011apps.hki7.sharedui.ha.Hki7HomeAssistantSession
 import kotlinx.coroutines.launch
 
 /**
- * Functional migration harness. It already uses the shared HKI 7 theme and the shared Home
- * Assistant protocol stack. It is removed when the existing Android root composable has completed
- * its move into sharedUi; it must never evolve into a second, separately designed dashboard.
+ * Functional migration harness. It already uses the shared HKI 7 theme and the canonical
+ * Home Assistant entity model. It is removed when the existing Android root composable has
+ * completed its move into sharedUi; it must never evolve into a second dashboard.
  */
 @Composable
 fun Hki7WebBootstrap() {
@@ -124,7 +124,12 @@ fun Hki7WebBootstrap() {
                     )
 
                     entities.values
-                        .sortedWith(compareBy(Hki7EntityState::domain, Hki7EntityState::friendlyName))
+                        .sortedWith(
+                            compareBy<HAEntity>(
+                                { it.entity_id.substringBefore('.') },
+                                { it.friendlyName ?: it.entity_id },
+                            ),
+                        )
                         .take(60)
                         .forEach { entity ->
                             EntityStateCard(
@@ -134,7 +139,7 @@ fun Hki7WebBootstrap() {
                                         val service = if (entity.state == "on") "turn_off" else "turn_on"
                                         runCatching {
                                             session.callService(
-                                                domain = entity.domain,
+                                                domain = entity.entity_id.substringBefore('.'),
                                                 service = service,
                                                 entityId = entity.entity_id,
                                             )
@@ -249,11 +254,12 @@ private fun ConnectionCard(
 
 @Composable
 private fun EntityStateCard(
-    entity: Hki7EntityState,
+    entity: HAEntity,
     onToggle: () -> Unit,
 ) {
     val appColors = LocalHKIAppColors.current
-    val canToggle = entity.domain in setOf(
+    val domain = entity.entity_id.substringBefore('.')
+    val canToggle = domain in setOf(
         "light",
         "switch",
         "input_boolean",
@@ -270,7 +276,8 @@ private fun EntityStateCard(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = entity.friendlyName,
+                text = entity.friendlyName
+                    ?: entity.entity_id.substringAfter('.').replace('_', ' ').replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = appColors.onSurface,
