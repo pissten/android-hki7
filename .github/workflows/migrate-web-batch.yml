@@ -22,7 +22,7 @@ concurrency:
 jobs:
   migrate-and-validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -57,6 +57,7 @@ jobs:
 
       - name: Apply deterministic migration batch
         run: |
+          echo "Applying canonical HKI7 shared UI batch v2"
           python3 tools/multiplatform/migrate_batch.py
           python3 tools/multiplatform/migrate_room_visuals.py
           python3 tools/multiplatform/wire_shared_area_card.py
