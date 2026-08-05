@@ -8,12 +8,16 @@ builds both Wasm and Android before committing the result.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path
 import re
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / "app/src/main/java/com/jimz011apps/hki7"
 SHARED = ROOT / "sharedUi/src/commonMain/kotlin/com/jimz011apps/hki7"
+ANDROID_RES = ROOT / "app/src/main/res"
+SHARED_RES = ROOT / "sharedUi/src/commonMain/composeResources"
 
 
 def move_text(source: Path, destination: Path) -> str:
@@ -183,12 +187,51 @@ def migrate_android_navigation_items() -> None:
     write_if_changed(path, text)
 
 
+def sync_common_string_resources() -> None:
+    """Make every original base string/plural available to common Compose UI.
+
+    Android keeps its resource set unchanged. commonMain receives the same named resources so a
+    screen can be moved without replacing labels or hard-coding a web-specific copy.
+    """
+    source = ANDROID_RES / "values/strings.xml"
+    destination = SHARED_RES / "values/strings.xml"
+    ET.register_namespace("xliff", "urn:oasis:names:tc:xliff:document:1.2")
+    source_root = ET.parse(source).getroot()
+    destination_tree = ET.parse(destination)
+    destination_root = destination_tree.getroot()
+
+    supported_tags = {"string", "plurals"}
+    existing = {
+        (child.tag.split("}")[-1], child.attrib.get("name"))
+        for child in destination_root
+        if child.attrib.get("name")
+    }
+    added = 0
+    for child in source_root:
+        local_tag = child.tag.split("}")[-1]
+        name = child.attrib.get("name")
+        key = (local_tag, name)
+        if local_tag not in supported_tags or not name or key in existing:
+            continue
+        destination_root.append(deepcopy(child))
+        existing.add(key)
+        added += 1
+
+    if added:
+        ET.indent(destination_tree, space="    ")
+        destination_tree.write(destination, encoding="unicode", xml_declaration=False)
+        with destination.open("a", encoding="utf-8") as output:
+            output.write("\n")
+    print(f"Synced {added} original string/plural resources into commonMain")
+
+
 def main() -> None:
     migrate_room_status_state()
     migrate_room_follow_state()
     migrate_room_media_state()
     migrate_android_navigation_items()
-    print("Migrated validated room logic and canonical top-level navigation rendering to sharedUi")
+    sync_common_string_resources()
+    print("Migrated validated room logic, navigation rendering, and original UI resources to sharedUi")
 
 
 if __name__ == "__main__":
