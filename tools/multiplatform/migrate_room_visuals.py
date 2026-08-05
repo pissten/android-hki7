@@ -139,10 +139,19 @@ def remove_shared_helpers_from_android_entity_card() -> None:
     write_if_changed(path, text)
 
 
+def remove_android_room_media_wrapper() -> None:
+    # migrate_batch.py creates this temporary Android resource wrapper for earlier batches. The
+    # canonical localized implementation now lives in commonMain, so the wrapper must not coexist.
+    wrapper = APP / "ui/RoomMediaStatus.kt"
+    if wrapper.exists() and (SHARED / "ui/RoomMediaStatus.kt").exists():
+        wrapper.unlink()
+
+
 def main() -> None:
     migrate_localized_labels()
     migrate_room_status_summary()
     remove_shared_helpers_from_android_entity_card()
+    remove_android_room_media_wrapper()
     print(
         "Moved original localized HA labels, room status visuals, edit badges, and media helpers "
         "into sharedUi/commonMain"
