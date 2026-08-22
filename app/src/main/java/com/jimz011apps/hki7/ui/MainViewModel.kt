@@ -1652,6 +1652,7 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
             title = rule.displayName(),
             cameraEntityId = rule.cameraEntityId,
             timeoutMs = rule.clampedTimeoutSeconds() * 1000L,
+            fullscreen = rule.fullscreen,
         )
     }
 
