@@ -1,5 +1,10 @@
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -12,6 +17,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +60,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -62,6 +70,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -76,21 +85,21 @@ import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.milliseconds
 
 private data class QuickStartTip(
-    val title: String,
-    val instruction: String,
+    @param:StringRes val titleRes: Int,
+    @param:StringRes val instructionRes: Int,
     val icon: ImageVector
 )
 
 private val gestureTips = listOf(
-    QuickStartTip("Notifications", "Swipe right from the upper-left edge.", Icons.Default.Notifications),
-    QuickStartTip("Switch homes", "Swipe left from the upper-right edge of the header.", Icons.Default.Home),
-    QuickStartTip("Quick actions", "Pull down on any page header for Search, Flows, Edit and Settings.", Icons.Default.KeyboardArrowDown),
-    QuickStartTip("Media player", "When the handle appears, swipe up on the bottom bar to restore the player.", Icons.Default.KeyboardArrowUp)
+    QuickStartTip(R.string.cr_quick_notifications, R.string.cr_quick_notifications_instruction, Icons.Default.Notifications),
+    QuickStartTip(R.string.cr_quick_switch_homes, R.string.cr_quick_switch_homes_instruction, Icons.Default.Home),
+    QuickStartTip(R.string.cr_quick_actions, R.string.cr_quick_actions_instruction, Icons.Default.KeyboardArrowDown),
+    QuickStartTip(R.string.cr_quick_media_player, R.string.cr_quick_media_player_instruction, Icons.Default.KeyboardArrowUp)
 )
 
 private val editTip = QuickStartTip(
-    "Make it yours",
-    "In Edit mode, add and reorder rooms, floors and widgets. Tap an item to configure it.",
+    R.string.cr_quick_make_it_yours,
+    R.string.cr_quick_make_it_yours_instruction,
     Icons.Default.Edit
 )
 
@@ -99,8 +108,15 @@ fun QuickStartGuideDialog(onComplete: () -> Unit) {
     val colors = LocalHKIAppColors.current
     var activeGesture by remember { mutableIntStateOf(0) }
     var completing by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        while (true) {
+    // Autoplay is a demo, not a rail: the moment the reader swipes or taps a dot they are driving,
+    // and cycling out from under them would fight the thing they just did.
+    var autoPlaying by remember { mutableStateOf(true) }
+    fun showGesture(index: Int) {
+        autoPlaying = false
+        activeGesture = ((index % gestureTips.size) + gestureTips.size) % gestureTips.size
+    }
+    LaunchedEffect(autoPlaying) {
+        while (autoPlaying) {
             delay(2_800.milliseconds)
             activeGesture = (activeGesture + 1) % gestureTips.size
         }
@@ -167,14 +183,14 @@ fun QuickStartGuideDialog(onComplete: () -> Unit) {
                     }
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        "Your dashboard is ready",
+                        stringResource(R.string.ui_your_dashboard_is_ready_0719f75),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = colors.onSurface
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Five simple gestures are all you need to get around HKI 7.",
+                        stringResource(R.string.ui_five_simple_gestures_are_all_you_need_to_get_d4c2675),
                         style = MaterialTheme.typography.bodyLarge,
                         color = colors.onMuted
                     )
@@ -183,9 +199,19 @@ fun QuickStartGuideDialog(onComplete: () -> Unit) {
                     AnimatedContent(
                         targetState = activeGesture,
                         transitionSpec = { fadeIn(tween(350)) togetherWith fadeOut(tween(220)) },
-                        label = "quick_start_gesture"
+                        label = stringResource(R.string.ui_quick_start_gesture_23ee6fe),
+                        modifier = Modifier.pointerInput(Unit) {
+                            // Swiping the preview is the obvious thing to try on a carousel, so it
+                            // moves one step per swipe in the direction dragged.
+                            detectHorizontalDragGestures { change, amount ->
+                                if (kotlin.math.abs(amount) > 8f) {
+                                    change.consume()
+                                    showGesture(activeGesture + if (amount < 0) 1 else -1)
+                                }
+                            }
+                        }
                     ) { gesture ->
-                        GesturePreview(gesture, gestureTips[gesture].title)
+                        GesturePreview(gesture, stringResource(gestureTips[gesture].titleRes))
                     }
                     Row(
                         Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 18.dp),
@@ -194,7 +220,10 @@ fun QuickStartGuideDialog(onComplete: () -> Unit) {
                         gestureTips.indices.forEach { index ->
                             Box(
                                 Modifier
-                                    .padding(horizontal = 3.dp)
+                                    // Generous touch target around a 7dp dot.
+                                    .clip(CircleShape)
+                                    .clickable { showGesture(index) }
+                                    .padding(horizontal = 3.dp, vertical = 8.dp)
                                     .size(width = if (index == activeGesture) 22.dp else 7.dp, height = 7.dp)
                                     .background(
                                         if (index == activeGesture) MaterialTheme.colorScheme.primary
@@ -206,7 +235,10 @@ fun QuickStartGuideDialog(onComplete: () -> Unit) {
                     }
 
                     gestureTips.forEachIndexed { index, tip ->
-                        QuickStartTipRow(tip, highlighted = index == activeGesture)
+                        // The rows below double as a table of contents: tapping one shows it.
+                        Box(Modifier.clickable { showGesture(index) }) {
+                            QuickStartTipRow(tip, highlighted = index == activeGesture)
+                        }
                         Spacer(Modifier.height(9.dp))
                     }
                     QuickStartTipRow(editTip, highlighted = false)
@@ -226,7 +258,7 @@ fun QuickStartGuideDialog(onComplete: () -> Unit) {
                             .height(54.dp),
                         shape = RoundedCornerShape(18.dp)
                     ) {
-                        Text(if (completing) "Opening dashboard…" else "Got it — let's explore", fontWeight = FontWeight.Bold)
+                        Text(if (completing) stringResource(R.string.ui_opening_dashboard_8e99930) else stringResource(R.string.ui_got_it_let_s_explore_107038f), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -259,13 +291,13 @@ private fun QuickStartTipRow(tip: QuickStartTip, highlighted: Boolean) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    tip.title,
+                    stringResource(tip.titleRes),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = colors.onSurface
                 )
                 Spacer(Modifier.height(2.dp))
-                Text(tip.instruction, style = MaterialTheme.typography.bodySmall, color = colors.onMuted)
+                Text(stringResource(tip.instructionRes), style = MaterialTheme.typography.bodySmall, color = colors.onMuted)
             }
         }
     }
@@ -275,7 +307,7 @@ private fun QuickStartTipRow(tip: QuickStartTip, highlighted: Boolean) {
 private fun GesturePreview(gesture: Int, label: String) {
     val colors = LocalHKIAppColors.current
     val accent = MaterialTheme.colorScheme.primary
-    val transition = rememberInfiniteTransition(label = "guide_motion")
+    val transition = rememberInfiniteTransition(label = stringResource(R.string.ui_guide_motion_579dcaf))
     val progress by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -283,7 +315,7 @@ private fun GesturePreview(gesture: Int, label: String) {
             animation = tween(1_650, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "guide_progress"
+        label = stringResource(R.string.ui_guide_progress_6138614)
     )
     val motionAlpha = sin(progress * PI).toFloat().coerceIn(0f, 1f)
 

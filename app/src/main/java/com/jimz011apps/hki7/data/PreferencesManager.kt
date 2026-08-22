@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
 import java.util.UUID
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -19,7 +21,17 @@ private const val LEGACY_INSTANCE_ID = "legacy-default-instance"
 
 // Tolerates fields removed from saved config data classes across app updates — without this,
 // a stale key in a persisted blob throws on decode and the catch-all fallback wipes that store.
-private val appJson = Json { ignoreUnknownKeys = true }
+// The default deserializer additionally tolerates a widget `type` this app build predates (e.g. a
+// family dashboard shared by someone on a newer version): it decodes to HKIUnknownWidget instead of
+// failing the whole dashboard, so the rest of a shared dashboard still loads on an older app.
+internal val appJson = Json {
+    ignoreUnknownKeys = true
+    serializersModule = SerializersModule {
+        polymorphic(HKIRoomWidget::class) {
+            defaultDeserializer { HKIUnknownWidget.serializer() }
+        }
+    }
+}
 private inline fun <reified T> decodeBackup(value: String?, fallback: T): T =
     value?.let { runCatching { appJson.decodeFromString<T>(it) }.getOrNull() } ?: fallback
 
@@ -35,6 +47,9 @@ data class HKIDashboard(
     val areaConfigs: Map<String, HKIAreaConfig> = emptyMap(),
     val pageConfigs: Map<String, HKIPageConfig> = emptyMap(),
     val customPages: List<HKICustomPage> = emptyList(),
+    /** Popup dialogs this dashboard's buttons/badges can open; their widgets live in [areaWidgets]
+     * under [customPopupWidgetAreaId]. */
+    val customPopups: List<HKICustomPopup> = emptyList(),
     val navBarOrder: List<String> = emptyList(),
     val navBarHidden: List<String> = emptyList(),
     // Per-dashboard media-player bar config, so each (shared) dashboard carries its own selection
@@ -67,8 +82,8 @@ data class HeaderPillConfig(
 data class SharedPruneResult(
     val removed: Boolean,
     val activeReplaced: Boolean,
-    /** No dashboards remain, so the caller should build the app's default (auto-generated) one. */
-    val needsAutoGenerate: Boolean,
+    /** No dashboards remain, so the user must choose another permitted dashboard source. */
+    val needsDashboardChoice: Boolean,
 )
 
 /** One independently authenticated Home Assistant server. The existing preference keys remain the
@@ -113,6 +128,7 @@ private data class HKIUiBackup(
     val pageConfigs: Map<String, HKIPageConfig> = emptyMap(),
     val dashboardMode: String = "auto",
     val customPages: List<HKICustomPage> = emptyList(),
+    val customPopups: List<HKICustomPopup> = emptyList(),
     val navBarOrder: List<String> = emptyList(),
     val navBarHidden: List<String> = emptyList(),
     val themeColor: String = "system",
@@ -197,6 +213,14 @@ class PreferencesManager(
     private val fontFamilyKey = stringPreferencesKey("font_family")
     private val iconPackKey = stringPreferencesKey("default_icon_pack")
     private val iconAnimationsKey = booleanPreferencesKey("icon_animations_enabled")
+    // Weather artwork animates independently of entity icons, and independently per surface: the
+    // forecast strip is a dozen Lottie compositions at once while the pill is a single small one,
+    // so they are not one decision. Default on — the artwork animating is the intended look, and
+    // these exist to switch parts of it off.
+    private val weatherAnimatePillKey = booleanPreferencesKey("weather_animate_pill")
+    private val weatherAnimateDialogKey = booleanPreferencesKey("weather_animate_dialog")
+    private val weatherAnimateForecastKey = booleanPreferencesKey("weather_animate_forecast")
+    private val weatherAnimateWidgetKey = booleanPreferencesKey("weather_animate_widget")
     private val iconEffectDefaultsKey = stringPreferencesKey("icon_effect_defaults")
     private val itemCornerRadiusKey = intPreferencesKey("item_corner_radius")
     private val mobileAppWebhookIdKey = stringPreferencesKey("mobile_app_webhook_id")
@@ -211,10 +235,13 @@ class PreferencesManager(
     private val homeSsidsKey = stringPreferencesKey("home_ssids")
     private val highAccuracyLocationKey = booleanPreferencesKey("high_accuracy_location")
     private val notificationHistoryKey = stringPreferencesKey("notification_history")
+    private val roomFollowKey = stringPreferencesKey("room_follow")
+    private val roomFollowRosterKey = stringPreferencesKey("room_follow_roster")
     private val backgroundPushKey = booleanPreferencesKey("background_push_enabled")
     private val navBarOrderKey = stringPreferencesKey("nav_bar_order")
     private val navBarHiddenKey = stringPreferencesKey("nav_bar_hidden")
     private val customPagesKey = stringPreferencesKey("custom_pages")
+    private val customPopupsKey = stringPreferencesKey("custom_popups")
     private val mediaPlayerNamesKey = stringPreferencesKey("media_player_custom_names")
     private val mediaPlayerBarHiddenKey = stringPreferencesKey("media_player_bar_hidden")
     private val adaptiveLightingProfilesKey = stringPreferencesKey("adaptive_lighting_profiles")
@@ -224,7 +251,18 @@ class PreferencesManager(
     private val defaultDashboardIdKey = stringPreferencesKey("default_dashboard_id")
     private val pendingAutoTakeoverKey = booleanPreferencesKey("pending_auto_takeover")
     private val quickStartGuidePendingKey = booleanPreferencesKey("quick_start_guide_pending")
+    // Family subscription state is separate from its permissions: admins can change the latter at
+    // any time, while the former remains true until the user leaves the family-dashboard flow.
+    private val familyDashboardSubscribedKey = booleanPreferencesKey("family_dashboard_subscribed")
+    private val familyDashboardAccessLostKey = booleanPreferencesKey("family_dashboard_access_lost")
+    private val legacyFamilyDashboardCreationLockedKey = booleanPreferencesKey("family_dashboard_creation_locked")
     private val cloudBackupEnabledKey = booleanPreferencesKey("cloud_backup_enabled")
+    private val updateChecksEnabledKey = booleanPreferencesKey("update_checks_enabled")
+    private val lastNotifiedUpdateVersionKey = stringPreferencesKey("last_notified_update_version")
+    /** The version whose notice has been put in the panel, so it is added once, not daily. */
+    private val lastPanelUpdateVersionKey = stringPreferencesKey("last_panel_update_version")
+    // Set once the stale-marker cleanup below has run, so it happens exactly once per install.
+    private val lastNotifiedUpdateResetKey = booleanPreferencesKey("last_notified_update_reset_done")
     private val haBackupEnabledKey = booleanPreferencesKey("ha_backup_enabled")
     // Wall-clock time (epoch millis) of the most recent successful backup to each destination,
     // recorded by CloudBackupWorker so the settings screen can show "Last backup …" without a
@@ -235,10 +273,25 @@ class PreferencesManager(
     // hki7 component so the UI can filter synchronously and keep hiding while briefly offline.
     private val parentalHiddenViewsKey = stringPreferencesKey("parental_hidden_views")
     private val parentalHiddenRoomsKey = stringPreferencesKey("parental_hidden_rooms")
+    private val parentalHiddenItemIdsKey = stringPreferencesKey("parental_hidden_item_ids")
+    private val parentalVisibleSearchDomainsKey = stringPreferencesKey("parental_visible_search_domains")
+    private val parentalVisibleSearchEntityIdsKey = stringPreferencesKey("parental_visible_search_entity_ids")
+    private val parentalHiddenSearchDomainsKey = stringPreferencesKey("parental_hidden_search_domains")
+    private val parentalHiddenSearchEntityIdsKey = stringPreferencesKey("parental_hidden_search_entity_ids")
     private val parentalAllowEditKey = booleanPreferencesKey("parental_allow_edit")
     private val parentalAestheticsOnlyKey = booleanPreferencesKey("parental_aesthetics_only")
     private val parentalShowSearchKey = booleanPreferencesKey("parental_show_search")
     private val parentalShowFlowsKey = booleanPreferencesKey("parental_show_flows")
+    private val parentalAllowDashboardSwitchKey = booleanPreferencesKey("parental_allow_dashboard_switch")
+    private val parentalAllowDashboardCreateKey = booleanPreferencesKey("parental_allow_dashboard_create")
+    private val parentalAllowReimportKey = booleanPreferencesKey("parental_allow_reimport")
+    private val familyDeviceIdKey = stringPreferencesKey("family_device_id")
+    // Last-known "the family expects at least this version" from the companion component, cached so
+    // the prompt can show at launch (before the first report of the session comes back) and doesn't
+    // vanish the moment Home Assistant is briefly unreachable.
+    private val requiredAppVersionCodeKey = intPreferencesKey("required_app_version_code")
+    private val requiredAppVersionNameKey = stringPreferencesKey("required_app_version_name")
+    private val requiredAppVersionIsDeviceKey = booleanPreferencesKey("required_app_version_is_device")
     private val lastSeenVersionCodeKey = intPreferencesKey("last_seen_version_code")
     private val homeAssistantInstancesKey = stringPreferencesKey("home_assistant_instances_v1")
     private val activeHomeAssistantInstanceIdKey = stringPreferencesKey("active_home_assistant_instance_id")
@@ -282,7 +335,26 @@ class PreferencesManager(
     val defaultDashboardId: Flow<String?> = context.dataStore.data.map { it[defaultDashboardIdKey] }
     val pendingAutoTakeover: Flow<Boolean> = context.dataStore.data.map { it[pendingAutoTakeoverKey] ?: false }
     val quickStartGuidePending: Flow<Boolean> = context.dataStore.data.map { it[quickStartGuidePendingKey] ?: false }
+    val familyDashboardSubscribed: Flow<Boolean> = context.dataStore.data.map { p ->
+        p[familyDashboardSubscribedKey] == true ||
+            p[legacyFamilyDashboardCreationLockedKey] == true ||
+            decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList()).any { it.id.startsWith("shared-") }
+    }
+    val familyDashboardAccessLost: Flow<Boolean> = context.dataStore.data.map { it[familyDashboardAccessLostKey] ?: false }
     val cloudBackupEnabled: Flow<Boolean> = context.dataStore.data.map { it[cloudBackupEnabledKey] ?: false }
+    /** Watch GitHub releases and notify about newer versions. On by default: a Play install is
+     *  updated by Play anyway, and a sideloaded one has no other way to find out. */
+    val updateChecksEnabled: Flow<Boolean> = context.dataStore.data.map { it[updateChecksEnabledKey] ?: true }
+    /** The version already announced, so one release is not notified about every day until installed. */
+    val lastNotifiedUpdateVersion: Flow<String?> = context.dataStore.data.map { it[lastNotifiedUpdateVersionKey] }
+    /**
+     * The version already placed in the notification panel.
+     *
+     * Tracked separately from [lastNotifiedUpdateVersion], which only advances when the system
+     * notification actually posted: someone with notifications switched off would otherwise
+     * have the panel notice re-added on every check.
+     */
+    val lastPanelUpdateVersion: Flow<String?> = context.dataStore.data.map { it[lastPanelUpdateVersionKey] }
     /** Daily backup to the user's own Home Assistant instance via the hki7 companion component. */
     val haBackupEnabled: Flow<Boolean> = context.dataStore.data.map { it[haBackupEnabledKey] ?: false }
     /** Epoch millis of the last successful Google Drive backup, or null if none yet. */
@@ -297,6 +369,22 @@ class PreferencesManager(
     val parentalHiddenRooms: Flow<List<String>> = context.dataStore.data.map {
         it[parentalHiddenRoomsKey]?.split(",")?.filter { r -> r.isNotBlank() } ?: emptyList()
     }
+    /** Individual button/badge/widget ids hidden from the current user by an admin's policy. */
+    val parentalHiddenItemIds: Flow<List<String>> = context.dataStore.data.map {
+        it[parentalHiddenItemIdsKey]?.split(",")?.filter { r -> r.isNotBlank() } ?: emptyList()
+    }
+    val parentalVisibleSearchDomains: Flow<List<String>> = context.dataStore.data.map {
+        it[parentalVisibleSearchDomainsKey]?.split(",")?.filter(String::isNotBlank) ?: emptyList()
+    }
+    val parentalVisibleSearchEntityIds: Flow<List<String>> = context.dataStore.data.map {
+        it[parentalVisibleSearchEntityIdsKey]?.split(",")?.filter(String::isNotBlank) ?: emptyList()
+    }
+    val parentalHiddenSearchDomains: Flow<List<String>> = context.dataStore.data.map {
+        it[parentalHiddenSearchDomainsKey]?.split(",")?.filter(String::isNotBlank) ?: emptyList()
+    }
+    val parentalHiddenSearchEntityIds: Flow<List<String>> = context.dataStore.data.map {
+        it[parentalHiddenSearchEntityIdsKey]?.split(",")?.filter(String::isNotBlank) ?: emptyList()
+    }
     /** Whether the current user may enter dashboard edit mode (admin policy; default allowed). */
     val enforcedAllowEdit: Flow<Boolean> = context.dataStore.data.map { it[parentalAllowEditKey] ?: true }
     /** Whether the current user is restricted to aesthetic-only edits (admin policy). */
@@ -305,17 +393,51 @@ class PreferencesManager(
     val enforcedShowGlobalSearch: Flow<Boolean> = context.dataStore.data.map { it[parentalShowSearchKey] ?: true }
     /** Whether the current user sees the flows action (admin policy; default shown). */
     val enforcedShowFlows: Flow<Boolean> = context.dataStore.data.map { it[parentalShowFlowsKey] ?: true }
+    val enforcedAllowDashboardSwitch: Flow<Boolean> = context.dataStore.data.map {
+        it[parentalAllowDashboardSwitchKey] ?: true
+    }
+    val enforcedAllowDashboardCreate: Flow<Boolean> = context.dataStore.data.map {
+        it[parentalAllowDashboardCreateKey] ?: true
+    }
+    val enforcedAllowReimport: Flow<Boolean> = context.dataStore.data.map {
+        it[parentalAllowReimportKey] ?: true
+    }
 
     /** Caches the enforced policy for the signed-in user (reset to defaults for admins/owners). */
     suspend fun saveEnforcedPolicy(policy: Hki7Policy) {
         context.dataStore.edit {
             it[parentalHiddenViewsKey] = policy.hiddenViews.joinToString(",")
             it[parentalHiddenRoomsKey] = policy.hiddenRooms.joinToString(",")
+            it[parentalHiddenItemIdsKey] = policy.hiddenItemIds.joinToString(",")
+            it[parentalVisibleSearchDomainsKey] = policy.visibleSearchDomains.joinToString(",")
+            it[parentalVisibleSearchEntityIdsKey] = policy.visibleSearchEntityIds.joinToString(",")
+            it[parentalHiddenSearchDomainsKey] = policy.hiddenSearchDomains.joinToString(",")
+            it[parentalHiddenSearchEntityIdsKey] = policy.hiddenSearchEntityIds.joinToString(",")
             it[parentalAllowEditKey] = policy.allowEdit
             it[parentalAestheticsOnlyKey] = policy.aestheticsOnly
             it[parentalShowSearchKey] = policy.showGlobalSearch
             it[parentalShowFlowsKey] = policy.showFlows
+            it[parentalAllowDashboardSwitchKey] = policy.allowDashboardSwitch
+            it[parentalAllowDashboardCreateKey] = policy.allowDashboardCreate
+            it[parentalAllowReimportKey] = policy.allowReimport
+            it[roomFollowKey] = appJson.encodeToString(policy.roomFollow)
         }
+    }
+
+    /** This device owner's room-following settings, cached so the launch navigation can decide
+     *  before the component has been reached (and keeps working while offline). */
+    val roomFollow: Flow<Hki7RoomFollow> = context.dataStore.data.map { preferences ->
+        decodeBackup(preferences[roomFollowKey], Hki7RoomFollow())
+    }
+
+    /** The household's room-presence sensors, cached from `hki7/room_follow/roster` so the
+     *  people-per-room counters survive a restart before the roster is refetched. */
+    val roomFollowRoster: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        preferences[roomFollowRosterKey]?.split(",")?.filter { it.isNotBlank() }.orEmpty()
+    }
+
+    suspend fun saveRoomFollowRoster(sensors: List<String>) {
+        context.dataStore.edit { it[roomFollowRosterKey] = sensors.filter { s -> s.isNotBlank() }.joinToString(",") }
     }
 
     /** Version code whose changelog the user has already seen; 0 until one has been acknowledged. */
@@ -327,6 +449,45 @@ class PreferencesManager(
 
     suspend fun saveCloudBackup(enabled: Boolean) {
         context.dataStore.edit { it[cloudBackupEnabledKey] = enabled }
+    }
+
+    suspend fun saveUpdateChecksEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[updateChecksEnabledKey] = enabled }
+    }
+
+    suspend fun saveLastNotifiedUpdateVersion(version: String) {
+        context.dataStore.edit { it[lastNotifiedUpdateVersionKey] = version }
+    }
+
+    suspend fun saveLastPanelUpdateVersion(version: String?) {
+        context.dataStore.edit {
+            if (version == null) it.remove(lastPanelUpdateVersionKey)
+            else it[lastPanelUpdateVersionKey] = version
+        }
+    }
+
+    /**
+     * Clears a stale "already announced" marker, exactly once per install.
+     *
+     * Until the fix that goes out with this release, a version was written down as announced even
+     * when its notification never posted — so anyone whose notifications were off at the wrong
+     * moment has a marker for a release they were never actually told about, and the daily check
+     * skips it forever. Dropping the marker once lets that release be announced properly. The
+     * cost is at most one repeat notification for someone who did already see it.
+     *
+     * Both writes happen in one edit, so a torn run cannot clear the marker without also
+     * recording that it did.
+     */
+    suspend fun clearStaleNotifiedUpdateVersionOnce() {
+        // Cheap read first: edit() reserialises the whole preferences file even when it changes
+        // nothing, and the caller runs daily for the life of the install.
+        val alreadyRun = context.dataStore.data.map { it[lastNotifiedUpdateResetKey] == true }.first()
+        if (alreadyRun) return
+        context.dataStore.edit { preferences ->
+            if (preferences[lastNotifiedUpdateResetKey] == true) return@edit
+            preferences[lastNotifiedUpdateResetKey] = true
+            preferences.remove(lastNotifiedUpdateVersionKey)
+        }
     }
 
     suspend fun saveHaBackup(enabled: Boolean) {
@@ -415,6 +576,17 @@ class PreferencesManager(
      * seeded on during onboarding (see saveInitialConnectionDetails); the fallback stays false so
      * pre-existing users who never opted in are not flipped on. */
     val iconAnimationsEnabled: Flow<Boolean> = context.dataStore.data.map { it[iconAnimationsKey] ?: false }
+    /** Whether animated weather artwork plays, per surface it appears on. Separate from
+     * [iconAnimationsEnabled]: that one governs entity icons glowing and spinning, which is a
+     * different look and a different cost from a Lottie weather animation. Separate from each
+     * other because the forecast and hourly strips run a dozen compositions side by side while
+     * the header pill runs one, so switching the expensive surface off need not mean losing the
+     * cheap one. All default on. */
+    val weatherAnimatePill: Flow<Boolean> = context.dataStore.data.map { it[weatherAnimatePillKey] ?: true }
+    val weatherAnimateDialog: Flow<Boolean> = context.dataStore.data.map { it[weatherAnimateDialogKey] ?: true }
+    val weatherAnimateForecast: Flow<Boolean> = context.dataStore.data.map { it[weatherAnimateForecastKey] ?: true }
+    val weatherAnimateWidget: Flow<Boolean> = context.dataStore.data.map { it[weatherAnimateWidgetKey] ?: true }
+
     /** User-chosen default effect per icon group (group id → "glow"/"spin"/"pulse"/"none"). */
     val iconEffectDefaults: Flow<Map<String, String>> = context.dataStore.data.map {
         decodeBackup(it[iconEffectDefaultsKey], emptyMap())
@@ -468,6 +640,10 @@ class PreferencesManager(
     val customPages: Flow<List<HKICustomPage>> = context.dataStore.data.map { preferences ->
         val saved = preferences[customPagesKey] ?: "[]"
         runCatching { appJson.decodeFromString<List<HKICustomPage>>(saved) }.getOrDefault(emptyList())
+    }
+    val customPopups: Flow<List<HKICustomPopup>> = context.dataStore.data.map { preferences ->
+        val saved = preferences[customPopupsKey] ?: "[]"
+        runCatching { appJson.decodeFromString<List<HKICustomPopup>>(saved) }.getOrDefault(emptyList())
     }
 
     // Media players: local display names and which players may show the mini player bar.
@@ -637,6 +813,10 @@ class PreferencesManager(
         preferences[activeDashboardIdKey] = activeId
         preferences[defaultDashboardIdKey] = defaultId
         loadDashboardIntoPreferences(preferences, dashboards.first { it.id == activeId })
+        if (dashboards.any { it.id.startsWith("shared-") }) preferences[familyDashboardSubscribedKey] = true
+        else preferences.remove(familyDashboardSubscribedKey)
+        preferences.remove(familyDashboardAccessLostKey)
+        preferences.remove(legacyFamilyDashboardCreationLockedKey)
         if (instance.autoGenerationPending) preferences[pendingAutoTakeoverKey] = true
         else preferences.remove(pendingAutoTakeoverKey)
         preferences[activeHomeAssistantInstanceIdKey] = instance.id
@@ -853,6 +1033,7 @@ class PreferencesManager(
             pageConfigs = decodeBackup(p[pageConfigsKey], emptyMap()),
             dashboardMode = p[dashboardModeKey] ?: "auto",
             customPages = decodeBackup(p[customPagesKey], emptyList()),
+            customPopups = decodeBackup(p[customPopupsKey], emptyList()),
             navBarOrder = strings(navBarOrderKey),
             navBarHidden = strings(navBarHiddenKey),
             themeColor = p[themeColorKey] ?: "system",
@@ -889,6 +1070,7 @@ class PreferencesManager(
     }
 
     suspend fun restoreUiBackup(raw: String) {
+        check(familyDashboardSwitchAllowed()) { "Dashboard restore is disabled by family permissions" }
         val backup = appJson.decodeFromString<HKIUiBackup>(raw)
         require(backup.version == 1) { "Unsupported backup version ${backup.version}" }
         context.dataStore.edit { p ->
@@ -900,6 +1082,7 @@ class PreferencesManager(
             p[pageConfigsKey] = appJson.encodeToString(backup.pageConfigs)
             p[dashboardModeKey] = backup.dashboardMode
             p[customPagesKey] = appJson.encodeToString(backup.customPages)
+            p[customPopupsKey] = appJson.encodeToString(backup.customPopups)
             p[navBarOrderKey] = backup.navBarOrder.joinToString(",")
             p[navBarHiddenKey] = backup.navBarHidden.joinToString(",")
             p[themeColorKey] = backup.themeColor
@@ -1009,9 +1192,74 @@ class PreferencesManager(
         context.dataStore.edit { it.remove(quickStartGuidePendingKey) }
     }
 
+    /** This install's stable id for family device reporting, created on first use.
+     *
+     * Deliberately not the mobile_app device id: that one only exists once the app has registered
+     * for location or notifications, and a phone with both switched off must still be able to
+     * report which HKI version it runs. A reinstall gets a new id, which is why the component caps
+     * how many it remembers per user. */
+    suspend fun familyDeviceId(): String {
+        var id: String? = null
+        context.dataStore.edit { p ->
+            id = p[familyDeviceIdKey] ?: UUID.randomUUID().toString().also { p[familyDeviceIdKey] = it }
+        }
+        return id.orEmpty()
+    }
+
+    /** The version this device is being asked to be on, or null when nothing is required of it. */
+    val requiredAppUpdate: Flow<Hki7RequiredUpdate?> = context.dataStore.data.map { p ->
+        p[requiredAppVersionCodeKey]?.takeIf { it > 0 }?.let { code ->
+            Hki7RequiredUpdate(
+                versionCode = code,
+                versionName = p[requiredAppVersionNameKey].orEmpty(),
+                deviceSpecific = p[requiredAppVersionIsDeviceKey] ?: false,
+            )
+        }
+    }
+
+    /** Caches what the component last said this device must run. Passing null clears it, which is
+     * how an admin lifting the requirement reaches the device that was being blocked. */
+    suspend fun saveRequiredAppUpdate(update: Hki7RequiredUpdate?) {
+        context.dataStore.edit { p ->
+            if (update == null) {
+                p.remove(requiredAppVersionCodeKey)
+                p.remove(requiredAppVersionNameKey)
+                p.remove(requiredAppVersionIsDeviceKey)
+            } else {
+                p[requiredAppVersionCodeKey] = update.versionCode
+                p[requiredAppVersionNameKey] = update.versionName
+                p[requiredAppVersionIsDeviceKey] = update.deviceSpecific
+            }
+        }
+    }
+
+    suspend fun markFamilyDashboardSubscribed() {
+        context.dataStore.edit {
+            it[familyDashboardSubscribedKey] = true
+            it.remove(familyDashboardAccessLostKey)
+            it.remove(legacyFamilyDashboardCreationLockedKey)
+        }
+    }
+
+    /** Leaves family management after choosing a permitted standalone dashboard source. */
+    suspend fun clearFamilyDashboardSubscription() {
+        context.dataStore.edit {
+            it.remove(familyDashboardSubscribedKey)
+            it.remove(familyDashboardAccessLostKey)
+            it.remove(legacyFamilyDashboardCreationLockedKey)
+        }
+    }
+
+    private suspend fun familyDashboardCreateAllowed(): Boolean =
+        !familyDashboardSubscribed.first() || enforcedAllowDashboardCreate.first()
+
+    private suspend fun familyDashboardSwitchAllowed(): Boolean =
+        !familyDashboardSubscribed.first() || enforcedAllowDashboardSwitch.first()
+
     /** Migrates the original single dashboard in place, without changing what is currently loaded. */
     suspend fun ensureDashboardStore(defaultName: String = "Default") {
         context.dataStore.edit { p ->
+            if (p[familyDashboardAccessLostKey] == true) return@edit
             val existing = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList())
             if (existing.isNotEmpty()) {
                 if (p[activeDashboardIdKey].isNullOrBlank()) p[activeDashboardIdKey] = existing.first().id
@@ -1026,7 +1274,8 @@ class PreferencesManager(
         }
     }
 
-    suspend fun createDashboard(name: String, autoGenerate: Boolean): String {
+    suspend fun createDashboard(name: String, autoGenerate: Boolean): String? {
+        if (!familyDashboardCreateAllowed()) return null
         val id = UUID.randomUUID().toString()
         context.dataStore.edit { p ->
             val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList()).toMutableList()
@@ -1049,15 +1298,66 @@ class PreferencesManager(
 
     /** Onboarding: adopt an already-imported shared dashboard as the initial active + default
      * dashboard and finish first-run setup. */
-    suspend fun useSharedDashboardAsInitial(localId: String) {
+    suspend fun useSharedDashboardAsInitial(localId: String, discardOtherDashboards: Boolean = false) {
         context.dataStore.edit { p ->
-            val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList())
+            var dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList())
             val target = dashboards.firstOrNull { it.id == localId } ?: return@edit
+            if (discardOtherDashboards) {
+                dashboards = listOf(target)
+                p[dashboardsKey] = appJson.encodeToString(dashboards)
+            }
             p[activeDashboardIdKey] = localId
             p[defaultDashboardIdKey] = localId
             p.remove(pendingAutoTakeoverKey)
             p[quickStartGuidePendingKey] = true
             loadDashboardIntoPreferences(p, target)
+        }
+    }
+
+    /** Onboarding: commits the UI values just restored from a backup into the dashboard store and
+     * makes that restored dashboard active/default. Without this, the eager blank onboarding
+     * dashboard could overwrite the restored live preferences on the next dashboard switch. */
+    suspend fun useRestoredBackupAsInitial(defaultName: String = "Restored dashboard") {
+        context.dataStore.edit { p ->
+            val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList()).toMutableList()
+            val activeId = p[activeDashboardIdKey]
+                ?: p[defaultDashboardIdKey]
+                ?: dashboards.firstOrNull()?.id
+                ?: UUID.randomUUID().toString()
+            val existingName = dashboards.firstOrNull { it.id == activeId }?.name
+            val restored = dashboardFromPreferences(p, activeId, existingName ?: defaultName)
+            val index = dashboards.indexOfFirst { it.id == activeId }
+            if (index >= 0) dashboards[index] = restored else dashboards += restored
+            p[dashboardsKey] = appJson.encodeToString(dashboards)
+            p[activeDashboardIdKey] = activeId
+            p[defaultDashboardIdKey] = activeId
+            p.remove(pendingAutoTakeoverKey)
+            p[quickStartGuidePendingKey] = true
+            snapshotActiveInstance(p)
+        }
+    }
+
+    /**
+     * Settings: commits a backup that was just restored into a dashboard created to hold it. The
+     * dashboard that was open when the new one was created has already been written back to the
+     * store by [createDashboard], so it survives untouched — which is the whole point of restoring
+     * into a new dashboard rather than over the current one.
+     *
+     * [useRestoredBackupAsInitial] is the first-run equivalent; it additionally claims the default
+     * dashboard and queues the quick-start guide, neither of which should happen to someone who
+     * already has a dashboard and is only adding another.
+     */
+    suspend fun commitRestoredBackupIntoActiveDashboard(defaultName: String = "Restored dashboard") {
+        context.dataStore.edit { p ->
+            val activeId = p[activeDashboardIdKey] ?: return@edit
+            val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList()).toMutableList()
+            val existingName = dashboards.firstOrNull { it.id == activeId }?.name
+            val restored = dashboardFromPreferences(p, activeId, existingName ?: defaultName)
+            val index = dashboards.indexOfFirst { it.id == activeId }
+            if (index >= 0) dashboards[index] = restored else dashboards += restored
+            p[dashboardsKey] = appJson.encodeToString(dashboards)
+            p.remove(pendingAutoTakeoverKey)
+            snapshotActiveInstance(p)
         }
     }
 
@@ -1137,10 +1437,12 @@ class PreferencesManager(
 
     /** Removes imported shared dashboards ("shared-*") whose source is no longer among [presentLocalIds]
      * (the admin unpublished them, or stopped sharing them with this user). If the active dashboard was
-     * one of them, switches to a surviving dashboard; if none survive, clears the active dashboard and
-     * signals [SharedPruneResult.needsAutoGenerate] so the caller can build the app's default instead. */
+     * removed, clears the active selection and signals [SharedPruneResult.needsDashboardChoice] so the
+     * host can reopen the dashboard chooser instead of switching or creating something implicitly —
+     * and wipes this device's dashboard customization with it, so nothing the user layered on the
+     * dashboard they just lost survives into the next one an admin shares with them. */
     suspend fun pruneUnpublishedSharedDashboards(presentLocalIds: Set<String>): SharedPruneResult {
-        var result = SharedPruneResult(removed = false, activeReplaced = false, needsAutoGenerate = false)
+        var result = SharedPruneResult(removed = false, activeReplaced = false, needsDashboardChoice = false)
         context.dataStore.edit { p ->
             val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList()).toMutableList()
             val removedIds = dashboards
@@ -1156,20 +1458,29 @@ class PreferencesManager(
             if (dashboards.isEmpty()) {
                 p.remove(activeDashboardIdKey)
                 p.remove(defaultDashboardIdKey)
+                p[familyDashboardAccessLostKey] = true
+                clearDashboardCustomization(p)
                 p[dashboardsKey] = appJson.encodeToString(dashboards)
-                result = SharedPruneResult(removed = true, activeReplaced = removedActive, needsAutoGenerate = true)
+                result = SharedPruneResult(removed = true, activeReplaced = removedActive, needsDashboardChoice = true)
+                return@edit
+            }
+            // Losing the dashboard currently granting family access is never an implicit switch.
+            // Block the app and return to the permission-aware chooser even when local dashboards
+            // survive; the user must deliberately choose an allowed next source.
+            if (removedActive) {
+                p.remove(activeDashboardIdKey)
+                p.remove(defaultDashboardIdKey)
+                p[familyDashboardAccessLostKey] = true
+                // The live keys still hold the revoked dashboard's contents and styling. Surviving
+                // dashboards keep their own copies in `dashboards`, and loading one rewrites these.
+                clearDashboardCustomization(p)
+                p[dashboardsKey] = appJson.encodeToString(dashboards)
+                result = SharedPruneResult(removed = true, activeReplaced = false, needsDashboardChoice = true)
                 return@edit
             }
             if (p[defaultDashboardIdKey] in removedIds) p[defaultDashboardIdKey] = dashboards.first().id
-            var activeReplaced = false
-            if (removedActive) {
-                val replacement = dashboards.firstOrNull { it.id == p[defaultDashboardIdKey] } ?: dashboards.first()
-                p[activeDashboardIdKey] = replacement.id
-                loadDashboardIntoPreferences(p, replacement)
-                activeReplaced = true
-            }
             p[dashboardsKey] = appJson.encodeToString(dashboards)
-            result = SharedPruneResult(removed = true, activeReplaced = activeReplaced, needsAutoGenerate = false)
+            result = SharedPruneResult(removed = true, activeReplaced = false, needsDashboardChoice = false)
         }
         return result
     }
@@ -1179,6 +1490,7 @@ class PreferencesManager(
      * unsaved edits) captures its current state. The active dashboard is left unchanged. Returns the
      * new dashboard id, or null if the source id is unknown. */
     suspend fun copyDashboard(id: String, name: String): String? {
+        if (!familyDashboardCreateAllowed()) return null
         var newId: String? = null
         context.dataStore.edit { p ->
             val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList()).toMutableList()
@@ -1197,6 +1509,7 @@ class PreferencesManager(
     }
 
     suspend fun switchDashboard(id: String): Boolean {
+        if (!familyDashboardSwitchAllowed()) return false
         var switched = false
         context.dataStore.edit { p ->
             val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList()).toMutableList()
@@ -1240,6 +1553,7 @@ class PreferencesManager(
     }
 
     suspend fun setDefaultDashboard(id: String) {
+        if (!familyDashboardSwitchAllowed()) return
         context.dataStore.edit { p ->
             val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList())
             if (dashboards.any { it.id == id }) p[defaultDashboardIdKey] = id
@@ -1253,7 +1567,12 @@ class PreferencesManager(
             val dashboards = decodeBackup<List<HKIDashboard>>(p[dashboardsKey], emptyList()).toMutableList()
             val activeId = p[activeDashboardIdKey] ?: return@edit
             val index = dashboards.indexOfFirst { it.id == activeId }
-            if (index >= 0) dashboards[index] = dashboardFromPreferences(p, activeId, name).copy(mode = "manual")
+            // Keep the name the dashboard was created with. This runs long after creation — once the
+            // registries have arrived and the import has run — so falling back to the default here
+            // silently renamed a dashboard the user had just named themselves.
+            val existingName = dashboards.getOrNull(index)?.name?.takeIf { it.isNotBlank() }
+            if (index >= 0) dashboards[index] =
+                dashboardFromPreferences(p, activeId, existingName ?: name).copy(mode = "manual")
             p[dashboardsKey] = appJson.encodeToString(dashboards)
         }
     }
@@ -1269,6 +1588,7 @@ class PreferencesManager(
         areaConfigs = decodeBackup(p[areaConfigsKey], emptyMap()),
         pageConfigs = decodeBackup(p[pageConfigsKey], emptyMap()),
         customPages = decodeBackup(p[customPagesKey], emptyList()),
+        customPopups = decodeBackup(p[customPopupsKey], emptyList()),
         navBarOrder = p[navBarOrderKey]?.split(',')?.filter(String::isNotBlank).orEmpty(),
         navBarHidden = p[navBarHiddenKey]?.split(',')?.filter(String::isNotBlank).orEmpty(),
         mediaPlayerNames = decodeBackup(p[mediaPlayerNamesKey], emptyMap()),
@@ -1309,6 +1629,38 @@ class PreferencesManager(
         if (index >= 0) dashboards[index] = dashboardFromPreferences(p, activeId, dashboards[index].name)
     }
 
+    /** Every preference key holding "what this dashboard contains and how it looks": its rooms,
+     * widgets, pages and nav bar, plus the aesthetics an admin's aesthetics-only permission covers
+     * (theme, colors, icons, corner radius, fonts) and the header pill. Device-level preferences —
+     * refresh rate, clock format, icon animations — are not dashboard state and stay put. */
+    private val dashboardCustomizationKeys: List<Preferences.Key<*>>
+        get() = listOf(
+            areaOrderKey, savedAreasKey, savedFloorsKey, areaStacksKey, areaConfigsKey, pageConfigsKey,
+            customPagesKey, customPopupsKey, navBarOrderKey, navBarHiddenKey,
+            mediaPlayerNamesKey, mediaPlayerBarHiddenKey,
+            themeColorKey, themeModeKey, systemLightThemeColorKey, systemDarkThemeColorKey,
+            fontScaleKey, fontWeightAdjustKey, fontFamilyKey, iconPackKey, iconEffectDefaultsKey,
+            itemCornerRadiusKey, weatherEntityIdKey, weatherDisplayKey, headerLeftDisplayKey,
+            headerVisibleKey, weatherCardWidthsKey, alarmEntityKey, headerLeftAlarmEntityKey,
+            alarmPendingSecondsKey,
+        ) + headerWeatherRoleKeys.values
+
+    /** Wipes the local dashboard back to a blank slate. Used when an admin revokes this user's
+     * access to the family dashboard they were running: the dashboard itself is deleted, and
+     * anything they had layered on top of it must go with it. Otherwise the leftovers — a theme, a
+     * header pill, a weather entity, a nav-bar order — survive into whatever dashboard is shared
+     * next, which then looks like the new dashboard failing to import in full.
+     *
+     * The recipient's Home Assistant connection, profile, notification, and backup settings are
+     * deliberately untouched: losing a dashboard is not being signed out. */
+    private fun clearDashboardCustomization(p: MutablePreferences) {
+        dashboardCustomizationKeys.forEach { key -> p -= key }
+        // Not simply removed: an absent mode reads as "auto", which would offer an auto-generated
+        // dashboard the user never asked for while the chooser is still deciding what comes next.
+        p[dashboardModeKey] = "manual"
+        p.remove(pendingAutoTakeoverKey)
+    }
+
     private fun loadDashboardIntoPreferences(p: MutablePreferences, dashboard: HKIDashboard) {
         p[dashboardModeKey] = dashboard.mode
         p[areaOrderKey] = dashboard.areaOrder.joinToString(",")
@@ -1318,6 +1670,7 @@ class PreferencesManager(
         p[areaConfigsKey] = appJson.encodeToString(dashboard.areaConfigs)
         p[pageConfigsKey] = appJson.encodeToString(dashboard.pageConfigs)
         p[customPagesKey] = appJson.encodeToString(dashboard.customPages)
+        p[customPopupsKey] = appJson.encodeToString(dashboard.customPopups)
         p[navBarOrderKey] = dashboard.navBarOrder.joinToString(",")
         p[navBarHiddenKey] = dashboard.navBarHidden.joinToString(",")
         p[mediaPlayerNamesKey] = appJson.encodeToString(dashboard.mediaPlayerNames)
@@ -1348,6 +1701,10 @@ class PreferencesManager(
     suspend fun saveFontFamily(family: String) { context.dataStore.edit { it[fontFamilyKey] = family } }
     suspend fun saveDefaultIconPack(pack: String) { context.dataStore.edit { it[iconPackKey] = pack } }
     suspend fun saveIconAnimationsEnabled(enabled: Boolean) { context.dataStore.edit { it[iconAnimationsKey] = enabled } }
+    suspend fun saveWeatherAnimatePill(enabled: Boolean) { context.dataStore.edit { it[weatherAnimatePillKey] = enabled } }
+    suspend fun saveWeatherAnimateDialog(enabled: Boolean) { context.dataStore.edit { it[weatherAnimateDialogKey] = enabled } }
+    suspend fun saveWeatherAnimateForecast(enabled: Boolean) { context.dataStore.edit { it[weatherAnimateForecastKey] = enabled } }
+    suspend fun saveWeatherAnimateWidget(enabled: Boolean) { context.dataStore.edit { it[weatherAnimateWidgetKey] = enabled } }
     suspend fun saveIconEffectDefault(group: String, effectId: String) {
         context.dataStore.edit { p ->
             val current = decodeBackup<Map<String, String>>(p[iconEffectDefaultsKey], emptyMap()).toMutableMap()
@@ -1598,6 +1955,11 @@ class PreferencesManager(
     suspend fun saveCustomPages(pages: List<HKICustomPage>) {
         context.dataStore.edit {
             if (pages.isEmpty()) it.remove(customPagesKey) else it[customPagesKey] = appJson.encodeToString(pages)
+        }
+    }
+    suspend fun saveCustomPopups(popups: List<HKICustomPopup>) {
+        context.dataStore.edit {
+            if (popups.isEmpty()) it.remove(customPopupsKey) else it[customPopupsKey] = appJson.encodeToString(popups)
         }
     }
 

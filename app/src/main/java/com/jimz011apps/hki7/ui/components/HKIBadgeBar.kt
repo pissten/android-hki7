@@ -2,6 +2,10 @@
 
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
@@ -45,11 +49,15 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import com.jimz011apps.hki7.data.HAEntity
+import com.jimz011apps.hki7.data.isActionItemId
+import com.jimz011apps.hki7.data.newActionItemId
+import com.jimz011apps.hki7.data.visibilityConditionEntityIds
 import com.jimz011apps.hki7.data.HKIAction
 import com.jimz011apps.hki7.data.HKIBadge
 import com.jimz011apps.hki7.data.HKIBadgeBarConfig
 import com.jimz011apps.hki7.data.HKIButtonConfig
 import com.jimz011apps.hki7.ui.MainViewModel
+import com.jimz011apps.hki7.ui.localizedStateLabel
 import com.jimz011apps.hki7.ui.utils.handleActionOutcome
 import com.jimz011apps.hki7.ui.screens.PagedRoleDialog
 import com.jimz011apps.hki7.ui.screens.AggregatedCoverDialog
@@ -113,11 +121,10 @@ fun HKIBadgeBar(
     val currentUrl by viewModel.currentUrl.collectAsState()
     val config = badgeBarConfig ?: HKIBadgeBarConfig()
     val badges = config.badges
-    // Hidden/scheduled badges are dropped outside edit mode; edit mode keeps them so they can be restored.
-    val renderBadges = if (isEditMode) badges else badges.filter { com.jimz011apps.hki7.data.isBadgeVisibleNow(it) }
     // When an admin restricts a user to aesthetic-only editing, adding/removing badges is a structural
     // change and stays locked — only visual tweaks to existing badges are allowed.
     val aestheticsOnly by viewModel.aestheticsOnlyEditing.collectAsState()
+    val badgeEditMode = isEditMode && !aestheticsOnly
     val alignment = config.alignment
     val dependencyIds = remember(badges) {
         buildSet {
@@ -131,16 +138,27 @@ fun HKIBadgeBar(
                 addAll(badge.vacuumEmptyBinEntityIds.values)
                 badge.humidifierFanEntityId?.let(::add)
                 addAll(badge.humidifierAuxEntityIds.values)
+                addAll(badge.visibilityConditionEntityIds())
             }
         }.toList()
     }
     // The always-visible badge bar only observes entities it renders. Entity pickers obtain their
     // own full snapshot when opened, so edit mode does not need to invalidate every badge for every
     // Home Assistant state change.
-    val entityFlow = remember(viewModel, dependencyIds, isEditMode) {
-        if (isEditMode) viewModel.entitySnapshotFor(dependencyIds) else viewModel.entitiesFor(dependencyIds)
+    val entityFlow = remember(viewModel, dependencyIds, badgeEditMode) {
+        if (badgeEditMode) viewModel.entitySnapshotFor(dependencyIds) else viewModel.entitiesFor(dependencyIds)
     }
     val allEntities by entityFlow.collectAsState()
+    val badgeEntityById = remember(allEntities) { allEntities.associateBy { it.entity_id } }
+    val parentalHiddenItemIds by viewModel.prefs.parentalHiddenItemIds.collectAsState(initial = emptyList())
+    // Hidden/scheduled/conditional/per-user-hidden badges are dropped outside edit mode; edit mode
+    // keeps them so they can be restored.
+    val renderBadges = if (badgeEditMode) badges else badges.filter {
+        it.id !in parentalHiddenItemIds && com.jimz011apps.hki7.data.isBadgeVisibleNow(
+            it,
+            resolveEntityState = { id -> badgeEntityById[id]?.state }
+        )
+    }
 
     // ── dialog state ──────────────────────────────────────────────────────────
     var dialogRole    by remember { mutableStateOf<String?>(null) }
@@ -177,6 +195,8 @@ fun HKIBadgeBar(
     fun resolveBadgeAction(badge: HKIBadge, trigger: String): HKIAction {
         val ex = if (trigger == "hold") badge.holdActionEx else badge.tapActionEx
         if (ex != null) return ex
+        // An action badge has no entity to open, so it only does what it was explicitly given.
+        if (isActionItemId(badge.entityId)) return HKIAction(type = "none")
         val legacy = if (trigger == "hold") badge.holdAction else badge.tapAction
         return HKIAction(type = if (legacy == "auto") "more_info" else legacy)
     }
@@ -194,7 +214,7 @@ fun HKIBadgeBar(
     fun handleHold(badge: HKIBadge) = dispatchBadge(badge, "hold")
 
     // ── nothing to show ───────────────────────────────────────────────────────
-    if (!config.visible || (!isEditMode && renderBadges.isEmpty())) return
+    if (!config.visible || (!badgeEditMode && renderBadges.isEmpty())) return
 
     // ── layout ────────────────────────────────────────────────────────────────
     Row(
@@ -204,7 +224,7 @@ fun HKIBadgeBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         when {
-            badges.isEmpty() && isEditMode -> {
+            badges.isEmpty() && badgeEditMode -> {
                 // Empty bar in edit mode: + Add pill + × Remove (if config exists)
                 if (!aestheticsOnly) AddBadgePill { addBadge(if (alignment == "split") "left" else "right") }
             }
@@ -213,7 +233,7 @@ fun HKIBadgeBar(
                 val leftBadges  = renderBadges.filter { it.side == "left" }
                 val rightBadges = renderBadges.filter { it.side == "right" }
 
-                if (isEditMode) {
+                if (badgeEditMode) {
                     BoxWithConstraints(modifier = Modifier.weight(1f)) {
                         val gap = 56.dp
                         val laneWidth = (maxWidth - gap) / 2
@@ -302,11 +322,11 @@ fun HKIBadgeBar(
                         BadgeDraggableRow(
                             badges = leftBadges,
                             allEntities = allEntities,
-                            isEditMode = isEditMode,
+                            isEditMode = badgeEditMode,
                             currentUrl = currentUrl,
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
                             onTap    = { b -> handleTap(b) },
-                            onHold   = { b -> if (isEditMode) editingBadge = b else handleHold(b) },
+                            onHold   = { b -> if (badgeEditMode) editingBadge = b else handleHold(b) },
                             onRemove = { b -> saveBadges(badges.filter { it.id != b.id }) },
                             onNewOrder = { ordered -> saveBadges(ordered + rightBadges) }
                         )
@@ -319,11 +339,11 @@ fun HKIBadgeBar(
                         BadgeDraggableRow(
                             badges = rightBadges,
                             allEntities = allEntities,
-                            isEditMode = isEditMode,
+                            isEditMode = badgeEditMode,
                             currentUrl = currentUrl,
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
                             onTap    = { b -> handleTap(b) },
-                            onHold   = { b -> if (isEditMode) editingBadge = b else handleHold(b) },
+                            onHold   = { b -> if (badgeEditMode) editingBadge = b else handleHold(b) },
                             onRemove = { b -> saveBadges(badges.filter { it.id != b.id }) },
                             onNewOrder = { ordered -> saveBadges(leftBadges + ordered) }
                         )
@@ -348,16 +368,16 @@ fun HKIBadgeBar(
                     BadgeDraggableRow(
                         badges = renderBadges,
                         allEntities = allEntities,
-                        isEditMode = isEditMode,
+                        isEditMode = badgeEditMode,
                         currentUrl = currentUrl,
                         modifier = if (config.spanIcons) Modifier.weight(1f) else Modifier,
                         arrangement = if (config.spanIcons) Arrangement.SpaceEvenly else Arrangement.spacedBy(8.dp),
                         onTap    = { b -> handleTap(b) },
-                        onHold   = { b -> if (isEditMode) editingBadge = b else handleHold(b) },
+                        onHold   = { b -> if (badgeEditMode) editingBadge = b else handleHold(b) },
                         onRemove = { b -> saveBadges(badges.filter { it.id != b.id }) },
                         onNewOrder = { ordered -> saveBadges(ordered) }
                     )
-                    if (isEditMode) {
+                    if (badgeEditMode) {
                         Spacer(Modifier.width(8.dp))
                         if (!aestheticsOnly) AddBadgePill { addBadge("right") }
                     }
@@ -368,6 +388,7 @@ fun HKIBadgeBar(
 
     // ── entity picker ─────────────────────────────────────────────────────────
     if (showEntityPicker) {
+        val actionBadgeName = stringResource(R.string.action_button)
         AdvancedEntitySearchDialog(
             allEntities = entityCatalog,
             onDismiss = { showEntityPicker = false },
@@ -378,12 +399,28 @@ fun HKIBadgeBar(
                 }
                 saveBadges(badges + newBadges)
                 showEntityPicker = false
-            }
+            },
+            extraActions = listOf(
+                // A badge with no entity: it shows its name and icon and runs its own actions.
+                stringResource(R.string.action_badge_add) to {
+                    val badge = HKIBadge(
+                        id = UUID.randomUUID().toString(),
+                        entityId = newActionItemId(),
+                        side = if (alignment == "split") pendingAddSide ?: "right" else "right",
+                        customName = actionBadgeName,
+                        showName = true,
+                        showState = false
+                    )
+                    saveBadges(badges + badge)
+                    showEntityPicker = false
+                    editingBadge = badge
+                }
+            )
         )
     }
 
     // ── per-badge settings ────────────────────────────────────────────────────
-    editingBadge?.let { badge ->
+    if (!aestheticsOnly) editingBadge?.let { badge ->
         BadgeSettingsDialog(
             badge = badge,
             allEntities = entityCatalog,
@@ -522,9 +559,7 @@ fun HKIBadgeBar(
             ) {
                 Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        val text = if (de.entity_id.startsWith("binary_sensor."))
-                            com.jimz011apps.hki7.ui.screens.binarySensorFriendlyState(de).uppercase()
-                        else de.state.uppercase()
+                        val text = de.localizedStateLabel().uppercase()
                         Text(text, style = MaterialTheme.typography.headlineMedium, color = LocalHKIAppColors.current.onSurface)
                     }
                 }
@@ -680,7 +715,10 @@ private fun BadgeItem(
         badge.doorEntityIdFor(entity.entity_id)
             ?.let { id -> allEntities.find { it.entity_id == id }?.state == "on" } == true
 
-    val colors = badgeStateColors(badge, entities, allEntities)
+    val rawColors = badgeStateColors(badge, entities, allEntities)
+    val colors = rawColors.copy(
+        icon = semanticColorForBackground(rawColors.icon, rawColors.background)
+    )
 
     // A custom MDI slug wins; otherwise use the state-aware default (lock/cover), falling
     // back to a Material domain icon for domains without a custom default.
@@ -690,7 +728,7 @@ private fun BadgeItem(
             it,
             lockDoorOpen = isDoorOpen,
         )
-    }
+    } ?: ACTION_ITEM_DEFAULT_ICON.takeIf { isActionItemId(badge.entityId) }
     val effectiveSlug = customSlug ?: defaultSlug
     val fallbackIcon = entity?.let { domainIcon(it) } ?: Icons.Default.Circle
     // "Use entity picture": render the HA picture when available, else fall back to the icon.
@@ -716,7 +754,11 @@ private fun BadgeItem(
         ?.let { id -> isMachineRunning(allEntities.find { it.entity_id == id }?.state) } ?: true
     val rawTimer = if (badge.stateAsTimer && timerMachineRunning) rememberCountdownText(timerSource) else null
     // While counting show the countdown; once finished/off (or the value isn't a timestamp) show "Off".
-    val timerText = if (badge.stateAsTimer) (rawTimer?.takeIf { it != "Done" } ?: "Off") else null
+    val timerText = if (badge.stateAsTimer) {
+        rawTimer ?: stringResource(R.string.dlg_off)
+    } else {
+        null
+    }
 
     // Outer Box: badge content + edit-mode overlays
     Box {
@@ -780,7 +822,7 @@ private fun BadgeItem(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                timerText ?: if (isDoorOpen) "Open" else (attributeText ?: formatBadgeState(entity)),
+                                timerText ?: if (isDoorOpen) stringResource(R.string.dlg_open) else (attributeText ?: formatBadgeState(entity)),
                                 color = colors.content,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontSize = 10.sp,
@@ -802,7 +844,7 @@ private fun BadgeItem(
                             )
                         }
                         if (badge.showState && entity != null) {
-                            val stateText = timerText ?: if (isDoorOpen) "Open" else (attributeText ?: formatBadgeState(entity))
+                            val stateText = timerText ?: if (isDoorOpen) stringResource(R.string.dlg_open) else (attributeText ?: formatBadgeState(entity))
                             if ((badge.showIcon || badge.showName) && stateText.isNotEmpty()) Spacer(Modifier.width(4.dp))
                             Text(
                                 stateText,
@@ -987,6 +1029,7 @@ internal fun domainIcon(entity: HAEntity) = when {
     else                                    -> Icons.Default.Power
 }
 
+@Composable
 private fun formatBadgeState(entity: HAEntity): String {
     return when {
         entity.entity_id.startsWith("climate.") -> {
@@ -994,7 +1037,7 @@ private fun formatBadgeState(entity: HAEntity): String {
                 ?.get("current_temperature")
                 ?.let { runCatching { kotlinx.serialization.json.JsonPrimitive(it.toString()).content }.getOrNull() }
                 ?: entity.temperature?.toString()
-            if (temp != null) "${temp}°C" else entity.state.uppercase()
+            if (temp != null) "${temp}°C" else localizedEntityStateLabel(entity.state)
         }
         entity.entity_id.startsWith("sensor.") -> {
             val unit = entity.attributes
@@ -1002,10 +1045,8 @@ private fun formatBadgeState(entity: HAEntity): String {
                 ?.let { runCatching { it.toString().trim('"') }.getOrNull() } ?: ""
             "${entity.state}$unit"
         }
-        entity.entity_id.startsWith("binary_sensor.") -> com.jimz011apps.hki7.ui.screens.binarySensorFriendlyState(entity)
-        entity.state in listOf("on", "off", "locked", "unlocked", "open", "closed") ->
-            entity.state.replaceFirstChar { it.uppercase() }
-        else -> entity.state.split("_").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }.take(16)
+        entity.entity_id.startsWith("binary_sensor.") -> entity.localizedStateLabel()
+        else -> localizedEntityStateLabel(entity.state).take(16)
     }
 }
 
@@ -1082,11 +1123,7 @@ fun BadgeSettingsDialog(
     var side        by remember { mutableStateOf(badge.side) }
     var showName    by remember { mutableStateOf(badge.showName) }
     var customName  by remember { mutableStateOf(badge.customName ?: "") }
-    var hidden      by remember { mutableStateOf(badge.hidden) }
-    var visStart    by remember { mutableStateOf(badge.visibilityStart) }
-    var visEnd      by remember { mutableStateOf(badge.visibilityEnd) }
-    var visRangeMode by remember { mutableStateOf(badge.visibilityRangeMode) }
-    var visRecurrence by remember { mutableStateOf(badge.visibilityRecurrence) }
+    var visSpec by remember { mutableStateOf(badge.toVisibilitySpec()) }
     var showState   by remember { mutableStateOf(badge.showState) }
     var stateAttribute by remember { mutableStateOf(badge.stateAttribute) }
     var stateUnit by remember { mutableStateOf(badge.stateUnit) }
@@ -1142,8 +1179,8 @@ fun BadgeSettingsDialog(
     }
 
     ModernSettingsDialogFrame(
-        title = "Header pill",
-        subtitle = "Entities, appearance, and interactions",
+        title = stringResource(R.string.dlg_header_pill),
+        subtitle = stringResource(R.string.dlg_entities_appearance_and_interactions),
         onDismiss = onDismiss,
         content = {
             Column(
@@ -1152,8 +1189,20 @@ fun BadgeSettingsDialog(
             ) {
                 // Aesthetic-only editors get just the Appearance tab (name, icon, visibility); entity
                 // bindings and interactions are structural and stay locked.
-                val badgeTabs = if (aestheticsOnlyBadge) listOf("appearance" to "Appearance")
-                    else listOf("entities" to "Entities", "appearance" to "Appearance", "actions" to "Actions")
+                // Visibility is its own tab (and always last) so badges match every other item type.
+                val badgeTabs = if (aestheticsOnlyBadge) {
+                    listOf(
+                        "appearance" to stringResource(R.string.uif_appearance),
+                        "visibility" to stringResource(R.string.dlg_visibility),
+                    )
+                } else {
+                    listOf(
+                        "entities" to stringResource(R.string.uif_entities),
+                        "appearance" to stringResource(R.string.uif_appearance),
+                        "actions" to stringResource(R.string.uif_actions),
+                        "visibility" to stringResource(R.string.dlg_visibility),
+                    )
+                }
                 LaunchedEffect(aestheticsOnlyBadge) { if (aestheticsOnlyBadge) settingsPage = "appearance" }
                 SettingsTabRow(
                     tabs = badgeTabs,
@@ -1161,7 +1210,7 @@ fun BadgeSettingsDialog(
                     onSelect = { settingsPage = it }
                 )
                 if (settingsPage == "entities") {
-                SettingsSubcategory("Entities", "Choose what this badge summarizes")
+                SettingsSubcategory(stringResource(R.string.dlg_entities), stringResource(R.string.dlg_choose_what_this_badge_summarizes))
                 // Entities (multi-select)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1169,7 +1218,7 @@ fun BadgeSettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Entities (${editingEntityIds.size})", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.dlg_entities_count, editingEntityIds.size), style = MaterialTheme.typography.labelLarge)
                         Text(
                             editingEntityIds.joinToString(", ") { nameOf(it) },
                             style = MaterialTheme.typography.bodySmall,
@@ -1178,18 +1227,18 @@ fun BadgeSettingsDialog(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    TextButton(onClick = { showEntityPicker = true }) { Text("Change") }
+                    TextButton(onClick = { showEntityPicker = true }) { Text(stringResource(R.string.dlg_change)) }
                 }
 
                 // Aggregated badges summarize several entities; the first one drives the badge's
                 // icon, its state text, and the top of the pop-up list. Let the user reorder them.
                 if (editingEntityIds.size > 1) {
                     HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.15f))
-                    Text("Display order", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.dlg_display_order), style = MaterialTheme.typography.labelLarge)
                     editingEntityIds.forEachIndexed { index, id ->
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                "${index + 1}. ${nameOf(id)}",
+                                stringResource(R.string.dlg_sentence_pair, index + 1, nameOf(id)),
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = appColors.onSurface,
@@ -1202,35 +1251,35 @@ fun BadgeSettingsDialog(
                                     editingEntityIds = editingEntityIds.toMutableList()
                                         .apply { add(index - 1, removeAt(index)) }
                                 }
-                            ) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up") }
+                            ) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = stringResource(R.string.dlg_move_up)) }
                             IconButton(
                                 enabled = index < editingEntityIds.lastIndex,
                                 onClick = {
                                     editingEntityIds = editingEntityIds.toMutableList()
                                         .apply { add(index + 1, removeAt(index)) }
                                 }
-                            ) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down") }
+                            ) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.dlg_move_down)) }
                         }
                     }
                 }
 
                 if (lockIds.isNotEmpty() || vacuumIds.isNotEmpty() || climateIds.isNotEmpty()) {
-                    SettingsSubcategory("Entity integrations", "Optional controls and sensors for richer dialogs")
+                    SettingsSubcategory(stringResource(R.string.dlg_entity_integrations), stringResource(R.string.dlg_optional_controls_and_sensors_for_richer_dialogs))
                 }
 
                 // Per-lock door sensors
                 if (lockIds.isNotEmpty()) {
                     HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.15f))
-                    Text("Door sensors", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.dlg_door_sensors), style = MaterialTheme.typography.labelLarge)
                     lockIds.forEach { lockId ->
                         val sensor = doorEntityIds[lockId]
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(nameOf(lockId), style = MaterialTheme.typography.bodySmall, color = appColors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(sensor?.let { nameOf(it) } ?: "No door sensor", style = MaterialTheme.typography.labelSmall, color = appColors.onMuted)
+                                Text(sensor?.let { nameOf(it) } ?: stringResource(R.string.dlg_no_door_sensor), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted)
                             }
-                            TextButton(onClick = { doorPickerForLock = lockId }) { Text("Set") }
-                            if (sensor != null) TextButton(onClick = { doorEntityIds = doorEntityIds - lockId }) { Text("Clear") }
+                            TextButton(onClick = { doorPickerForLock = lockId }) { Text(stringResource(R.string.dlg_set)) }
+                            if (sensor != null) TextButton(onClick = { doorEntityIds = doorEntityIds - lockId }) { Text(stringResource(R.string.dlg_clear)) }
                         }
                     }
                 }
@@ -1238,46 +1287,46 @@ fun BadgeSettingsDialog(
                 // Per-vacuum map + battery
                 if (vacuumIds.isNotEmpty()) {
                     HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.15f))
-                    Text("Vacuum entities", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.dlg_vacuum_entities), style = MaterialTheme.typography.labelLarge)
                     vacuumIds.forEach { vId ->
                         Text(nameOf(vId), style = MaterialTheme.typography.bodySmall, color = appColors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             val deviceName = vacuumDeviceIds[vId]?.let { id -> devices.find { it.id == id }?.let { it.name_by_user ?: it.name } ?: id }
-                            Text("Device: ${deviceName ?: "Auto / none"}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            TextButton(onClick = { vacuumDevicePickerFor = vId }) { Text("Device") }
+                            Text(stringResource(R.string.dlg_device_value, deviceName ?: stringResource(R.string.dlg_auto_none)), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = { vacuumDevicePickerFor = vId }) { Text(stringResource(R.string.dlg_device)) }
                         }
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Map: ${vacuumMapIds[vId]?.let { nameOf(it) } ?: "None"}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            TextButton(onClick = { vacuumMapPickerFor = vId }) { Text("Map") }
+                            Text(stringResource(R.string.dlg_map_value, vacuumMapIds[vId]?.let { nameOf(it) } ?: stringResource(R.string.dlg_none)), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = { vacuumMapPickerFor = vId }) { Text(stringResource(R.string.dlg_map)) }
                         }
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Water: ${vacuumWaterIds[vId]?.let { nameOf(it) } ?: "Auto"}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            TextButton(onClick = { vacuumWaterPickerFor = vId }) { Text("Water") }
+                            Text(stringResource(R.string.dlg_water_value, vacuumWaterIds[vId]?.let { nameOf(it) } ?: stringResource(R.string.dlg_auto)), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = { vacuumWaterPickerFor = vId }) { Text(stringResource(R.string.dlg_water)) }
                         }
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Empty bin: ${vacuumEmptyIds[vId]?.let { nameOf(it) } ?: "Auto"}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            TextButton(onClick = { vacuumEmptyPickerFor = vId }) { Text("Set") }
+                            Text(stringResource(R.string.dlg_empty_bin, vacuumEmptyIds[vId]?.let { nameOf(it) } ?: stringResource(R.string.dlg_auto)), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = { vacuumEmptyPickerFor = vId }) { Text(stringResource(R.string.dlg_set)) }
                         }
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Battery: ${vacuumBattIds[vId]?.let { nameOf(it) } ?: "Built-in"}", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            TextButton(onClick = { vacuumBattPickerFor = vId }) { Text("Batt") }
+                            Text(stringResource(R.string.dlg_battery_value, vacuumBattIds[vId]?.let { nameOf(it) } ?: stringResource(R.string.dlg_built_in)), modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = appColors.onMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = { vacuumBattPickerFor = vId }) { Text(stringResource(R.string.dlg_batt)) }
                         }
                     }
                 }
 
                 if (climateIds.isNotEmpty()) {
                     HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.15f))
-                    Text("Climate dialog control", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.dlg_climate_dialog_control), style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = climateDialogControl != "dial",
                             onClick = { climateDialogControl = "slider" },
-                            label = { Text("Vertical slider") }
+                            label = { Text(stringResource(R.string.dlg_vertical_slider)) }
                         )
                         FilterChip(
                             selected = climateDialogControl == "dial",
                             onClick = { climateDialogControl = "dial" },
-                            label = { Text("Thermostat dial") }
+                            label = { Text(stringResource(R.string.dlg_thermostat_dial)) }
                         )
                     }
                 }
@@ -1303,29 +1352,32 @@ fun BadgeSettingsDialog(
 
                 // Shape
                 if (settingsPage == "appearance") {
-                SettingsSubcategory("Appearance", "Shape, visible information, and icon behavior")
-                Text("Shape", style = MaterialTheme.typography.labelLarge)
+                SettingsSubcategory(stringResource(R.string.dlg_appearance), stringResource(R.string.dlg_shape_visible_information_and_icon_behavior))
+                Text(stringResource(R.string.dlg_shape), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("pill" to "Pill", "circle" to "Circle").forEach { (value, label) ->
+                    listOf(
+                        "pill" to stringResource(R.string.uif_pill),
+                        "circle" to stringResource(R.string.uif_circle),
+                    ).forEach { (value, label) ->
                         FilterChip(selected = shape == value, onClick = { shape = value }, label = { Text(label) })
                     }
                 }
 
                 // Display (only meaningful for pill)
                 if (shape == "pill") {
-                    Text("Display", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.dlg_display), style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = showIcon,  onClick = { showIcon = !showIcon },   label = { Text("Icon") })
-                        FilterChip(selected = showName,  onClick = { showName = !showName },   label = { Text("Name") })
-                        FilterChip(selected = showState, onClick = { showState = !showState }, label = { Text("State") })
+                        FilterChip(selected = showIcon,  onClick = { showIcon = !showIcon },   label = { Text(stringResource(R.string.dlg_icon)) })
+                        FilterChip(selected = showName,  onClick = { showName = !showName },   label = { Text(stringResource(R.string.dlg_name)) })
+                        FilterChip(selected = showState, onClick = { showState = !showState }, label = { Text(stringResource(R.string.dlg_state)) })
                     }
                     if (showState) {
                         val attributes = remember(editingEntityIds, allEntities) {
                             selectableEntityAttributes(allEntities.find { it.entity_id == editingEntityIds.firstOrNull() })
                         }
-                        Text("State text", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.dlg_state_text), style = MaterialTheme.typography.labelLarge)
                         Text(
-                            "Show the entity's state, or one of its attributes instead.",
+                            stringResource(R.string.dlg_show_the_entity_s_state_or_one_of_its),
                             style = MaterialTheme.typography.bodySmall,
                             color = appColors.onMuted
                         )
@@ -1336,7 +1388,7 @@ fun BadgeSettingsDialog(
                             FilterChip(
                                 selected = stateAttribute == null,
                                 onClick = { stateAttribute = null },
-                                label = { Text("State") }
+                                label = { Text(stringResource(R.string.dlg_state)) }
                             )
                             attributes.forEach { attr ->
                                 FilterChip(
@@ -1347,7 +1399,7 @@ fun BadgeSettingsDialog(
                             }
                         }
                         if (stateAttribute != null) {
-                            Text("Unit", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.dlg_unit), style = MaterialTheme.typography.labelLarge)
                             Row(
                                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1356,16 +1408,16 @@ fun BadgeSettingsDialog(
                                     FilterChip(
                                         selected = (stateUnit ?: "") == unit,
                                         onClick = { stateUnit = unit.ifBlank { null } },
-                                        label = { Text(if (unit.isBlank()) "None" else unit) }
+                                        label = { Text(if (unit.isBlank()) stringResource(R.string.dlg_none) else unit) }
                                     )
                                 }
                             }
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("Countdown timer", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.dlg_countdown_timer), style = MaterialTheme.typography.labelLarge)
                                 Text(
-                                    "Show a descending timer when the value is a completion time (e.g. a washer/dryer finish time). Active while counting, off at zero.",
+                                    stringResource(R.string.dlg_show_a_descending_timer_when_the_value_is_a),
                                     style = MaterialTheme.typography.bodySmall, color = appColors.onMuted
                                 )
                             }
@@ -1380,22 +1432,22 @@ fun BadgeSettingsDialog(
                             val stateName = timerStateEntityId?.let { id -> allEntities.find { it.entity_id == id }?.friendlyName ?: id }
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Column(Modifier.weight(1f)) {
-                                    Text("Running-state entity", style = MaterialTheme.typography.labelLarge)
+                                    Text(stringResource(R.string.dlg_running_state_entity), style = MaterialTheme.typography.labelLarge)
                                     Text(
-                                        stateName ?: "None — timer follows the completion time only",
+                                        stateName ?: stringResource(R.string.dlg_none_timer_follows_the_completion_time_only),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (stateName != null) MaterialTheme.colorScheme.primary else appColors.onMuted
                                     )
                                 }
-                                TextButton(onClick = { showTimerStatePickerBadge = true }) { Text("Change") }
-                                if (timerStateEntityId != null) TextButton(onClick = { timerStateEntityId = null }) { Text("Clear") }
+                                TextButton(onClick = { showTimerStatePickerBadge = true }) { Text(stringResource(R.string.dlg_change)) }
+                                if (timerStateEntityId != null) TextButton(onClick = { timerStateEntityId = null }) { Text(stringResource(R.string.dlg_clear)) }
                             }
                         }
                     }
                 }
 
                 // Custom icon
-                Text("Icon", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.dlg_icon), style = MaterialTheme.typography.labelLarge)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1405,16 +1457,22 @@ fun BadgeSettingsDialog(
                         MdiIcon(customIcon, size = 24.dp)
                     }
                     Text(
-                        customIcon.ifEmpty { "Auto" },
+                        customIcon.ifEmpty { stringResource(R.string.dlg_auto) },
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.bodyMedium,
                         color = appColors.onSurface
                     )
-                    TextButton(onClick = { showIconPickerBadge = true }) { Text("Change") }
+                    TextButton(onClick = { showIconPickerBadge = true }) { Text(stringResource(R.string.dlg_change)) }
                 }
-                Text("Icon animation", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.dlg_icon_animation), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("auto" to "Auto", "off" to "Off", "glow" to "Glow", "spin" to "Spin", "pulse" to "Pulse").forEach { (value, label) ->
+                    listOf(
+                        "auto" to stringResource(R.string.uif_auto),
+                        "off" to stringResource(R.string.uif_off),
+                        "glow" to stringResource(R.string.uif_glow),
+                        "spin" to stringResource(R.string.uif_spin),
+                        "pulse" to stringResource(R.string.uif_pulse),
+                    ).forEach { (value, label) ->
                         FilterChip(
                             selected = iconAnimation == value,
                             onClick = { iconAnimation = value },
@@ -1423,34 +1481,25 @@ fun BadgeSettingsDialog(
                     }
                 }
                 HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.15f))
-                SettingsSubcategory("Name", "Optional label shown when \"Name\" is enabled above")
+                SettingsSubcategory(stringResource(R.string.dlg_name), stringResource(R.string.dlg_optional_label_shown_when_name_is_enabled_above))
                 androidx.compose.material3.OutlinedTextField(
                     value = customName,
                     onValueChange = { customName = it },
                     singleLine = true,
-                    label = { Text("Custom name") },
-                    placeholder = { Text(editingEntityIds.firstOrNull()?.let { nameOf(it) } ?: "Entity name") },
+                    label = { Text(stringResource(R.string.dlg_custom_name)) },
+                    placeholder = { Text(editingEntityIds.firstOrNull()?.let { nameOf(it) } ?: stringResource(R.string.dlg_entity_name)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.15f))
-                SettingsSubcategory("Visibility", "Hide this badge, or schedule when it appears")
-                VisibilityEditor(
-                    spec = VisibilitySpec(hidden, visStart, visEnd, visRangeMode.ifBlank { "show" }, visRecurrence.ifBlank { "none" }),
-                    onChange = {
-                        hidden = it.hidden; visStart = it.start; visEnd = it.end
-                        visRangeMode = it.rangeMode; visRecurrence = it.recurrence
-                    }
-                )
 
                 // Side (only in split mode)
                 if (showSidePicker) {
                     HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.15f))
-                    SettingsSubcategory("Placement", "Choose a side when the badge bar is split")
-                    Text("Side (split alignment)", style = MaterialTheme.typography.labelLarge)
+                    SettingsSubcategory(stringResource(R.string.dlg_placement), stringResource(R.string.dlg_choose_a_side_when_the_badge_bar_is_split))
+                    Text(stringResource(R.string.dlg_side_split_alignment), style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = side == "left",  onClick = { side = "left" },  label = { Text("Left") })
-                        FilterChip(selected = side == "right", onClick = { side = "right" }, label = { Text("Right") })
+                        FilterChip(selected = side == "left",  onClick = { side = "left" },  label = { Text(stringResource(R.string.dlg_left)) })
+                        FilterChip(selected = side == "right", onClick = { side = "right" }, label = { Text(stringResource(R.string.dlg_right)) })
                     }
                 }
 
@@ -1458,18 +1507,23 @@ fun BadgeSettingsDialog(
 
                 // Tap / Hold actions + custom nav-bar buttons for the badge's dialog.
                 if (settingsPage == "actions") {
-                SettingsSubcategory("Interactions", "Tap, hold, and dialog quick actions")
-                ActionEditor("Tap", tapAction, allEntities, areas, viewModel) { tapAction = it }
-                ActionEditor("Hold", holdAction, allEntities, areas, viewModel) { holdAction = it }
+                SettingsSubcategory(stringResource(R.string.dlg_interactions), stringResource(R.string.dlg_tap_hold_and_dialog_quick_actions))
+                ActionEditor(stringResource(R.string.uif_tap), tapAction, allEntities, areas, viewModel) { tapAction = it }
+                ActionEditor(stringResource(R.string.uif_hold), holdAction, allEntities, areas, viewModel) { holdAction = it }
                 HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.15f))
                 CustomButtonsEditor(customButtons, allEntities, areas, viewModel) { customButtons = it }
+                }
+
+                if (settingsPage == "visibility") {
+                SettingsSubcategory(stringResource(R.string.dlg_visibility), stringResource(R.string.dlg_hide_this_badge_or_schedule_when_it_appears))
+                VisibilityEditor(visSpec) { visSpec = it }
                 }
             }
         },
         footer = {
-            if (!aestheticsOnlyBadge) TextButton(onClick = onRemove) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+            if (!aestheticsOnlyBadge) TextButton(onClick = onRemove) { Text(stringResource(R.string.dlg_remove), color = MaterialTheme.colorScheme.error) }
             Spacer(Modifier.weight(1f))
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dlg_cancel)) }
             Button(onClick = {
                 val primary = editingEntityIds.firstOrNull() ?: badge.entityId
                 onSave(badge.copy(
@@ -1479,11 +1533,17 @@ fun BadgeSettingsDialog(
                     side       = side,
                     showName   = showName,
                     customName = customName.trim().ifBlank { null },
-                    hidden     = hidden,
-                    visibilityStart = visStart,
-                    visibilityEnd = visEnd,
-                    visibilityRangeMode = visRangeMode,
-                    visibilityRecurrence = visRecurrence,
+                    hidden     = visSpec.hidden,
+                    visibilityConditions = visSpec.conditions,
+                    visibilityMatch = visSpec.match,
+                    // Clear the superseded flat fields so the rule lives only in the block list.
+                    visibilityStart = null,
+                    visibilityEnd = null,
+                    visibilityRangeMode = "show",
+                    visibilityRecurrence = "none",
+                    visibilityConditionEntityId = null,
+                    visibilityConditionState = null,
+                    visibilityConditionNegate = false,
                     showState  = showState,
                     stateAttribute = stateAttribute,
                     stateUnit  = stateUnit,
@@ -1507,14 +1567,14 @@ fun BadgeSettingsDialog(
                     humidifierDeviceId = if (humidifierIds.isNotEmpty()) humidifierDeviceId else null,
                     humidifierAuxEntityIds = if (humidifierIds.isNotEmpty()) humidifierAuxEntityIds else emptyMap()
                 ))
-            }) { Text("Save") }
+            }) { Text(stringResource(R.string.dlg_save)) }
         }
     )
 
     if (showEntityPicker) {
         AdvancedEntitySearchDialog(
             allEntities = allEntities,
-            title = "Select Entities",
+            title = stringResource(R.string.dlg_select_entities),
             singleSelect = false,
             preselectedIds = editingEntityIds.toSet(),
             onDismiss = { showEntityPicker = false },
@@ -1528,7 +1588,7 @@ fun BadgeSettingsDialog(
     if (showTimerStatePickerBadge) {
         AdvancedEntitySearchDialog(
             allEntities = allEntities,
-            title = "Select running-state entity",
+            title = stringResource(R.string.dlg_select_running_state_entity),
             singleSelect = true,
             preselectedIds = setOfNotNull(timerStateEntityId?.takeIf { it.isNotBlank() }),
             onDismiss = { showTimerStatePickerBadge = false },
@@ -1539,7 +1599,7 @@ fun BadgeSettingsDialog(
     doorPickerForLock?.let { lockId ->
         AdvancedEntitySearchDialog(
             allEntities = allEntities.filter { it.entity_id.startsWith("binary_sensor.") },
-            title = "Select Door Sensor",
+            title = stringResource(R.string.dlg_select_door_sensor),
             singleSelect = true,
             preselectedIds = setOfNotNull(doorEntityIds[lockId]),
             onDismiss = { doorPickerForLock = null },
@@ -1554,7 +1614,7 @@ fun BadgeSettingsDialog(
     vacuumMapPickerFor?.let { vId ->
         AdvancedEntitySearchDialog(
             allEntities = allEntities.filter { it.entity_id.startsWith("camera.") },
-            title = "Select Map Camera",
+            title = stringResource(R.string.dlg_select_map_camera),
             singleSelect = true,
             preselectedIds = setOfNotNull(vacuumMapIds[vId]),
             onDismiss = { vacuumMapPickerFor = null },
@@ -1569,7 +1629,7 @@ fun BadgeSettingsDialog(
     vacuumBattPickerFor?.let { vId ->
         AdvancedEntitySearchDialog(
             allEntities = allEntities.filter { it.entity_id.startsWith("sensor.") },
-            title = "Select Battery Sensor",
+            title = stringResource(R.string.dlg_select_battery_sensor),
             singleSelect = true,
             preselectedIds = setOfNotNull(vacuumBattIds[vId]),
             onDismiss = { vacuumBattPickerFor = null },
@@ -1601,14 +1661,14 @@ fun BadgeSettingsDialog(
     vacuumWaterPickerFor?.let { vId ->
         AdvancedEntitySearchDialog(
             allEntities = allEntities.filter { it.entity_id.startsWith("select.") || it.entity_id.startsWith("input_select.") },
-            title = "Select Water Level", singleSelect = true, preselectedIds = setOfNotNull(vacuumWaterIds[vId]),
+            title = stringResource(R.string.dlg_select_water_level), singleSelect = true, preselectedIds = setOfNotNull(vacuumWaterIds[vId]),
             onDismiss = { vacuumWaterPickerFor = null }, onEntitiesSelected = { ids -> vacuumWaterIds = ids.firstOrNull()?.let { vacuumWaterIds + (vId to it) } ?: (vacuumWaterIds - vId); vacuumWaterPickerFor = null }
         )
     }
     vacuumEmptyPickerFor?.let { vId ->
         AdvancedEntitySearchDialog(
             allEntities = allEntities.filter { it.entity_id.startsWith("button.") || it.entity_id.startsWith("switch.") },
-            title = "Select Empty Bin Control", singleSelect = true, preselectedIds = setOfNotNull(vacuumEmptyIds[vId]),
+            title = stringResource(R.string.dlg_select_empty_bin_control), singleSelect = true, preselectedIds = setOfNotNull(vacuumEmptyIds[vId]),
             onDismiss = { vacuumEmptyPickerFor = null }, onEntitiesSelected = { ids -> vacuumEmptyIds = ids.firstOrNull()?.let { vacuumEmptyIds + (vId to it) } ?: (vacuumEmptyIds - vId); vacuumEmptyPickerFor = null }
         )
     }

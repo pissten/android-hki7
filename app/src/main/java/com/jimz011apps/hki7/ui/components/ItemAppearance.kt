@@ -27,10 +27,15 @@ fun HKIRoomWidget.withGlobalCornerRadius(radius: Int): HKIRoomWidget = when (thi
     is HKISensorGraphStack -> copy(cornerRadius = radius)
     is HKIMarkdownWidget -> copy(cornerRadius = radius)
     is HKIIframeWidget -> copy(cornerRadius = radius)
+    is HKIClockWidget -> copy(cornerRadius = radius)
     is HKIWeatherWidget -> copy(cornerRadius = radius)
     is HKICalendarWidget -> copy(cornerRadius = radius)
     is HKIWasteCollectionWidget -> copy(cornerRadius = radius)
+    is HKIFindDevicesWidget -> copy(cornerRadius = radius)
+    is HKIF1Widget -> copy(cornerRadius = radius)
     is HKIBatteryCardWidget -> copy(cornerRadius = radius)
     is HKIParcelsWidget -> copy(cornerRadius = radius)
+    is HKITodoWidget -> copy(cornerRadius = radius)
     is HKISubtitleWidget -> this
+    is HKIUnknownWidget -> this
 }

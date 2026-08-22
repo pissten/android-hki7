@@ -4,6 +4,8 @@ import com.jimz011apps.hki7.data.HAConfigEntry
 import com.jimz011apps.hki7.data.HAEntity
 import com.jimz011apps.hki7.data.HAEntityRegistryEntry
 import com.jimz011apps.hki7.data.HKIEnergyConfig
+import com.jimz011apps.hki7.ui.screens.gigajoulesToEstimatedGasM3
+import com.jimz011apps.hki7.ui.screens.heatEnergyToGigajoules
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
@@ -11,6 +13,97 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class EnergyCarbonImportTest {
+    @Test
+    fun `smart gateways mqtt entities import without energy preferences or a device`() {
+        fun entity(id: String, deviceClass: String, unit: String) = HAEntity(
+            entity_id = id,
+            state = "1",
+            attributes = buildJsonObject {
+                put("friendly_name", id.substringAfterLast('.').replace('_', ' '))
+                put("device_class", deviceClass)
+                put("unit_of_measurement", unit)
+            }
+        )
+        val power = entity("sensor.dsmr_reading_electricity_currently_delivered", "power", "kW")
+        val usedT1 = entity("sensor.dsmr_reading_electricity_delivered_1", "energy", "kWh")
+        val usedT2 = entity("sensor.dsmr_reading_electricity_delivered_2", "energy", "kWh")
+        val returnedT1 = entity("sensor.dsmr_reading_electricity_returned_1", "energy", "kWh")
+        val returnedT2 = entity("sensor.dsmr_reading_electricity_returned_2", "energy", "kWh")
+        val phasePower = entity("sensor.dsmr_reading_phase_currently_delivered_l1", "power", "kW")
+        val current = entity("sensor.dsmr_reading_phase_power_current_l1", "current", "A")
+        val voltage = entity("sensor.dsmr_reading_phase_voltage_l1", "voltage", "V")
+        val gas = entity("sensor.dsmr_reading_extra_device_delivered", "gas", "m³")
+        val live = listOf(power, usedT1, usedT2, returnedT1, returnedT2, phasePower, current, voltage, gas)
+        val registry = live.map { value ->
+            HAEntityRegistryEntry(
+                entity_id = value.entity_id,
+                platform = "dsmr_reader",
+                config_entry_id = "p1-mqtt",
+                unique_id = value.entity_id.removePrefix("sensor.")
+            )
+        }
+
+        val result = importMqttP1EnergyEntities(
+            config = HKIEnergyConfig(),
+            registry = registry,
+            liveEntities = live
+        )
+
+        assertEquals(power.entity_id, result.gridPowerEntityId)
+        assertEquals(usedT1.entity_id, result.gridImportTariff1EntityId)
+        assertEquals(usedT2.entity_id, result.gridImportTariff2EntityId)
+        assertEquals(returnedT1.entity_id, result.gridExportTariff1EntityId)
+        assertEquals(returnedT2.entity_id, result.gridExportTariff2EntityId)
+        assertEquals(phasePower.entity_id, result.powerPhase1EntityId)
+        assertEquals(current.entity_id, result.currentPhase1EntityId)
+        assertEquals(voltage.entity_id, result.voltagePhase1EntityId)
+        assertEquals(gas.entity_id, result.gasEntityId)
+        assertEquals(true, result.usesHomeAssistantEnergyPreferences)
+    }
+
+    @Test
+    fun `dsmr reader related entities use config entry when no device exists`() {
+        fun entity(id: String, deviceClass: String, unit: String) = HAEntity(
+            entity_id = id,
+            state = "1",
+            attributes = buildJsonObject {
+                put("friendly_name", id.substringAfterLast('.').replace('_', ' '))
+                put("device_class", deviceClass)
+                put("unit_of_measurement", unit)
+            }
+        )
+        val delivered = entity("sensor.dsmr_reading_electricity_delivered_1", "energy", "kWh")
+        val returned = entity("sensor.dsmr_reading_electricity_returned_1", "energy", "kWh")
+        val power = entity("sensor.dsmr_reading_electricity_currently_delivered", "power", "kW")
+        val unrelated = entity("sensor.other_electricity_returned_1", "energy", "kWh")
+        val live = listOf(delivered, returned, power, unrelated)
+        val registry = listOf(
+            HAEntityRegistryEntry(delivered.entity_id, platform = "dsmr_reader", config_entry_id = "p1-mqtt"),
+            HAEntityRegistryEntry(returned.entity_id, platform = "dsmr_reader", config_entry_id = "p1-mqtt"),
+            HAEntityRegistryEntry(power.entity_id, platform = "dsmr_reader", config_entry_id = "p1-mqtt"),
+            HAEntityRegistryEntry(unrelated.entity_id, platform = "mqtt", config_entry_id = "other-mqtt")
+        )
+
+        val result = importRelatedHomeAssistantEnergyEntities(
+            config = HKIEnergyConfig(),
+            sourceEntityIds = mapOf("electricity" to listOf(delivered.entity_id)),
+            registry = registry,
+            liveEntities = live
+        )
+
+        assertEquals(delivered.entity_id, result.gridImportTariff1EntityId)
+        assertEquals(returned.entity_id, result.gridExportTariff1EntityId)
+        assertEquals(power.entity_id, result.gridPowerEntityId)
+        assertNull(result.electricityDeviceId)
+    }
+
+    @Test
+    fun `city heating converts joules and estimates natural gas`() {
+        assertEquals(1f, heatEnergyToGigajoules(1_000_000_000f, "J"), 0.0001f)
+        assertEquals(3.6f, heatEnergyToGigajoules(1_000f, "kWh"), 0.0001f)
+        assertEquals(28.43f, gigajoulesToEstimatedGasM3(1f), 0.01f)
+    }
+
     @Test
     fun `energy preference source imports related entities from the same device`() {
         fun entity(id: String, name: String, deviceClass: String, unit: String) = HAEntity(

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="cr_whats_new_1_1_0">
+        <item>Osmnáct dalších jazyků, z HKI 7 na 36. Polština, ruština, čeština, slovenština, maďarština, rumunština, bulharština, chorvatština, řečtina, litevština, lotyština, estonština, dánština, thajština a hebrejština, spolu s rakouskou němčinou, švýcarskou němčinou a mexickou španělštinou. Hebrejština rozkládá rozhraní zprava doleva, stejně jako arabština.</item>
+        <item>HKI 7 nyní běží na Androidu 12 a novějším. Dříve potřeboval Android 14, který vylučoval spoustu dokonale schopných telefonů a tabletů.</item>
+        <item>Náklady na energii jsou uvedeny ve vaší vlastní měně, nikoli vždy v eurech. HKI 7 se řídí tím, co hlásí vaše nákladové senzory, a v nastavení energie je k dispozici nastavení měny, pokud byste si ji raději vybrali sami.</item>
+        <item>Výběr jazyka má vyhledávací pole a je tříděn, což potřeboval na 36 záznamů. Pokud se někdy dostanete do jazyka, který neumíte přečíst, cesta zpět je stále první věcí na obrazovce.</item>
+        <item>Zobrazení si pamatují, kam jste se posunuli, a klepnutím na kartu, na které se již nacházíte, se vrátíte na začátek.</item>
+        <item>Přejetím do strany se již nedostanete ze stránky, kterou jste otevřeli, jako je například Solar inside Energy. Zpět vás nyní vrátí do zobrazení, ze kterého jste přišli, místo toho, abyste skočili na domovskou stránku.</item>
+        <item>Posouvatelné řádky to říkají. Rozbalovací nabídka, navigační lišta a karty nastavení všechny zobrazují šipku na okraji, pokud je více na dosah.</item>
+        <item>Dialogy vypadají a chovají se všude stejně. Šest z nich byly obyčejné dialogy Androidu bez tlačítka pro zavření v rohu a tlačítka napříč aplikací nyní souhlasí s tím, co znamenají Zavřít, Uložit a Hotovo.</item>
+        <item>Vytvoření řídicího panelu se nejprve zeptá a poté nabídne stejné možnosti jako při prvním nastavení – takže nový řídicí panel může začít ze zálohy nebo ze zálohy, kterou sdílí vaše rodina, a také může být vygenerován nebo ponechán prázdný. Váš aktuální řídicí panel se nikdy nepřepíše a sdílené řídicí panely jsou nyní v seznamu označeny jako sdílené.</item>
+        <item>Widget baterie otevře seznam na místě, místo aby vás převedl na samostatnou stránku, seskupenou podle toho, jak naléhavá je každá z nich, a zobrazí typ baterie tam, kde jej Home Assistant zná. K dispozici je vyhledávací pole a tlačítko pro otevření úplného zobrazení baterie, pokud jej chcete.</item>
+        <item>Klepnutím na počítadlo lidí v místnosti ukážete, kdo tam je, s obrázkem každé osoby. Záhlaví Pokoje má nyní také domácí počítadlo, které ukazuje, kde se kdo nachází, aniž by bylo nutné otevírat každou místnost.</item>
+        <item>Tlačítko lze vynechat z počítadel světel a zařízení v místnosti pro ta, která jsou v místnosti, ale nejsou její součástí.</item>
+        <item>Widgety, které potřebují integraci, kterou nemáte – Formule 1, Parcels, Waste Collection – jsou zašedlé a říkají, co chybí, místo aby byly přidány a pak zůstaly prázdné.</item>
+        <item>Sledování zásilek pokrývá dalších patnáct dopravců, včetně PostNord, InPost, Swiss Post, An Post, Budbee, Sameday a Nova Post, z nichž každý má své vlastní logo.</item>
+        <item>Robotický vysavač Valetudo automaticky snímá svou živou mapu při importu vašich místností, aniž by potřeboval ručně vybranou kameru.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_1">
+        <item>Nový widget Hodiny. Analogové nebo digitální, každý sedm vzorů, 12 nebo 24hodinový čas a den, datum a rok, chcete-li. Klepnutím na něj zobrazíte další budík.</item>
+        <item>Dosáhněte samotného Home Assistant z Nastavení. Správci získají jeho nastavení, vývojářské nástroje a HACS celou obrazovku uvnitř HKI 7, již jsou přihlášeni.</item>
+        <item>HKI 7 vám řekne, když je k dispozici nová verze – užitečné, pokud jste ji nainstalovali z GitHubu, nikoli z Obchodu Play. Vypněte jej v Nastavení › O aplikaci.</item>
+        <item>Home Assistant nyní vidí další budík vašeho telefonu, stejný senzor jako oficiální aplikace.</item>
+        <item>Přehrávače médií ukazují, co se hraje, nejen, která aplikace je otevřená. Android TV streamující seriál ukazuje program, sezónu a epizodu.</item>
+        <item>Zpět se pokaždé vrátí na stránku, na které jste byli předtím, dokud se nedostanete na Domů. Již nepřeskakuje stránky ani neopouští aplikaci předčasně.</item>
+        <item>Opraveny údaje o teplotě a energii v češtině, slovenštině, řečtině, norštině, švédštině a dánštině, kde se čísla zobrazovala špatně nebo mohla shazovat obrazovku.</item>
+        <item>Něco špatně formulovaného ve vašem jazyce? Každý jazyk je nyní jeden soubor, který můžete opravit na GitHubu, není potřeba žádný kód.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_2">
+        <item>Návrat z Home Assistant Nastavení, Vývojářské nástroje nebo HACS nyní obnoví stejnou pozici v HKI 7 Nastavení namísto opětovného otevření nahoře.</item>
+        <item>Android 17 nyní požaduje přístup k místní síti před vyhledáním nebo přímým připojením k Home Assistant, takže místní servery nadále pracují s rozhraním API 37. Nastavení › Připojení ukazuje, zda je povoleno, a může se ptát znovu, když aktualizace na Android 17 dorazí dlouho po nastavení.</item>
+        <item>Oznámení o aktualizaci se nyní zobrazují také na vlastním panelu oznámení HKI 7 s odkazem „Podívejte se, co se změnilo“ na poznámky k vydání. Jakmile ji odtáhnete, systémová notifikace zmizí; tato zůstane a kontrola aktualizací v části Nastavení › O aplikaci ji vrátí.</item>
+        <item>Dlaždice oprávnění v Nastavení se nyní aktualizují, jakmile se vrátíte z udělení oprávnění. Poloha, optimalizace baterie a využití na pozadí stále ukazovaly starý stav, dokud nebyla Nastavení uzavřena a znovu otevřena.</item>
+    </string-array>
+</resources>

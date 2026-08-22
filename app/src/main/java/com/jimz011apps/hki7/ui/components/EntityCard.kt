@@ -2,6 +2,10 @@
 
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import com.jimz011apps.hki7.ui.components.ModernAlertDialog as AlertDialog
 
 import androidx.compose.animation.core.LinearEasing
@@ -29,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +58,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
 import com.jimz011apps.hki7.data.HAEntity
+import com.jimz011apps.hki7.data.isActionItemId
+import com.jimz011apps.hki7.ui.localizedHvacModeLabel
+import com.jimz011apps.hki7.ui.localizedStateLabel
 import com.jimz011apps.hki7.ui.theme.LocalHKIAppColors
 import com.jimz011apps.hki7.ui.utils.MdiIcon
 import kotlinx.serialization.json.contentOrNull
@@ -76,7 +84,7 @@ fun EditRemoveBadge(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(12.dp))
+        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_remove_e963907), tint = Color.White, modifier = Modifier.size(12.dp))
     }
 }
 
@@ -96,7 +104,7 @@ fun EditSettingsButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     ) {
         Icon(
             Icons.Default.Settings,
-            contentDescription = "Card settings",
+            contentDescription = stringResource(R.string.ui_card_settings_1a3b62a),
             tint = Color.White,
             modifier = Modifier.size(12.dp)
         )
@@ -108,19 +116,24 @@ fun RenameCardDialog(currentName: String, defaultName: String, onDismiss: () -> 
     var value by androidx.compose.runtime.remember(currentName) { androidx.compose.runtime.mutableStateOf(currentName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { ModernSettingsDialogTitle("Card", "Optional display name override") },
+        title = {
+            ModernSettingsDialogTitle(
+                stringResource(R.string.ui_card_4d4ce73),
+                stringResource(R.string.core_optional_display_name)
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SettingsSubcategory("Identity", "Leave empty to use the Home Assistant name")
+                SettingsSubcategory(stringResource(R.string.ui_identity_7e5a975), stringResource(R.string.ui_leave_empty_to_use_the_home_assistant_name_f769e92))
                 OutlinedTextField(value = value, onValueChange = { value = it }, singleLine = true,
-                    label = { Text("Name") }, placeholder = { Text(defaultName) })
+                    label = { Text(stringResource(R.string.ui_name_709a232)) }, placeholder = { Text(defaultName) })
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(value.trim().takeIf { it.isNotEmpty() }) }) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { onSave(value.trim().takeIf { it.isNotEmpty() }) }) { Text(stringResource(R.string.ui_save_efc007a)) } },
         dismissButton = {
             Row {
-                TextButton(onClick = { onSave(null) }) { Text("Reset") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = { onSave(null) }) { Text(stringResource(R.string.ui_reset_44c57ab)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) }
             }
         }
     )
@@ -130,15 +143,55 @@ fun RenameCardDialog(currentName: String, defaultName: String, onDismiss: () -> 
  * One-line status for a room's configured media player: track/artist while playing or paused,
  * otherwise the capitalized state. Null only when no media player is configured.
  */
+@Composable
 fun mediaPlayerStatus(entity: HAEntity?): String? {
     entity ?: return null
-    val title = entity.mediaTitle
-    return if ((entity.state == "playing" || entity.state == "paused") && !title.isNullOrBlank()) {
-        val artist = entity.mediaArtist
-        val prefix = if (entity.state == "paused") "Paused: " else ""
-        if (!artist.isNullOrBlank()) "$prefix$title • $artist" else "$prefix$title"
+    val track = mediaPlayerContentLine(entity)
+    return if ((entity.state == "playing" || entity.state == "paused") && track != null) {
+        if (entity.state == "paused") {
+            stringResource(R.string.core_media_paused_track, track)
+        } else {
+            track
+        }
     } else {
-        entity.state.replaceFirstChar { it.uppercase() }
+        // Nothing identifiable playing. An Android TV that reports only which app is open still
+        // has something worth saying — "Netflix" beats "Playing".
+        entity.appName?.takeIf { it.isNotBlank() && entity.state == "playing" }
+            ?: entity.localizedStateLabel()
+    }
+}
+
+/**
+ * What is actually playing, as one line.
+ *
+ * Players disagree about which attributes they fill in. Music sets `media_title` and
+ * `media_artist`; an Android TV streaming a series sets `media_series_title` plus season and
+ * episode, and puts the *episode* name in `media_title`, so showing the title alone gives
+ * "Ozymandias" with no clue which programme it belongs to. Live TV sets `media_channel` and
+ * frequently nothing else. Returns null when the player exposes no content at all, which is the
+ * case for Android TV apps that report only their package.
+ */
+fun mediaPlayerContentLine(entity: HAEntity): String? {
+    val title = entity.mediaTitle?.takeIf { it.isNotBlank() }
+    val series = entity.mediaSeriesTitle?.takeIf { it.isNotBlank() }
+    val channel = entity.mediaChannel?.takeIf { it.isNotBlank() }
+    val artist = entity.mediaArtist?.takeIf { it.isNotBlank() }
+
+    val episodeCode = listOfNotNull(
+        entity.mediaSeason?.takeIf { it.isNotBlank() }?.let { "S$it" },
+        entity.mediaEpisode?.takeIf { it.isNotBlank() }?.let { "E$it" }
+    ).joinToString("").takeIf { it.isNotEmpty() }
+
+    return when {
+        // A series: lead with the programme, then the episode number, then the episode name.
+        series != null -> listOfNotNull(series, episodeCode, title).joinToString(" • ")
+        title != null && artist != null -> "$title • $artist"
+        // A bare episode number with a title but no series still beats the title alone.
+        title != null && episodeCode != null -> "$episodeCode • $title"
+        title != null -> title
+        // Live TV, where the channel is the only thing the player knows.
+        channel != null -> channel
+        else -> null
     }
 }
 
@@ -182,6 +235,42 @@ fun appendUnit(value: String, unit: String?): String {
     return if (noSpace) "$value$u" else "$value $u"
 }
 
+/** Icon an action button falls back to until the user picks one. */
+const val ACTION_ITEM_DEFAULT_ICON = "gesture-tap-button"
+
+/** The empty (transparent) button: it reserves exactly the space a real button of the same style
+ *  would take, so the buttons around it land where the user wants them. It draws nothing outside
+ *  edit mode; in edit mode a dashed outline makes it selectable and removable. */
+@Composable
+fun SpacerButtonCard(
+    isSquare: Boolean,
+    buttonStyle: String,
+    cornerRadius: Int,
+    showOutline: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val appColors = LocalHKIAppColors.current
+    // Matches EntityCard's own rule, so an empty button reserves exactly the space a real one of
+    // the same style would take — including a Centered stack, where the style says square even
+    // when the stack's own flag does not.
+    val sizeModifier = when {
+        buttonStyle == "tile" -> Modifier.height(58.dp)
+        buttonStyle.isNotBlank() -> if (buttonStyle == "square") Modifier.aspectRatio(1f) else Modifier.height(110.dp)
+        isSquare -> Modifier.aspectRatio(1f)
+        else -> Modifier.height(110.dp)
+    }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(sizeModifier)
+            .then(
+                if (showOutline) {
+                    Modifier.border(1.dp, appColors.onMuted.copy(alpha = 0.45f), RoundedCornerShape(cornerRadius.dp))
+                } else Modifier
+            )
+    )
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EntityCard(
@@ -201,6 +290,16 @@ fun EntityCard(
     iconAnimation: String = "auto",
     isSquare: Boolean = false,
     cornerRadius: Int = LocalItemCornerRadius.current,
+    /** True when neither text line is shown, so the icon has the button to itself. */
+    iconOnly: Boolean = false,
+    /** Icon-only glyph size in dp; callers resolve it via `iconOnlyIconSizeDp`. */
+    iconOnlySize: Int = 40,
+    /** Which of the three elements are drawn. */
+    showIconGlyph: Boolean = true,
+    showNameLine: Boolean = true,
+    showStateLine: Boolean = true,
+    /** Centered layout: the icon owns the space above the text and sits in the middle of it. */
+    centered: Boolean = false,
     interactionsEnabled: Boolean = true,
     doorOpen: Boolean = false,
     buttonStyle: String = if (isSquare) "square" else "standard",
@@ -214,7 +313,7 @@ fun EntityCard(
     // Timer mode: the value (attribute if set, else state) is a completion timestamp. While it's in
     // the future the entity reads as active with a live countdown; once it passes it reads as OFF.
     val timerText = if (stateAsTimer && timerMachineRunning) rememberCountdownText(stateAttribute?.let { entityAttributeDisplay(entity, it) } ?: entity.state) else null
-    val timerRunning = stateAsTimer && timerMachineRunning && timerText != null && timerText != "Done"
+    val timerRunning = stateAsTimer && timerMachineRunning && timerText != null
     val isActive = if (stateAsTimer) timerRunning else entity.state == "on"
     val isUnavailable = entity.state.equals("unavailable", ignoreCase = true)
     val domain = entity.entity_id.substringBefore(".")
@@ -225,7 +324,11 @@ fun EntityCard(
     val coverIsDoor = domain == "cover" && isCoverDoorLike(entity)
     // Door-like covers: icon gets state color, bg/text follow normal cover-not-closed logic (primary or elevated)
     val coverDoorIconColor: Color? = if (coverIsDoor && !isUnavailable) coverDoorColor(entity.state) else null
-    val name = displayName ?: entity.friendlyName ?: entity.entity_id
+    // An action button has no entity behind it: no state line, and a generic name/icon until the
+    // user names it.
+    val isActionItem = isActionItemId(entity.entity_id)
+    val name = displayName ?: entity.friendlyName
+        ?: if (isActionItem) stringResource(R.string.action_button) else entity.entity_id
     val climateColor = hvacColor(
         entity.attributes?.get("hvac_action")?.jsonPrimitive?.contentOrNull
             ?: entity.attributes?.get("hvac_mode")?.jsonPrimitive?.contentOrNull
@@ -239,8 +342,13 @@ fun EntityCard(
     val unavailableStateColor = if (primary.isRedShade()) primary else Color(0xFFEF5350)
     val brightnessVisible = showBrightnessSlider && domain == "light" && entity.supportsBrightness
     val brightnessEnabled = brightnessVisible && interactionsEnabled
+    val brightnessContentDescription = stringResource(R.string.ui_brightness_222d6d5, name)
     val entityBrightness = if (isActive) (entity.brightness ?: 255) / 255f else 0f
     var localBrightness by remember(entity.entity_id) { mutableFloatStateOf(entityBrightness) }
+    val brightnessStateDescription = stringResource(
+        R.string.core_percent_value,
+        (localBrightness * 100f).toInt().coerceIn(0, 100)
+    )
     LaunchedEffect(entity.brightness, entity.state) { localBrightness = entityBrightness }
 
     val sliderModifier = if (brightnessEnabled) {
@@ -269,9 +377,9 @@ fun EntityCard(
         ?.let { entityAttributeDisplay(entity, it) }
         ?.let { appendUnit(it, stateUnit) }
     val statusText = when {
-        // Timer mode: countdown while running, plain "Off" once it reaches zero.
+        // Timer mode: countdown while running, plain stringResource(R.string.ui_off_e3de5ab) once it reaches zero.
         timerRunning -> timerText!!
-        stateAsTimer -> "Off"
+        stateAsTimer -> stringResource(R.string.ui_off_e3de5ab)
         else -> attributeText
     } ?: run {
         val brightnessPercent = (
@@ -279,16 +387,17 @@ fun EntityCard(
             else (entity.brightness ?: 0) / 255f * 100f
         ).toInt().coerceIn(0, 100)
         when {
-            isLockDoorOpen -> "Open"
-            domain == "light" && entity.supportsBrightness && isActive -> "On - ${brightnessPercent}%"
+            isLockDoorOpen -> stringResource(R.string.ui_open_cf9b770)
+            domain == "light" && entity.supportsBrightness && isActive -> stringResource(R.string.ui_on_12469c7, brightnessPercent)
             domain == "climate" -> {
-                val mode = (entity.attributes?.get("hvac_action")?.jsonPrimitive?.contentOrNull
+                val rawMode = (entity.attributes?.get("hvac_action")?.jsonPrimitive?.contentOrNull
                     ?: entity.attributes?.get("hvac_mode")?.jsonPrimitive?.contentOrNull
-                    ?: entity.state).split("_").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                    ?: entity.state)
+                val mode = localizedHvacModeLabel(rawMode)
                 val temp = entity.attributes?.get("temperature")?.jsonPrimitive?.content?.toDoubleOrNull()
-                if (temp != null && isClimateNotOff) "$mode - ${temp.toInt()}\u00B0C" else mode
+                if (temp != null && isClimateNotOff) stringResource(R.string.ui_c_3d3c16f, mode, temp.toInt()) else mode
             }
-            else -> entity.state.split("_").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            else -> entity.localizedStateLabel()
         }
     }
 
@@ -322,7 +431,8 @@ fun EntityCard(
         val contentColor = if (tileActive) activeContent else appColors.onSurface
         val mutedContent = if (tileActive) activeContent.copy(alpha = 0.72f) else appColors.onMuted
         val tileIconSlug = iconName?.takeUnless { it.isBlank() }
-            ?: defaultEntityIconSlug(entity, lockDoorOpen = isLockDoorOpen)
+            ?: if (isActionItem) ACTION_ITEM_DEFAULT_ICON
+            else defaultEntityIconSlug(entity, lockDoorOpen = isLockDoorOpen)
         @Composable
         fun TileForeground(
             mainColor: Color,
@@ -333,7 +443,7 @@ fun EntityCard(
             Row(
                 modifier = foregroundModifier.fillMaxWidth().padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = if (iconOnly) Arrangement.Center else Arrangement.spacedBy(10.dp)
             ) {
                 Box(
                     Modifier.size(34.dp).background(
@@ -345,11 +455,14 @@ fun EntityCard(
                     if (tileIconSlug != null) MdiIcon(tileIconSlug, tint = tileIconTint, size = 18.dp)
                     else Icon(Icons.Default.DeviceUnknown, null, tint = tileIconTint, modifier = Modifier.size(18.dp))
                 }
-                Column(Modifier.weight(1f)) {
-                    Text(name, style = MaterialTheme.typography.labelLarge, color = mainColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(statusText, style = MaterialTheme.typography.bodySmall, color = secondaryColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Icon-only keeps the tile's height and just centers the glyph in it.
+                if (!iconOnly) {
+                    Column(Modifier.weight(1f)) {
+                        Text(name, style = MaterialTheme.typography.labelLarge, color = mainColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (!isActionItem) Text(statusText, style = MaterialTheme.typography.bodySmall, color = secondaryColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Icon(Icons.Default.ChevronRight, null, tint = secondaryColor.copy(alpha = 0.85f), modifier = Modifier.size(16.dp))
                 }
-                Icon(Icons.Default.ChevronRight, null, tint = secondaryColor.copy(alpha = 0.85f), modifier = Modifier.size(16.dp))
             }
         }
         Surface(
@@ -412,8 +525,8 @@ fun EntityCard(
                         Modifier
                             .matchParentSize()
                             .semantics {
-                                contentDescription = "$name brightness"
-                                stateDescription = "${(localBrightness * 100f).toInt().coerceIn(0, 100)} percent"
+                                contentDescription = brightnessContentDescription
+                                stateDescription = brightnessStateDescription
                                 progressBarRangeInfo = ProgressBarRangeInfo(localBrightness, 0f..1f)
                                 setProgress { requested ->
                                     val value = requested.coerceIn(0f, 1f)
@@ -431,11 +544,18 @@ fun EntityCard(
         return
     }
 
+    // The style is the authority on shape; [isSquare] is only the fallback for callers that
+    // predate it. Sizing off the flag alone is what made a Centered button on a non-square stack
+    // come out 110dp tall — the resolver had already said "square" and nothing was reading it.
+    val rendersSquare = when {
+        buttonStyle.isBlank() -> isSquare
+        else -> buttonStyle == "square"
+    }
     Card(
         modifier = modifier
             .fillMaxWidth()
             .then(if (isUnavailable) Modifier.alpha(0.6f) else Modifier)
-            .then(if (isSquare) Modifier.aspectRatio(1f) else Modifier.height(110.dp))
+            .then(if (rendersSquare) Modifier.aspectRatio(1f) else Modifier.height(110.dp))
             .then(
                 if (interactionsEnabled) {
                     Modifier.combinedClickable(
@@ -467,11 +587,7 @@ fun EntityCard(
             if (brightnessVisible && localBrightness > 0f) {
                 Box(Modifier.fillMaxWidth(localBrightness).fillMaxHeight().background(Color.White.copy(alpha = 0.18f)))
             }
-            Column(
-                modifier = Modifier.padding(16.dp).fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-            val iconTint = when {
+            val rawIconTint = when {
                 coverDoorIconColor != null  -> coverDoorIconColor   // door cover: state color on icon only
                 isCoverNotClosed            -> primaryContent        // open cover (non-door): readable on primary bg
                 isLockDoorOpen              -> LockRed
@@ -486,9 +602,10 @@ fun EntityCard(
                 isUnavailable               -> appColors.onMuted
                 else                        -> primary
             }
+            val iconTint = semanticColorForBackground(rawIconTint, cardBg)
             // User icon overrides; otherwise fall back to HA-provided/custom defaults and
             // device-class defaults that mirror Home Assistant's icon choices.
-            val defaultSlug = defaultEntityIconSlug(
+            val defaultSlug = if (isActionItem) ACTION_ITEM_DEFAULT_ICON else defaultEntityIconSlug(
                 entity,
                 lockDoorOpen = isLockDoorOpen,
             )
@@ -500,34 +617,70 @@ fun EntityCard(
             // "Use entity picture": render the HA picture when available, else fall back to the icon.
             val pictureUrl = if (effectiveSlug == ENTITY_PICTURE_ICON && !currentUrl.isNullOrBlank())
                 resolveEntityPictureUrl(entity, currentUrl) else null
-            WithIconEffect(entity, iconEffect, glowColor = iconTint) { fx ->
-                if (pictureUrl != null) {
-                    AsyncImage(
-                        model = pictureUrl,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(32.dp).clip(CircleShape).then(fx)
-                    )
-                } else {
-                    val slugForIcon = if (effectiveSlug == ENTITY_PICTURE_ICON) defaultSlug else effectiveSlug
-                    if (slugForIcon != null) {
-                        MdiIcon(name = slugForIcon, tint = iconTint, modifier = fx)
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.DeviceUnknown,
+            // Icon-only buttons have the whole face to themselves, so the glyph grows to match —
+            // but only as far as the button is wide, hence the caller-resolved size.
+            val glyphSize = if (iconOnly) iconOnlySize.dp else 24.dp
+            @Composable
+            fun CardIcon() {
+                WithIconEffect(entity, iconEffect, glowColor = iconTint) { fx ->
+                    if (pictureUrl != null) {
+                        AsyncImage(
+                            model = pictureUrl,
                             contentDescription = null,
-                            tint = iconTint,
-                            modifier = fx
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(if (iconOnly) (iconOnlySize * 1.2f).dp else 32.dp).clip(CircleShape).then(fx)
                         )
+                    } else {
+                        val slugForIcon = if (effectiveSlug == ENTITY_PICTURE_ICON) defaultSlug else effectiveSlug
+                        if (slugForIcon != null) {
+                            MdiIcon(name = slugForIcon, tint = iconTint, size = glyphSize, modifier = fx)
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.DeviceUnknown,
+                                contentDescription = null,
+                                tint = iconTint,
+                                modifier = Modifier.size(glyphSize).then(fx)
+                            )
+                        }
                     }
                 }
             }
-            Column {
-                Text(
+            val textShown = showNameLine || (showStateLine && !isActionItem)
+            // Centered gives the icon a weighted Box, so it sits in the middle of whatever height
+            // is left once the text has taken what it needs — and is pushed up rather than
+            // overlapped as that text grows. Standard keeps the icon pinned top-left with the text
+            // against the bottom, which is what every existing dashboard looks like.
+            Column(
+                modifier = Modifier.padding(if (centered || !textShown) 12.dp else 16.dp).fillMaxSize(),
+                horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
+                verticalArrangement = when {
+                    centered -> Arrangement.Top
+                    textShown -> Arrangement.SpaceBetween
+                    else -> Arrangement.Center
+                }
+            ) {
+            if (showIconGlyph) {
+                if (centered) {
+                    Box(
+                        Modifier.fillMaxWidth().weight(1f, fill = true),
+                        contentAlignment = Alignment.Center
+                    ) { CardIcon() }
+                } else {
+                    CardIcon()
+                }
+            }
+            if (textShown) {
+            Column(
+                Modifier.fillMaxWidth(),
+                horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start
+            ) {
+                if (showNameLine) Text(
                     text = name,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    textAlign = if (centered) TextAlign.Center else TextAlign.Start,
+                    modifier = Modifier.fillMaxWidth(),
                     color = when {
                         isCoverNotClosed -> primaryContent
                         isLockDoorOpen || isLockUnlocked -> primaryContent
@@ -535,7 +688,11 @@ fun EntityCard(
                         else            -> appColors.onSurface
                     }
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showStateLine) Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = if (centered) Arrangement.Center else Arrangement.Start
+                ) {
                     if (domain == "camera" && entity.state.equals("recording", ignoreCase = true)) {
                         Box(
                             Modifier
@@ -544,7 +701,7 @@ fun EntityCard(
                         )
                         Spacer(Modifier.width(5.dp))
                     }
-                    Text(
+                    if (!isActionItem) Text(
                         text = statusText,
                         style = MaterialTheme.typography.labelMedium,
                         color = when {
@@ -559,6 +716,7 @@ fun EntityCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
             }
             }
             if (brightnessEnabled) Box(Modifier.matchParentSize().then(sliderModifier))
@@ -861,17 +1019,6 @@ fun hvacColor(mode: String?): Color {
 fun hvacGradient(mode: String?): Brush {
     val color = hvacColor(mode)
     return Brush.verticalGradient(listOf(color.copy(alpha = 0.35f), color))
-}
-
-fun climateModeLabel(mode: String): String = when (mode.lowercase()) {
-    "off" -> "Off"
-    "heat" -> "Heat"
-    "cool" -> "Cool"
-    "heat_cool" -> "Heat/Cool"
-    "auto" -> "Auto"
-    "dry" -> "Dry"
-    "fan_only" -> "Fan"
-    else -> mode.split("_").joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 }
 
 fun climateModeIcon(mode: String): ImageVector = when (mode.lowercase()) {

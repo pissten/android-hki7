@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeOut
@@ -9,6 +13,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,11 +22,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Notifications
@@ -35,15 +43,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jimz011apps.hki7.data.HAEntity
+import com.jimz011apps.hki7.data.HALogbookEvent
 import com.jimz011apps.hki7.data.HKINotification
+import com.jimz011apps.hki7.data.HKINotificationAction
 import com.jimz011apps.hki7.ui.MainViewModel
 import com.jimz011apps.hki7.ui.theme.LocalHKIAppColors
+import com.jimz011apps.hki7.ui.utils.MdiIcon
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -51,6 +65,31 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Opens the notification drawer from anywhere in the app (provided by MainApp). */
 val LocalOpenNotifications = staticCompositionLocalOf<(() -> Unit)?> { null }
+
+/**
+ * Opens Settings at a named destination, for the few places that need to send someone straight to
+ * a specific setting rather than to the settings menu.
+ *
+ * Keyed by a short route string rather than by the section enum because that enum lives in the
+ * screens package, and the drawer is a component — the string keeps the dependency pointing one
+ * way. Provided above the drawer (in MainApp), since the drawer sheet is a sibling of the page
+ * and cannot see anything the page provides.
+ */
+val LocalOpenSettingsRoute = staticCompositionLocalOf<((String) -> Unit)?> { null }
+
+/**
+ * Opens one of Home Assistant's own pages (frontend path, title, Settings menu scroll offset)
+ * full screen.
+ *
+ * A composition local rather than a parameter on the settings screen, because that screen is
+ * opened from more than one place — the drawer and the page header — and threading a callback
+ * through reached only the call site that was remembered, leaving the other one silently doing
+ * nothing when its links were tapped.
+ */
+val LocalOpenHaPage = staticCompositionLocalOf<((String, String, Int) -> Unit)?> { null }
+
+/** Route for Settings › Family Sharing › Events. */
+const val SETTINGS_ROUTE_FAMILY_EVENTS = "family_events"
 
 /** Brief, inverted-theme banner for notifications received while the app is visible. */
 @Composable
@@ -84,7 +123,8 @@ fun NotificationBannerHost(
 
     LaunchedEffect(current?.id, visible) {
         if (current != null && visible) {
-            delay(5.seconds)
+            // An actionable notification stays up longer: there are buttons to read and aim for.
+            delay(if (current?.actions.isNullOrEmpty()) 5.seconds else 12.seconds)
             exitMode = "dismiss"
             visible = false
         }
@@ -113,42 +153,149 @@ fun NotificationBannerHost(
                 shadowElevation = 12.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                Column(Modifier.padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(Icons.Default.Notifications, null, tint = bannerForeground, modifier = Modifier.size(22.dp))
+                        Column(Modifier.weight(1f)) {
+                            notification.instanceName?.takeIf { it.isNotBlank() }?.let {
+                                Text(
+                                    it.uppercase(),
+                                    color = bannerMuted,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                            }
+                            notification.title?.takeIf { it.isNotBlank() }?.let {
+                                Text(it, color = bannerForeground, style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Text(notification.message, color = if (notification.title.isNullOrBlank()) bannerForeground else bannerMuted,
+                                style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                        TextButton(onClick = {
+                            exitMode = "dismiss"
+                            visible = false
+                        }) {
+                            Text(stringResource(R.string.ui_dismiss_70afe9e), color = bannerForeground)
+                        }
+                        IconButton(onClick = {
+                            exitMode = "delete"
+                            visible = false
+                            viewModel.deleteNotification(notification.id)
+                        }) {
+                            Icon(Icons.Default.Close, stringResource(R.string.notification_delete), tint = bannerForeground)
+                        }
+                    }
+                    // A reply needs a text field, which the banner has no room for — those hand off to
+                    // the drawer instead of answering inline.
+                    NotificationActionButtons(
+                        notification = notification,
+                        viewModel = viewModel,
+                        accentColor = bannerForeground,
+                        inlineReply = false,
+                        modifier = Modifier.padding(start = 34.dp, top = 2.dp),
+                        onActionFired = {
+                            exitMode = "dismiss"
+                            visible = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The buttons from HA's `data.actions`. While HKI is visible no system notification is posted, so
+ * this is the user's only way to reach them; tapping one fires the same
+ * `mobile_app_notification_action` event the notification shade would.
+ *
+ * Only one action per notification can be fired — HA would accept a second, but a spent button in
+ * a list that sticks around for 48h is a trap, not a feature.
+ */
+@Composable
+private fun NotificationActionButtons(
+    notification: HKINotification,
+    viewModel: MainViewModel,
+    accentColor: Color,
+    inlineReply: Boolean,
+    modifier: Modifier = Modifier,
+    onActionFired: () -> Unit = {}
+) {
+    if (notification.actions.isEmpty()) return
+    val uriHandler = LocalUriHandler.current
+    val openPanel = LocalOpenNotifications.current
+    var replyingTo by remember(notification.id) { mutableStateOf<HKINotificationAction?>(null) }
+    var replyText by remember(notification.id) { mutableStateOf("") }
+    val spent = notification.firedAction != null
+
+    Column(modifier) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            notification.actions.forEach { action ->
+                val fired = notification.firedAction == action.action
+                TextButton(
+                    // A link is repeatable; it changes nothing on the server.
+                    enabled = action.isUri || !spent,
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    onClick = {
+                        when {
+                            action.isUri -> {
+                                action.uri?.let { runCatching { uriHandler.openUri(it) } }
+                                onActionFired()
+                            }
+                            action.isReply && inlineReply -> replyingTo = action
+                            action.isReply -> {
+                                openPanel?.invoke()
+                                onActionFired()
+                            }
+                            else -> {
+                                viewModel.fireNotificationAction(notification, action)
+                                onActionFired()
+                            }
+                        }
+                    }
                 ) {
-                    Icon(Icons.Default.Notifications, null, tint = bannerForeground, modifier = Modifier.size(22.dp))
-                    Column(Modifier.weight(1f)) {
-                        notification.instanceName?.takeIf { it.isNotBlank() }?.let {
-                            Text(
-                                it.uppercase(),
-                                color = bannerMuted,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
-                        }
-                        notification.title?.takeIf { it.isNotBlank() }?.let {
-                            Text(it, color = bannerForeground, style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Text(notification.message, color = if (notification.title.isNullOrBlank()) bannerForeground else bannerMuted,
-                            style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        action.title,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (fired) FontWeight.Normal else FontWeight.SemiBold,
+                        color = if (action.isUri || !spent) accentColor else accentColor.copy(alpha = 0.4f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        replyingTo?.let { action ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                OutlinedTextField(
+                    value = replyText,
+                    onValueChange = { replyText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text(action.title, style = MaterialTheme.typography.bodySmall) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    textStyle = MaterialTheme.typography.bodySmall
+                )
+                IconButton(
+                    enabled = replyText.isNotBlank(),
+                    onClick = {
+                        viewModel.fireNotificationAction(notification, action, replyText.trim())
+                        replyingTo = null
+                        replyText = ""
+                        onActionFired()
                     }
-                    TextButton(onClick = {
-                        exitMode = "dismiss"
-                        visible = false
-                    }) {
-                        Text("Dismiss", color = bannerForeground)
-                    }
-                    IconButton(onClick = {
-                        exitMode = "delete"
-                        visible = false
-                        viewModel.deleteNotification(notification.id)
-                    }) {
-                        Icon(Icons.Default.Close, "Delete notification", tint = bannerForeground)
-                    }
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, action.title, tint = accentColor, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -181,7 +328,7 @@ fun NotificationBellButton(
                 .clickable { open?.invoke() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = iconTint, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Notifications, contentDescription = stringResource(R.string.ui_notifications_753a22b), tint = iconTint, modifier = Modifier.size(18.dp))
         }
         if (unread > 0) {
             val label = if (unread > 99) "99+" else "$unread"
@@ -214,15 +361,34 @@ fun NotificationBellButton(
 
 /**
  * Contents of the left-edge swipe-in drawer: Home Assistant notification history with
- * Notifications/Archived tabs, search, unread/history sections, swipe-left row actions
+ * Notifications/Events/Archived tabs, search, unread/history sections, swipe-left row actions
  * (mark unread / archive / delete) and mark-all-read. Non-archived entries expire after 48h.
+ *
+ * Events are deliberately not notifications: they are read live from Home Assistant's logbook
+ * rather than stored, they carry no read/archive state, and they never touch the bell's unread
+ * badge — a timeline of doors opening would keep that badge permanently lit and drain it of
+ * meaning.
  */
 @Composable
-fun NotificationPanel(viewModel: MainViewModel) {
+fun NotificationPanel(viewModel: MainViewModel, isVisible: Boolean = true) {
     val appColors = LocalHKIAppColors.current
     val notifications by viewModel.notifications.collectAsState()
-    var tab by remember { mutableStateOf("inbox") }      // "inbox" | "archive"
+    var tab by remember { mutableStateOf("inbox") }      // "inbox" | "events" | "archive"
     var query by remember { mutableStateOf("") }
+    // Shorter than the history dialogs' 24h default on purpose: a timeline answers "what just
+    // happened", and a day of a busy household buries that under hundreds of older rows. The
+    // longer windows are one tap away for when the question really is about yesterday.
+    var eventHours by remember { mutableStateOf(3L) }
+
+    // Subscribed only while the Events tab is genuinely being looked at — [isVisible] is what
+    // distinguishes that from the drawer merely being composed off-screen. Holding an extra
+    // websocket subscription for the whole session would work against the app's event-driven
+    // battery posture, and nothing off this tab reads it.
+    val streaming = isVisible && tab == "events"
+    DisposableEffect(streaming, eventHours) {
+        if (streaming) viewModel.startEventTimeline(eventHours)
+        onDispose { if (streaming) viewModel.stopEventTimeline() }
+    }
 
     fun matches(n: HKINotification) =
         query.isBlank() ||
@@ -239,11 +405,9 @@ fun NotificationPanel(viewModel: MainViewModel) {
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.systemBars)
             .padding(horizontal = 14.dp)
-            .swipeToAdjacentTab(
-                tabs = listOf("inbox", "archive"),
-                selected = tab,
-                onSelect = { tab = it }
-            )
+            // No tab swiping here: this panel is an edge sheet, and a horizontal drag on it means
+            // "put it back" — the gesture people reach for first on a drawer. Its three tabs are
+            // always on screen a tap away, so nothing is out of reach.
     ) {
         // ── header ──────────────────────────────────────────────────────────
         Row(
@@ -251,7 +415,7 @@ fun NotificationPanel(viewModel: MainViewModel) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Notifications",
+                stringResource(R.string.ui_notifications_753a22b),
                 style = MaterialTheme.typography.titleLarge,
                 color = appColors.onSurface,
                 fontWeight = FontWeight.Bold,
@@ -259,22 +423,22 @@ fun NotificationPanel(viewModel: MainViewModel) {
             )
             if (tab == "inbox" && notifications.any { !it.archived && !it.read }) {
                 IconButton(onClick = { viewModel.markAllNotificationsRead() }) {
-                    Icon(Icons.Default.DoneAll, "Mark all as read", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.DoneAll, stringResource(R.string.notification_mark_all_read), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 }
             }
             if (tab == "inbox" && notifications.any { !it.archived && it.read }) {
                 IconButton(onClick = { viewModel.markAllNotificationsUnread() }) {
-                    Icon(Icons.Default.MarkEmailUnread, "Mark all as unread", tint = appColors.onMuted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.MarkEmailUnread, stringResource(R.string.notification_mark_all_unread), tint = appColors.onMuted, modifier = Modifier.size(20.dp))
                 }
             }
             if (tab == "inbox" && notifications.any { !it.archived }) {
                 IconButton(onClick = { viewModel.clearNotifications() }) {
-                    Icon(Icons.Default.DeleteSweep, "Delete all", tint = appColors.onMuted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.DeleteSweep, stringResource(R.string.notification_delete_all), tint = appColors.onMuted, modifier = Modifier.size(20.dp))
                 }
             }
             if (tab == "archive" && notifications.any { it.archived }) {
                 IconButton(onClick = { viewModel.clearArchivedNotifications() }) {
-                    Icon(Icons.Default.DeleteSweep, "Delete all archived", tint = appColors.onMuted, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.DeleteSweep, stringResource(R.string.notification_delete_all_archived), tint = appColors.onMuted, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -284,7 +448,7 @@ fun NotificationPanel(viewModel: MainViewModel) {
             value = query,
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Search", color = appColors.onMuted, style = MaterialTheme.typography.bodySmall) },
+            placeholder = { Text(stringResource(R.string.ui_search_bce0641), color = appColors.onMuted, style = MaterialTheme.typography.bodySmall) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = appColors.onMuted, modifier = Modifier.size(18.dp)) },
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
@@ -310,13 +474,19 @@ fun NotificationPanel(viewModel: MainViewModel) {
             FilterChip(
                 selected = tab == "inbox",
                 onClick = { tab = "inbox" },
-                label = { Text("Notifications") },
+                label = { Text(stringResource(R.string.ui_notifications_753a22b)) },
+                shape = RoundedCornerShape(12.dp)
+            )
+            FilterChip(
+                selected = tab == "events",
+                onClick = { tab = "events" },
+                label = { Text(stringResource(R.string.events_tab)) },
                 shape = RoundedCornerShape(12.dp)
             )
             FilterChip(
                 selected = tab == "archive",
                 onClick = { tab = "archive" },
-                label = { Text("Archived") },
+                label = { Text(stringResource(R.string.ui_archived_eddc813)) },
                 shape = RoundedCornerShape(12.dp)
             )
         }
@@ -324,6 +494,16 @@ fun NotificationPanel(viewModel: MainViewModel) {
         Spacer(Modifier.height(6.dp))
 
         // ── list ────────────────────────────────────────────────────────────
+        if (tab == "events") {
+            EventsTab(
+                viewModel = viewModel,
+                query = query,
+                hours = eventHours,
+                onHoursChange = { eventHours = it }
+            )
+            return@Column
+        }
+
         val showEmpty = if (tab == "inbox") unread.isEmpty() && history.isEmpty() else archived.isEmpty()
         if (showEmpty) {
             Column(
@@ -338,16 +518,16 @@ fun NotificationPanel(viewModel: MainViewModel) {
                 Spacer(Modifier.height(12.dp))
                 Text(
                     when {
-                        query.isNotBlank() -> "No matches"
-                        tab == "archive" -> "No archived notifications"
-                        else -> "No notifications"
+                        query.isNotBlank() -> stringResource(R.string.ui_no_matches_cd0af6c)
+                        tab == "archive" -> stringResource(R.string.ui_no_archived_notifications_ed5604b)
+                        else -> stringResource(R.string.ui_no_notifications_b08626f)
                     },
                     color = appColors.onMuted, style = MaterialTheme.typography.bodyMedium
                 )
                 if (tab == "inbox" && query.isBlank()) {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Messages sent to this device via\nHome Assistant's notify service appear here.",
+                        stringResource(R.string.ui_messages_sent_to_this_device_via_home_assistant_s_87e4a32),
                         color = appColors.onMuted.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 24.dp)
@@ -363,16 +543,258 @@ fun NotificationPanel(viewModel: MainViewModel) {
             ) {
                 if (tab == "inbox") {
                     if (unread.isNotEmpty()) {
-                        item(key = "hdr_unread") { SectionLabel("Unread") }
+                        item(key = "hdr_unread") { SectionLabel(stringResource(R.string.notification_unread)) }
                         items(unread, key = { it.id }) { n -> NotificationRow(n, viewModel, archivedTab = false) }
                     }
                     if (history.isNotEmpty()) {
-                        item(key = "hdr_history") { SectionLabel("History") }
+                        item(key = "hdr_history") { SectionLabel(stringResource(R.string.notification_history)) }
                         items(history, key = { it.id }) { n -> NotificationRow(n, viewModel, archivedTab = false) }
                     }
                 } else {
                     items(archived, key = { it.id }) { n -> NotificationRow(n, viewModel, archivedTab = true) }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The Events tab: a Homey-style timeline of what the household's entities have been doing.
+ *
+ * Read live from Home Assistant's logbook rather than stored on the device — the recorder is
+ * already the store, so re-reading on open is cheaper than keeping a copy and cannot drift. The
+ * roster is set once by an admin for the whole family; the component has already removed whatever
+ * this particular person is not allowed to see, so everything that arrives here is showable.
+ */
+@Composable
+private fun EventsTab(
+    viewModel: MainViewModel,
+    query: String,
+    hours: Long,
+    onHoursChange: (Long) -> Unit
+) {
+    val appColors = LocalHKIAppColors.current
+    val family = LocalVisibilityFamilyContext.current
+    val events by viewModel.eventTimeline.collectAsState()
+    val roster by viewModel.eventRoster.collectAsState()
+    val loading by viewModel.eventTimelineLoading.collectAsState()
+    val entities by viewModel.entities.collectAsState()
+    val entitiesById = remember(entities) { entities.associateBy { it.entity_id } }
+
+    fun nameFor(event: HALogbookEvent): String =
+        event.name
+            ?: event.entityId?.let { entitiesById[it]?.friendlyName }
+            ?: event.entityId
+            ?: ""
+
+    var category by remember { mutableStateOf<String?>(null) }   // null = all
+
+    // Built from what the timeline actually holds rather than from every category HKI knows, so
+    // a household without a single water sensor is never offered a "Water" filter that can only
+    // ever come back empty. Ordered by how much of the timeline each one accounts for.
+    val categories = remember(events, entitiesById) {
+        events.groupingBy { eventCategoryKey(it, entitiesById[it.entityId]) }
+            .eachCount()
+            .entries
+            .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+            .map { it.key }
+    }
+    // A filter for something that has since scrolled out of the window would silently show an
+    // empty list, so it drops back to All rather than stranding the user on a dead chip.
+    LaunchedEffect(categories) {
+        if (category != null && category !in categories) category = null
+    }
+
+    val visible = events.filter { event ->
+        val matchesQuery = query.isBlank() ||
+            nameFor(event).contains(query, ignoreCase = true) ||
+            event.state?.contains(query, ignoreCase = true) == true ||
+            event.message?.contains(query, ignoreCase = true) == true
+        val matchesCategory = category == null ||
+            eventCategoryKey(event, entitiesById[event.entityId]) == category
+        matchesQuery && matchesCategory
+    }
+
+    HistoryRangeChips(
+        selectedHours = hours.toInt(),
+        onSelect = { onHoursChange(it.toLong()) },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+    )
+
+    if (categories.size > 1) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = category == null,
+                onClick = { category = null },
+                label = { Text(stringResource(R.string.events_filter_all)) },
+                shape = RoundedCornerShape(12.dp)
+            )
+            categories.forEach { key ->
+                FilterChip(
+                    selected = category == key,
+                    onClick = { category = if (category == key) null else key },
+                    label = { Text(eventCategoryLabel(key)) },
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        }
+    }
+
+    if (visible.isEmpty()) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (loading) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp),
+                    strokeWidth = 3.dp
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    stringResource(R.string.events_loading),
+                    color = appColors.onMuted, style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                Icon(
+                    Icons.Default.History, null,
+                    tint = appColors.onMuted.copy(alpha = 0.6f), modifier = Modifier.size(48.dp)
+                )
+                Spacer(Modifier.height(12.dp))
+                // Three genuinely different situations, and saying "no events" for all of them
+                // would send an admin looking for a fault instead of to the roster editor.
+                val rosterEmpty = roster == null || roster?.isEmpty != false
+                Text(
+                    when {
+                        query.isNotBlank() -> stringResource(R.string.events_no_matches)
+                        rosterEmpty -> stringResource(R.string.events_not_configured)
+                        else -> stringResource(R.string.events_empty)
+                    },
+                    color = appColors.onSurface,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                if (query.isBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        when {
+                            !rosterEmpty -> stringResource(R.string.events_empty_hint)
+                            family.isAdmin -> stringResource(R.string.events_not_configured_admin)
+                            else -> stringResource(R.string.events_not_configured_member)
+                        },
+                        color = appColors.onMuted.copy(alpha = 0.75f),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp)
+                    )
+                    // Only an admin can act on this, and only when there is nothing to act on
+                    // yet — telling a family member to go and configure something they have no
+                    // permission for would be a dead end.
+                    val openSettings = LocalOpenSettingsRoute.current
+                    if (rosterEmpty && family.isAdmin && openSettings != null) {
+                        Spacer(Modifier.height(14.dp))
+                        Button(
+                            onClick = { openSettings(SETTINGS_ROUTE_FAMILY_EVENTS) },
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(stringResource(R.string.events_set_up_button))
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(96.dp))
+        }
+        return
+    }
+
+    // Resolved out here because LazyColumn's content block is not a composable scope, so the
+    // day label can't call stringResource from inside it.
+    val todayLabel = stringResource(R.string.events_today)
+    val yesterdayLabel = stringResource(R.string.events_yesterday)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        var lastDay: String? = null
+        visible.forEachIndexed { index, event ->
+            val day = dayLabelFor(event.timestamp, todayLabel, yesterdayLabel)
+            if (day != lastDay) {
+                lastDay = day
+                item(key = "day_$day") { SectionLabel(day) }
+            }
+            // Logbook events carry no id of their own, so the key is what actually identifies
+            // one: this entity, at this instant. The index keeps it unique even then, since two
+            // entities can genuinely change in the same millisecond.
+            item(key = "${event.entityId}_${event.timestamp}_$index") {
+                EventRow(event = event, name = nameFor(event), entity = entitiesById[event.entityId])
+            }
+        }
+    }
+}
+
+/** "Today" / "Yesterday" / the date — the same grouping the rest of the app uses for history.
+ *  Takes its labels as arguments so it can be called from a LazyColumn's non-composable scope. */
+private fun dayLabelFor(timestamp: Long, todayLabel: String, yesterdayLabel: String): String {
+    val dayMs = 24L * 60 * 60 * 1000
+    val zone = java.util.TimeZone.getDefault()
+    // Day boundaries must be local, not UTC: an epoch-modulo split puts "today" in the wrong
+    // place for everyone west of Greenwich, and by a whole day for anyone far enough east.
+    fun localDayIndex(millis: Long): Long = (millis + zone.getOffset(millis)) / dayMs
+    val today = localDayIndex(System.currentTimeMillis())
+    return when (localDayIndex(timestamp)) {
+        today -> todayLabel
+        today - 1 -> yesterdayLabel
+        else -> formatHistoryClock(timestamp, withDate = true).substringBefore(' ')
+    }
+}
+
+/** One line of the timeline: what happened, to what, when — and who did it, when HA knows. */
+@Composable
+private fun EventRow(event: HALogbookEvent, name: String, entity: HAEntity?) {
+    val appColors = LocalHKIAppColors.current
+    val phrase = eventPhrase(event, entity)
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = appColors.elevated,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            event.icon?.takeIf { it.isNotBlank() }?.let { icon ->
+                MdiIcon(icon.removePrefix("mdi:"), tint = appColors.onMuted, size = 20.dp)
+                Spacer(Modifier.width(12.dp))
+            }
+            Column(Modifier.weight(1f)) {
+                Text(
+                    listOf(name, phrase).filter { it.isNotBlank() }.joinToString(" "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = appColors.onSurface
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    listOfNotNull(
+                        // Category first: it is what makes a mixed timeline scannable, and it is
+                        // the same word as the filter chip above, so the two read as one idea.
+                        eventCategoryLabel(eventCategoryKey(event, entity)),
+                        formatHistoryClock(event.timestamp),
+                        event.contextName?.takeIf { it.isNotBlank() }
+                            ?.let { stringResource(R.string.events_by, it) }
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = appColors.onMuted
+                )
             }
         }
     }
@@ -418,24 +840,24 @@ private fun NotificationRow(
         ) {
             // Read/unread toggle on both tabs: unread gets "mark as read", read the inverse.
             if (notification.read) {
-                SwipeActionButton(Icons.Default.MarkEmailUnread, "Mark as unread", Color(0xFF42A5F5)) {
+                SwipeActionButton(Icons.Default.MarkEmailUnread, stringResource(R.string.notification_mark_unread), Color(0xFF42A5F5)) {
                     viewModel.setNotificationRead(notification.id, false); close()
                 }
             } else {
-                SwipeActionButton(Icons.Default.MarkEmailRead, "Mark as read", Color(0xFF42A5F5)) {
+                SwipeActionButton(Icons.Default.MarkEmailRead, stringResource(R.string.notification_mark_read), Color(0xFF42A5F5)) {
                     viewModel.setNotificationRead(notification.id, true); close()
                 }
             }
             if (!archivedTab) {
-                SwipeActionButton(Icons.Default.Archive, "Archive", Color(0xFF66BB6A)) {
+                SwipeActionButton(Icons.Default.Archive, stringResource(R.string.notification_archive), Color(0xFF66BB6A)) {
                     viewModel.archiveNotification(notification.id); close()
                 }
             } else {
-                SwipeActionButton(Icons.Default.Unarchive, "Unarchive", Color(0xFF66BB6A)) {
+                SwipeActionButton(Icons.Default.Unarchive, stringResource(R.string.notification_unarchive), Color(0xFF66BB6A)) {
                     viewModel.unarchiveNotification(notification.id); close()
                 }
             }
-            SwipeActionButton(Icons.Default.Delete, "Delete", Color(0xFFEF5350)) {
+            SwipeActionButton(Icons.Default.Delete, stringResource(R.string.notification_delete_action), Color(0xFFEF5350)) {
                 viewModel.deleteNotification(notification.id)
             }
         }
@@ -493,6 +915,13 @@ private fun NotificationRow(
                         ).joinToString(" · "),
                         style = MaterialTheme.typography.labelSmall,
                         color = appColors.onMuted
+                    )
+                    NotificationActionButtons(
+                        notification = notification,
+                        viewModel = viewModel,
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        inlineReply = true,
+                        modifier = Modifier.padding(top = 2.dp).offset(x = (-10).dp)
                     )
                 }
                 if (!notification.read) {

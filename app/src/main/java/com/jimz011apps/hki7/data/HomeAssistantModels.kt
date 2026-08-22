@@ -37,6 +37,57 @@ data class HKICustomPage(
     val icon: String = "view-dashboard"
 )
 
+/** A user-built dialog opened by a `custom_popup` action. Like a custom page, its contents are
+ * widgets stored under a reserved widget-area id ([customPopupWidgetAreaId]), so popups travel
+ * through backups and family sharing with the rest of the dashboard. */
+@Serializable
+data class HKICustomPopup(
+    val id: String,
+    val name: String,
+    val icon: String? = null,
+    /** Optional entity whose state drives the dialog's status line and its history/activity view.
+     *  Without one the dialog shows the popup name alone and hides the history button. */
+    val statusEntityId: String? = null
+)
+
+/** Widget-area id holding [popupId]'s widgets, mirroring the `__custom_page_<id>__` convention. */
+fun customPopupWidgetAreaId(popupId: String): String = "__popup_${popupId}__"
+
+/** Domain of the synthetic entity ids used by empty (transparent) placeholder buttons. Real Home
+ *  Assistant entity ids never use it, so a spacer can live in [HKIButtonStack.entityIds] and in
+ *  [HKISingleEntityWidget.entityId] without colliding with an actual entity. */
+const val SPACER_ENTITY_DOMAIN = "hki7_spacer"
+
+/** True for the synthetic id of an empty button: it renders as blank space and has no state,
+ *  actions, or settings. */
+fun isSpacerEntityId(entityId: String): Boolean = entityId.startsWith("$SPACER_ENTITY_DOMAIN.")
+
+/** A fresh empty-button id. Each spacer gets its own so several can sit in the same stack. */
+fun newSpacerEntityId(): String = "$SPACER_ENTITY_DOMAIN.${java.util.UUID.randomUUID()}"
+
+/** Domain of the synthetic ids used by action buttons and badges: items that carry a name, an icon,
+ *  and their own tap/hold/double-tap actions without belonging to any Home Assistant entity. Use
+ *  them for navigation, a service call, a URL, or a custom popup. */
+const val ACTION_ITEM_DOMAIN = "hki7_action"
+
+/** True for an entity-less action button or badge. */
+fun isActionItemId(entityId: String): Boolean = entityId.startsWith("$ACTION_ITEM_DOMAIN.")
+
+/** A fresh action-button id, so several can live in the same stack or badge bar. */
+fun newActionItemId(): String = "$ACTION_ITEM_DOMAIN.${java.util.UUID.randomUUID()}"
+
+/** True for any id the app invents rather than reads from Home Assistant (spacers and action
+ *  items). These never resolve to an entity, so state, toggling, and more-info do not apply. */
+fun isSyntheticItemId(entityId: String): Boolean =
+    isSpacerEntityId(entityId) || isActionItemId(entityId)
+
+/** Like [JsonElement.jsonPrimitive], but null instead of throwing when a normally-scalar attribute
+ *  arrives as an object/array. Some integrations attach richer per-entity payloads than Home
+ *  Assistant's own schema implies for that attribute name; one such mismatch on one entity
+ *  shouldn't crash every dialog that reads it. */
+val JsonElement.jsonPrimitiveOrNull: JsonPrimitive?
+    get() = this as? JsonPrimitive
+
 @Serializable
 @Immutable
 data class HAEntity(
@@ -46,63 +97,63 @@ data class HAEntity(
     val last_changed: String? = null
 ) {
     val friendlyName: String?
-        get() = attributes?.get("friendly_name")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("friendly_name")?.jsonPrimitiveOrNull?.contentOrNull
 
     val temperature: Double?
-        get() = attributes?.get("temperature")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("temperature")?.jsonPrimitiveOrNull?.doubleOrNull
 
     val humidity: Double?
-        get() = attributes?.get("humidity")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("humidity")?.jsonPrimitiveOrNull?.doubleOrNull
 
     val pressure: Double?
-        get() = attributes?.get("pressure")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("pressure")?.jsonPrimitiveOrNull?.doubleOrNull
 
     val windSpeed: Double?
-        get() = attributes?.get("wind_speed")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("wind_speed")?.jsonPrimitiveOrNull?.doubleOrNull
 
     val precipitation: Double?
-        get() = attributes?.get("precipitation")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("precipitation")?.jsonPrimitiveOrNull?.doubleOrNull
 
     val entityPicture: String?
-        get() = attributes?.get("entity_picture")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("entity_picture")?.jsonPrimitiveOrNull?.contentOrNull
 
     val icon: String?
-        get() = attributes?.get("icon")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("icon")?.jsonPrimitiveOrNull?.contentOrNull
 
     val mediaTitle: String?
-        get() = attributes?.get("media_title")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("media_title")?.jsonPrimitiveOrNull?.contentOrNull
 
     val mediaArtist: String?
-        get() = attributes?.get("media_artist")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("media_artist")?.jsonPrimitiveOrNull?.contentOrNull
 
     val brightness: Int?
-        get() = attributes?.get("brightness")?.jsonPrimitive?.intOrNull
+        get() = attributes?.get("brightness")?.jsonPrimitiveOrNull?.intOrNull
 
     val colorTempKelvin: Int?
-        get() = attributes?.get("color_temp_kelvin")?.jsonPrimitive?.intOrNull
+        get() = attributes?.get("color_temp_kelvin")?.jsonPrimitiveOrNull?.intOrNull
 
     val minKelvin: Int?
-        get() = attributes?.get("min_color_temp_kelvin")?.jsonPrimitive?.intOrNull
+        get() = attributes?.get("min_color_temp_kelvin")?.jsonPrimitiveOrNull?.intOrNull
         
     val maxKelvin: Int?
-        get() = attributes?.get("max_color_temp_kelvin")?.jsonPrimitive?.intOrNull
+        get() = attributes?.get("max_color_temp_kelvin")?.jsonPrimitiveOrNull?.intOrNull
 
     val rgbColor: List<Int>?
         get() {
             val arr = attributes?.get("rgb_color") as? JsonArray
-            return arr?.mapNotNull { it.jsonPrimitive.intOrNull }
+            return arr?.mapNotNull { it.jsonPrimitiveOrNull?.intOrNull }
         }
 
     val effect: String?
-        get() = attributes?.get("effect")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("effect")?.jsonPrimitiveOrNull?.contentOrNull
 
     val effectList: List<String>
         get() = (attributes?.get("effect_list") as? JsonArray)
-            ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+            ?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }
             .orEmpty()
 
     val supportedColorModes: List<String>
-        get() = (attributes?.get("supported_color_modes") as? JsonArray)?.map { it.jsonPrimitive.content } ?: emptyList()
+        get() = (attributes?.get("supported_color_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitiveOrNull?.content } ?: emptyList()
         
     val supportsBrightness: Boolean
         get() = brightness != null || supportedColorModes.any {
@@ -125,97 +176,113 @@ data class HAEntity(
     // `entity_id` attribute holding the list of member entity ids.
     val childEntityIds: List<String>
         get() = (attributes?.get("entity_id") as? JsonArray)
-            ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+            ?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }
             .orEmpty()
 
     val hvacModes: List<String>
         get() = (attributes?.get("hvac_modes") as? JsonArray)
-            ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+            ?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }
             .orEmpty()
 
     val deviceClass: String?
-        get() = attributes?.get("device_class")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("device_class")?.jsonPrimitiveOrNull?.contentOrNull
 
     // person.* entities carry the linked Home Assistant user id, used to match logbook actors to their avatar.
     val userId: String?
-        get() = attributes?.get("user_id")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("user_id")?.jsonPrimitiveOrNull?.contentOrNull
 
     // ── climate: fan / swing modes ──────────────────────────────────────────
     val fanMode: String?
-        get() = attributes?.get("fan_mode")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("fan_mode")?.jsonPrimitiveOrNull?.contentOrNull
     val fanModes: List<String>
-        get() = (attributes?.get("fan_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        get() = (attributes?.get("fan_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }.orEmpty()
     val swingMode: String?
-        get() = attributes?.get("swing_mode")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("swing_mode")?.jsonPrimitiveOrNull?.contentOrNull
     val swingModes: List<String>
-        get() = (attributes?.get("swing_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        get() = (attributes?.get("swing_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }.orEmpty()
     val swingHorizontalMode: String?
-        get() = attributes?.get("swing_horizontal_mode")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("swing_horizontal_mode")?.jsonPrimitiveOrNull?.contentOrNull
     val swingHorizontalModes: List<String>
-        get() = (attributes?.get("swing_horizontal_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        get() = (attributes?.get("swing_horizontal_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }.orEmpty()
 
     // ── cover: tilt ──────────────────────────────────────────────────────────
     val tiltPosition: Int?
-        get() = attributes?.get("current_tilt_position")?.jsonPrimitive?.intOrNull
+        get() = attributes?.get("current_tilt_position")?.jsonPrimitiveOrNull?.intOrNull
     val supportsTilt: Boolean
         get() = attributes?.containsKey("current_tilt_position") == true
 
     // ── fan domain ───────────────────────────────────────────────────────────
     val fanPercentage: Int?
-        get() = attributes?.get("percentage")?.jsonPrimitive?.intOrNull
+        get() = attributes?.get("percentage")?.jsonPrimitiveOrNull?.intOrNull
     val fanPresetMode: String?
-        get() = attributes?.get("preset_mode")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("preset_mode")?.jsonPrimitiveOrNull?.contentOrNull
     val fanPresetModes: List<String>
-        get() = (attributes?.get("preset_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        get() = (attributes?.get("preset_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }.orEmpty()
     val fanOscillating: Boolean?
-        get() = attributes?.get("oscillating")?.jsonPrimitive?.booleanOrNull
+        get() = attributes?.get("oscillating")?.jsonPrimitiveOrNull?.booleanOrNull
     val fanDirection: String?
-        get() = attributes?.get("direction")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("direction")?.jsonPrimitiveOrNull?.contentOrNull
 
     // ── humidifier domain ────────────────────────────────────────────────────
     val currentHumidity: Double?
-        get() = attributes?.get("current_humidity")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("current_humidity")?.jsonPrimitiveOrNull?.doubleOrNull
     val minHumidity: Int?
-        get() = attributes?.get("min_humidity")?.jsonPrimitive?.intOrNull
+        get() = attributes?.get("min_humidity")?.jsonPrimitiveOrNull?.intOrNull
     val maxHumidity: Int?
-        get() = attributes?.get("max_humidity")?.jsonPrimitive?.intOrNull
+        get() = attributes?.get("max_humidity")?.jsonPrimitiveOrNull?.intOrNull
     val humidifierMode: String?
-        get() = attributes?.get("mode")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("mode")?.jsonPrimitiveOrNull?.contentOrNull
     val humidifierAvailableModes: List<String>
-        get() = (attributes?.get("available_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        get() = (attributes?.get("available_modes") as? JsonArray)?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }.orEmpty()
 
     // ── media_player domain ──────────────────────────────────────────────────
     val mediaAlbumName: String?
-        get() = attributes?.get("media_album_name")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("media_album_name")?.jsonPrimitiveOrNull?.contentOrNull
     val mediaDuration: Double?
-        get() = attributes?.get("media_duration")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("media_duration")?.jsonPrimitiveOrNull?.doubleOrNull
     val mediaPosition: Double?
-        get() = attributes?.get("media_position")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("media_position")?.jsonPrimitiveOrNull?.doubleOrNull
     val mediaPositionUpdatedAt: String?
-        get() = attributes?.get("media_position_updated_at")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("media_position_updated_at")?.jsonPrimitiveOrNull?.contentOrNull
     val volumeLevel: Double?
-        get() = attributes?.get("volume_level")?.jsonPrimitive?.doubleOrNull
+        get() = attributes?.get("volume_level")?.jsonPrimitiveOrNull?.doubleOrNull
     val isVolumeMuted: Boolean?
-        get() = attributes?.get("is_volume_muted")?.jsonPrimitive?.booleanOrNull
+        get() = attributes?.get("is_volume_muted")?.jsonPrimitiveOrNull?.booleanOrNull
     val mediaShuffle: Boolean?
-        get() = attributes?.get("shuffle")?.jsonPrimitive?.booleanOrNull
+        get() = attributes?.get("shuffle")?.jsonPrimitiveOrNull?.booleanOrNull
     val mediaRepeat: String?
-        get() = attributes?.get("repeat")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("repeat")?.jsonPrimitiveOrNull?.contentOrNull
     val mediaSource: String?
-        get() = attributes?.get("source")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("source")?.jsonPrimitiveOrNull?.contentOrNull
     val sourceList: List<String>
-        get() = (attributes?.get("source_list") as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+        get() = (attributes?.get("source_list") as? JsonArray)?.mapNotNull { it.jsonPrimitiveOrNull?.contentOrNull }.orEmpty()
     val appName: String?
-        get() = attributes?.get("app_name")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("app_name")?.jsonPrimitiveOrNull?.contentOrNull
+
+    // Episodic and broadcast metadata. Android TV players in particular report the show and
+    // episode separately from media_title, so a title on its own reads as "Chapter 4" with no
+    // indication of what it is a chapter of.
+    val mediaSeriesTitle: String?
+        get() = attributes?.get("media_series_title")?.jsonPrimitiveOrNull?.contentOrNull
+    val mediaSeason: String?
+        get() = attributes?.get("media_season")?.jsonPrimitiveOrNull?.let {
+            it.contentOrNull ?: it.intOrNull?.toString()
+        }
+    val mediaEpisode: String?
+        get() = attributes?.get("media_episode")?.jsonPrimitiveOrNull?.let {
+            it.contentOrNull ?: it.intOrNull?.toString()
+        }
+    val mediaChannel: String?
+        get() = attributes?.get("media_channel")?.jsonPrimitiveOrNull?.contentOrNull
 
     // ── alarm_control_panel domain ──────────────────────────────────────────
     val supportedFeatures: Int
-        get() = attributes?.get("supported_features")?.jsonPrimitive?.intOrNull ?: 0
+        get() = attributes?.get("supported_features")?.jsonPrimitiveOrNull?.intOrNull ?: 0
     // null = no code needed, "number" = numeric keypad, "text" = free text
     val alarmCodeFormat: String?
-        get() = attributes?.get("code_format")?.jsonPrimitive?.contentOrNull
+        get() = attributes?.get("code_format")?.jsonPrimitiveOrNull?.contentOrNull
     val alarmCodeArmRequired: Boolean
-        get() = attributes?.get("code_arm_required")?.jsonPrimitive?.booleanOrNull ?: true
+        get() = attributes?.get("code_arm_required")?.jsonPrimitiveOrNull?.booleanOrNull ?: true
 }
 
 /** Returns a presentation-only copy with a locally configured friendly name. */
@@ -255,11 +322,11 @@ data class HACalendarEvent(
 fun JsonElement.asHAWeatherForecast(): HAWeatherForecast {
     val obj = this.jsonObject
     return HAWeatherForecast(
-        datetime = obj["datetime"]?.jsonPrimitive?.content ?: "",
-        condition = obj["condition"]?.jsonPrimitive?.contentOrNull,
-        temperature = obj["temperature"]?.jsonPrimitive?.doubleOrNull,
-        templow = obj["templow"]?.jsonPrimitive?.doubleOrNull,
-        precipitation = obj["precipitation"]?.jsonPrimitive?.doubleOrNull
+        datetime = obj["datetime"]?.jsonPrimitiveOrNull?.content ?: "",
+        condition = obj["condition"]?.jsonPrimitiveOrNull?.contentOrNull,
+        temperature = obj["temperature"]?.jsonPrimitiveOrNull?.doubleOrNull,
+        templow = obj["templow"]?.jsonPrimitiveOrNull?.doubleOrNull,
+        precipitation = obj["precipitation"]?.jsonPrimitiveOrNull?.doubleOrNull
     )
 }
 
@@ -267,7 +334,7 @@ fun JsonElement.asHAWeatherForecast(): HAWeatherForecast {
 fun HAEntity.isBatteryPercentageSensor(): Boolean =
     entity_id.startsWith("sensor.") &&
         deviceClass.equals("battery", ignoreCase = true) &&
-        attributes?.get("unit_of_measurement")?.jsonPrimitive?.contentOrNull?.trim() == "%"
+        attributes?.get("unit_of_measurement")?.jsonPrimitiveOrNull?.contentOrNull?.trim() == "%"
 
 @Serializable
 data class HAArea(
@@ -432,6 +499,77 @@ data class HALogbookEntry(
     val domain: String? = null
 )
 
+/**
+ * One humanified logbook event from the websocket `logbook/event_stream` subscription.
+ *
+ * Deliberately separate from [HALogbookEntry] rather than a shared model: the REST logbook sends
+ * `when` as an ISO-8601 string, while the websocket API sends it as a float of seconds since the
+ * epoch. Decoding one shape with the other's model fails outright, and the difference is in the
+ * wire format rather than anything meaningful about the event.
+ *
+ * [state] is the entity's new state; [message] is set instead for the domains Home Assistant
+ * phrases itself. [contextUserId] is who caused it, when it was a person rather than an automation.
+ */
+@Serializable
+data class HALogbookEvent(
+    @SerialName("entity_id") val entityId: String? = null,
+    val name: String? = null,
+    val state: String? = null,
+    val message: String? = null,
+    val domain: String? = null,
+    val icon: String? = null,
+    /** Seconds since the epoch, as a float — not the ISO string the REST logbook returns. */
+    @SerialName("when") val whenSeconds: Double = 0.0,
+    @SerialName("context_user_id") val contextUserId: String? = null,
+    @SerialName("context_name") val contextName: String? = null,
+    @SerialName("context_entity_id") val contextEntityId: String? = null,
+) {
+    val timestamp: Long get() = (whenSeconds * 1000).toLong()
+}
+
+/** The household event-timeline roster as it applies to one user.
+ *
+ * [visible] and [visibleDomains] are what the component says this caller may see, already
+ * filtered by their policy. [all]/[allDomains] are the unfiltered roster and are non-null for
+ * admins only — the roster editor needs them, and anyone else being able to read them would
+ * defeat the point of filtering [visible].
+ *
+ * Domains stay unexpanded all the way from storage to here so that they keep meaning "every
+ * entity of this kind, including ones added later"; [resolve] is what turns them into the
+ * concrete ids a logbook subscription needs. */
+data class Hki7EventsRoster(
+    val visible: List<String> = emptyList(),
+    val visibleDomains: List<String> = emptyList(),
+    val all: List<String>? = null,
+    val allDomains: List<String>? = null,
+) {
+    /** True when an admin has configured nothing at all — neither entities nor domains. */
+    val isEmpty: Boolean get() = visible.isEmpty() && visibleDomains.isEmpty()
+
+    /**
+     * The concrete entity ids to subscribe to: the named entities plus every entity belonging to
+     * a rostered domain, in [entities]' own order so the result is stable between calls.
+     *
+     * Capped at [limit]. One domain can cover hundreds of entities on a large install, and every
+     * one of them is a logbook subscription the phone pays for — the cap is what stops "all
+     * sensors" from being a decision an admin can make on someone else's battery.
+     */
+    fun resolve(entities: List<HAEntity>, limit: Int = MAX_RESOLVED_EVENT_ENTITIES): List<String> {
+        if (visibleDomains.isEmpty()) return visible.take(limit)
+        val named = visible.toSet()
+        val domains = visibleDomains.toSet()
+        val fromDomains = entities.asSequence()
+            .map { it.entity_id }
+            .filter { it.substringBefore('.') in domains && it !in named }
+        // Named entities first: an admin picked those deliberately, so they should never be the
+        // ones a domain's overflow pushes out of the list.
+        return (visible.asSequence() + fromDomains).take(limit).toList()
+    }
+}
+
+/** Ceiling on the entity ids one timeline subscription may cover once domains are expanded. */
+const val MAX_RESOLVED_EVENT_ENTITIES = 250
+
 /** One point from the recorder statistics API (per-hour or per-day aggregate). */
 data class HAStatPoint(
     val startMs: Long,
@@ -446,6 +584,27 @@ data class HAStateChange(
     val newState: HAEntity?
 )
 
+/**
+ * One tappable button attached to a notification — HA's `data.actions`. Most entries fire a
+ * `mobile_app_notification_action` event back to HA; the two reserved action names behave
+ * differently (see [isUri] and [isReply]).
+ */
+@Serializable
+data class HKINotificationAction(
+    val action: String,
+    val title: String,
+    /** Set on `action: "URI"` entries: opened directly instead of firing an event. */
+    val uri: String? = null,
+    /** Arbitrary payload echoed back to HA inside the fired event. */
+    val actionData: JsonObject? = null,
+    /** HA's `behavior: "textInput"`, the cross-platform spelling of a reply action. */
+    val behavior: String? = null
+) {
+    val isUri: Boolean get() = action.equals("URI", ignoreCase = true) && !uri.isNullOrBlank()
+    val isReply: Boolean
+        get() = action.equals("REPLY", ignoreCase = true) || behavior.equals("textInput", ignoreCase = true)
+}
+
 /** One entry in the on-device notification history (delivered via the websocket push channel).
  *  Non-archived entries are purged 48h after arrival; archived entries are kept forever. */
 @Serializable
@@ -459,7 +618,15 @@ data class HKINotification(
     val instanceId: String? = null,
     val instanceName: String? = null,
     val read: Boolean = false,
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    /** Buttons from `data.actions`. Kept in history so the in-app panel can offer them too —
+     *  while HKI is visible no system notification is posted, so this is the only place they show. */
+    val actions: List<HKINotificationAction> = emptyList(),
+    /** `data.clickAction`: where tapping the notification body should go. */
+    val clickAction: String? = null,
+    /** Client-side only: the action already fired from this entry, so the panel can retire the
+     *  buttons. HA has no concept of a spent action — it would happily fire the event again. */
+    val firedAction: String? = null
 )
 
 /** Response from HA's `/api/mobile_app/registrations`. */
@@ -564,7 +731,7 @@ data class HAActionDefinition(
  *  URL. [type] "default" defers to the domain-based heuristic in the view model. */
 @Serializable
 data class HKIAction(
-    val type: String = "default",       // default | none | toggle | more_info | call_service | navigate | url
+    val type: String = "default",       // default | none | toggle | more_info | call_service | navigate | url | custom_popup
     val service: String? = null,        // "light.turn_on"
     val targetEntityId: String? = null, // service/toggle target; null = the button's own entity
     /** owner = the button/badge entity when no explicit target is set; none = omit a target. */
@@ -572,7 +739,10 @@ data class HKIAction(
     val data: JsonObject? = null,       // arbitrary service data
     val moreInfoEntityId: String? = null, // more_info of a different entity
     val navigationTarget: String? = null, // "home"|"rooms"|"energy"|"climate"|"security"|"battery"|"room:<areaId>"
-    val url: String? = null
+    val url: String? = null,
+    /** [HKICustomPopup.id] opened by a "custom_popup" action. Popups are shared, so several items
+     *  can point at the same one. */
+    val popupId: String? = null
 )
 
 internal fun buildHKIActionServicePayload(action: HKIAction, ownerEntityId: String): JsonObject =
@@ -616,6 +786,13 @@ data class HKIBadge(
     val visibilityEnd: String? = null,
     val visibilityRangeMode: String = "show",   // "show" (visible within) or "hide" (hidden within)
     val visibilityRecurrence: String = "none",   // none | daily | weekly | monthly | yearly
+    /** Optional entity-state condition, same semantics as [HKIButtonConfig.visibilityConditionEntityId]. */
+    val visibilityConditionEntityId: String? = null,
+    val visibilityConditionState: String? = null,
+    val visibilityConditionNegate: Boolean = false,
+    /** Combinable visibility rules; supersedes the flat fields above (see [normalizedVisibilityConditions]). */
+    val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     val showState: Boolean = true,
     /** When set, the badge shows this attribute's value instead of the entity state. */
     val stateAttribute: String? = null,
@@ -789,6 +966,11 @@ data class HKIEnergyConfig(
     val solarForecastEntityId: String? = null,
     val gasEntityId: String? = null,
     val gasCostEntityId: String? = null,
+    /** District/city-heating energy meter. Typically reported in J, MJ, or GJ. */
+    val cityHeatingEntityId: String? = null,
+    /** Optional live district-heating power/flow sensor. */
+    val cityHeatingCurrentEntityId: String? = null,
+    val cityHeatingCostEntityId: String? = null,
     val waterEntityId: String? = null,
     val waterCostEntityId: String? = null,
     /** Optional user order for the cards on the main Energy page. */
@@ -837,15 +1019,73 @@ data class HKIEnergyConfig(
     val batteryDeviceId: String? = null,
     val carbonDeviceId: String? = null,
     val gasDeviceId: String? = null,
+    val cityHeatingDeviceId: String? = null,
     val waterDeviceId: String? = null,
+    /**
+     * Currency for the cost stats on the Energy view: an ISO-4217 code ("EUR", "SEK") or a bare
+     * symbol. Null/blank means automatic — the cost sensor's own `unit_of_measurement` decides,
+     * and the device region is the last resort.
+     */
+    val currencyCode: String? = null,
     /** Energy sensor roles explicitly changed by the user; source-device guesses must preserve them. */
     val customizedEntityRoles: Set<String> = emptySet()
 )
+
+/**
+ * One visibility rule. A button, badge, or widget holds a list of these. Each block after the first
+ * stores its AND/OR connector, so time, entity, and person rules can be mixed in one expression.
+ *
+ * [type] selects which fields apply: [VISIBILITY_TYPE_TIME] uses [start]/[end]/[rangeMode]/
+ * [recurrence]; [VISIBILITY_TYPE_ENTITY] uses [entityId]/[state]/[negate];
+ * [VISIBILITY_TYPE_PERSON] uses [userId]/[negate] to match the signed-in Home Assistant user.
+ */
+@Serializable
+data class HKIVisibilityCondition(
+    val type: String = VISIBILITY_TYPE_ENTITY,
+    /** Operator joining this block to the previous one. Null preserves the legacy global match mode. */
+    val connector: String? = null,
+    /** Entity rule: passes while [entityId]'s state does (or, with [negate], doesn't) equal [state]. */
+    val entityId: String? = null,
+    val state: String? = null,
+    /** Person rule: Home Assistant user id selected by an admin for a shared dashboard. */
+    val userId: String? = null,
+    val negate: Boolean = false,
+    /** Time rule: ISO-8601 local date-time bounds, same semantics as the legacy flat fields. */
+    val start: String? = null,
+    val end: String? = null,
+    val rangeMode: String = "show",
+    val recurrence: String = "none",
+)
+
+const val VISIBILITY_TYPE_ENTITY = "entity"
+const val VISIBILITY_TYPE_TIME = "time"
+const val VISIBILITY_TYPE_PERSON = "person"
+const val VISIBILITY_CONNECTOR_AND = "and"
+const val VISIBILITY_CONNECTOR_OR = "or"
+/** Every block must pass. */
+const val VISIBILITY_MATCH_ALL = "all"
+/** At least one block must pass. */
+const val VISIBILITY_MATCH_ANY = "any"
 
 @Serializable
 sealed class HKIRoomWidget {
     abstract val id: String
     abstract val width: String
+    /** Whole-widget visibility: the same hide/schedule/recurrence rule buttons and badges use (see
+     * [HKIButtonConfig.hidden] and friends, evaluated by [isVisibleAt]/[isWidgetVisibleNow]). */
+    abstract val isHidden: Boolean
+    abstract val visibilityStart: String?
+    abstract val visibilityEnd: String?
+    abstract val visibilityRangeMode: String
+    abstract val visibilityRecurrence: String
+    /** Optional entity-state condition, same semantics as [HKIButtonConfig.visibilityConditionEntityId]. */
+    abstract val visibilityConditionEntityId: String?
+    abstract val visibilityConditionState: String?
+    abstract val visibilityConditionNegate: Boolean
+    /** Combinable visibility rules; supersedes the flat fields above, which are kept so dashboards
+     * saved before blocks existed keep working (see `normalizedVisibilityConditions`). */
+    abstract val visibilityConditions: List<HKIVisibilityCondition>
+    abstract val visibilityMatch: String
 }
 
 @Serializable
@@ -860,9 +1100,42 @@ data class HKIButtonStack(
     val showBadge: Boolean = true,
     /** Used by standalone-style widgets such as Adaptive Lighting to hide their heading. */
     val showName: Boolean = true,
+    /** Whether the stack's heading text and icon appear.
+     *
+     * Both default on, so a stack saved before these existed looks exactly as it did — a blank
+     * title still shows nothing. They exist because clearing the text field was previously the
+     * only way to get a heading-less stack, which hid that such a thing was even possible. */
+    val showTitle: Boolean = true,
+    val showTitleIcon: Boolean = true,
+    /** Centres the heading's icon and text instead of aligning them to the left edge. */
+    val centerTitle: Boolean = false,
     val isSquare: Boolean = true,
     val cornerRadius: Int = 28,
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
+    /**
+     * Forces every button in this stack to render icon-only, so a stack of twenty buttons does not
+     * need the switch flipped twenty times. An override rather than a default, because a button's
+     * own `iconOnly = false` cannot be told apart from "never set".
+     */
+    val childIconOnly: Boolean = false,
+    /** Which elements this stack's buttons may show, so a stack of twenty need not be set twenty
+     *  times. These mask the buttons' own switches rather than overriding them: turning one off
+     *  here turns it off for every child, while leaving it on lets each button decide. There is no
+     *  third state to mean "unset", and a mask gets the useful direction without inventing one. */
+    val childShowIcon: Boolean = true,
+    val childShowName: Boolean = true,
+    val childShowState: Boolean = true,
+    /** Icon size handed down to this stack's buttons; a button's own size still wins. */
+    val childIconSize: Int = ICON_SIZE_AUTO,
     val collapsible: Boolean = true,
     val defaultCollapsed: Boolean = false,
     val isCollapsed: Boolean? = null,
@@ -894,7 +1167,16 @@ data class HKISwipingStack(
     /** Optional Material Design Icon slug displayed beside the heading. */
     val icon: String? = null,
     val widgets: List<HKIRoomWidget> = emptyList(),
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     val isSquare: Boolean = false,
     val cornerRadius: Int = 28,
     val collapsible: Boolean = true,
@@ -920,7 +1202,16 @@ data class HKIEmptyStack(
     val showBadge: Boolean = true,
     val isSquare: Boolean = true,
     val cornerRadius: Int = 28,
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     val collapsible: Boolean = true,
     val defaultCollapsed: Boolean = false,
     val isCollapsed: Boolean? = null
@@ -935,17 +1226,145 @@ data class HKISingleEntityWidget(
     val kind: String = "button",       // "button" | "camera" | "vacuum"
     val isSquare: Boolean = kind != "camera",
     val cornerRadius: Int = 28,
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     val cameraAspectRatio: Float = 16f / 9f,
     /** Empty preserves the legacy isSquare behavior; otherwise "standard", "square", or "tile". */
     val buttonStyle: String = "",
     val config: HKIButtonConfig = HKIButtonConfig()
 ) : HKIRoomWidget()
 
+/** Icon size sentinel: pick a size from how many columns the button's stack is showing. */
+const val ICON_SIZE_AUTO = 0
+
+/**
+ * Square button whose icon is centred on both axes above the name and state.
+ *
+ * A fourth option beside Standard/Square/Tile rather than a set of per-element alignment
+ * controls: those were tried and were more fiddly than the one arrangement anyone actually
+ * wanted. The card is square exactly as [Square] is; what differs is that the icon owns the space
+ * above the text and sits in the middle of it, so a grid of these reads as a keypad.
+ */
+const val BUTTON_STYLE_CENTERED = "centered"
+
+/** The value the first attempt at this layout was stored under, before it was reworked. Buttons
+ *  saved during that build still carry it, so it is read as [BUTTON_STYLE_CENTERED]. */
+private const val LEGACY_STYLE_CENTERED = "compact"
+
+/**
+ * How one button actually draws: its shape, and where each element sits inside it.
+ *
+ * Two legacy inputs are folded in here rather than migrated destructively, because nothing
+ * rewrites a stored dashboard on read and a family-shared one is not ours to rewrite at all:
+ * [HKIButtonConfig.iconOnly] from before name/state could be hidden individually, and the
+ * short-lived `"compact"` style from the build where centring was a shape. Both mean the same
+ * thing — icon alone, centred — so both resolve to it.
+ */
+data class ButtonLayout(
+    /** The face to draw on: "standard", "square" or "tile". Centred is not one of these — it is a
+     *  square face with a different arrangement inside, which [centered] carries. */
+    val shape: String,
+    /** Icon centred on both axes above the text, rather than sitting at the top-left. */
+    val centered: Boolean,
+    val showIcon: Boolean,
+    val showName: Boolean,
+    val showState: Boolean,
+) {
+    /** True when the icon has the card to itself, which is what the old icon-only switch produced
+     *  and what the tile layout needs to know to centre its glyph. */
+    val iconOnly: Boolean get() = showIcon && !showName && !showState
+}
+
+private fun shapeFrom(style: String, isSquare: Boolean): String = when {
+    // Centred is square plus an arrangement; the shape underneath it is a square card.
+    style == BUTTON_STYLE_CENTERED || style == LEGACY_STYLE_CENTERED -> "square"
+    style.isNotBlank() -> style
+    isSquare -> "square"
+    else -> "standard"
+}
+
+private fun isCentered(style: String): Boolean =
+    style == BUTTON_STYLE_CENTERED || style == LEGACY_STYLE_CENTERED
+
+/**
+ * Layout for a button inside a stack.
+ *
+ * The stack decides the shape and masks which elements its children may show; the child decides
+ * the rest. The stack's legacy `childIconOnly`, and the child's own legacy `iconOnly`, both mean
+ * "icon alone, centred" and are honoured here rather than migrated — nothing rewrites a stored
+ * dashboard on read, and a family-shared one is not ours to rewrite at all.
+ */
+fun resolvedButtonLayout(stack: HKIButtonStack, config: HKIButtonConfig?): ButtonLayout {
+    val shape = shapeFrom(stack.buttonStyle, stack.isSquare)
+    val legacyIconOnly = stack.childIconOnly || config?.iconOnly == true
+    if (legacyIconOnly) {
+        return ButtonLayout(shape, centered = true, showIcon = true, showName = false, showState = false)
+    }
+    return ButtonLayout(
+        shape = shape,
+        centered = isCentered(stack.buttonStyle),
+        showIcon = stack.childShowIcon && (config?.showIcon ?: true),
+        showName = stack.childShowName && (config?.showName ?: true),
+        showState = stack.childShowState && (config?.showState ?: true),
+    )
+}
+
+/** Layout for a standalone single-entity button. */
+fun resolvedButtonLayout(widget: HKISingleEntityWidget): ButtonLayout {
+    val shape = shapeFrom(widget.buttonStyle, widget.isSquare)
+    if (widget.config.iconOnly) {
+        return ButtonLayout(shape, centered = true, showIcon = true, showName = false, showState = false)
+    }
+    return ButtonLayout(
+        shape = shape,
+        centered = isCentered(widget.buttonStyle),
+        showIcon = widget.config.showIcon,
+        showName = widget.config.showName,
+        showState = widget.config.showState,
+    )
+}
+
+/**
+ * Glyph size for an icon-only button.
+ *
+ * A fixed 40dp reads well at one or two columns but overflows a narrow button, which is what made
+ * icon-only unusable in the six-column custom popups. Sizes cascade: the button's own setting wins,
+ * then the stack's default for its children, then the column-derived size below.
+ */
+fun iconOnlyIconSizeDp(
+    buttonIconSize: Int = ICON_SIZE_AUTO,
+    stackIconSize: Int = ICON_SIZE_AUTO,
+    columns: Int = 1
+): Int {
+    if (buttonIconSize > ICON_SIZE_AUTO) return buttonIconSize
+    if (stackIconSize > ICON_SIZE_AUTO) return stackIconSize
+    return when (columns.coerceAtLeast(1)) {
+        1, 2 -> 40
+        3 -> 34
+        4 -> 28
+        5 -> 24
+        else -> 20
+    }
+}
+
 @Serializable
 data class HKIButtonConfig(
     val name: String? = null,
     val icon: String? = null,
+    /** Leaves this button out of the room's automatic counters. The Lights and Devices counters
+     *  tally every light and switch shown in a room, which is right until a room contains one that
+     *  is not really part of it — a TV backlight, a server-rack fan, a switch that drives something
+     *  in another room entirely. Hiding the button would remove the control too; this keeps it and
+     *  only stops it being counted. */
+    val excludeFromCounters: Boolean = false,
     // Per-icon animation override: "auto" (follow the global setting + domain default), "off",
     // or a forced effect: "glow", "spin", "pulse".
     val iconAnimation: String = "auto",
@@ -982,6 +1401,28 @@ data class HKIButtonConfig(
      * where only the relevant part of the bounds matters (e.g. yearly ignores the year, so a
      * Christmas button recurs every 24–26 Dec). */
     val visibilityRecurrence: String = "none",
+    /** Optional entity-state condition, like a Home Assistant conditional card: when
+     * [visibilityConditionEntityId] is set, this item is also gated on whether that entity's current
+     * state does/doesn't equal [visibilityConditionState], per [visibilityConditionNegate].
+     * Combines (AND) with the hidden/schedule rule above. */
+    val visibilityConditionEntityId: String? = null,
+    val visibilityConditionState: String? = null,
+    val visibilityConditionNegate: Boolean = false,
+    /** Combinable visibility rules; supersedes the flat fields above, which are kept so items saved
+     * before blocks existed keep working (see [normalizedVisibilityConditions]). */
+    val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    val visibilityMatch: String = VISIBILITY_MATCH_ALL,
+    /** Superseded by [showName]/[showState] plus centred alignment. Kept because dashboards saved
+     *  before those existed still carry it, including family dashboards published from a phone
+     *  that has not updated yet; [resolvedButtonLayout] is what reconciles them. */
+    val iconOnly: Boolean = false,
+    /** Which of the button's three elements are drawn. All on by default; hiding the name and the
+     *  state is what the old icon-only switch did, and that is now two of these plus an icon size. */
+    val showIcon: Boolean = true,
+    val showName: Boolean = true,
+    val showState: Boolean = true,
+    /** Icon-only glyph size in dp. [ICON_SIZE_AUTO] scales it to the stack's column count. */
+    val iconSize: Int = ICON_SIZE_AUTO,
     /** Light-only Google Home-style full-height brightness control. */
     val showBrightnessSlider: Boolean = false,
     val cameraUrl: String? = null,
@@ -1027,7 +1468,17 @@ data class HKISubtitleWidget(
     override val id: String,
     override val width: String = "full",
     val text: String,
-    val icon: String? = null
+    val icon: String? = null,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
 ) : HKIRoomWidget()
 
 /** One card from the Energy view, embeddable on any page. cardKey selects the card (see
@@ -1042,7 +1493,16 @@ data class HKIEnergyCardWidget(
     val icon: String? = null,
     val cornerRadius: Int = 28,
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     /** Per-card entity bindings; null inherits the Energy view's settings. */
     val energyConfig: HKIEnergyConfig? = null
 ) : HKIRoomWidget()
@@ -1057,7 +1517,16 @@ data class HKIEnergyStack(
     val icon: String? = null,
     val cardKeys: List<String> = emptyList(),
     val cornerRadius: Int = 28,
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     val collapsible: Boolean = true,
     val defaultCollapsed: Boolean = false,
     val isCollapsed: Boolean? = null,
@@ -1078,7 +1547,16 @@ data class HKIClimateCardWidget(
     val cornerRadius: Int = 28,
     val isSquare: Boolean = false,
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     /** Per-card entities; empty inherits the Climate view's auto-discovered entities. */
     val entityIds: List<String> = emptyList()
 ) : HKIRoomWidget()
@@ -1093,7 +1571,16 @@ data class HKIClimateStack(
     val icon: String? = null,
     val cardKeys: List<String> = emptyList(),
     val cornerRadius: Int = 28,
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     val collapsible: Boolean = true,
     val defaultCollapsed: Boolean = false,
     val isCollapsed: Boolean? = null,
@@ -1114,7 +1601,16 @@ data class HKIMediaPlayerWidget(
     val cornerRadius: Int = 28,
     /** Optional background image (URL or HA path); drawn behind the card content. */
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
 ) : HKIRoomWidget()
 
 /** History graph for one or more (numeric) sensors, drawn as lines or bars. */
@@ -1133,7 +1629,19 @@ data class HKISensorGraphWidget(
     val isSquare: Boolean = false,
     val cornerRadius: Int = 28,
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
+    /** Per-line visibility (hide/schedule/condition), keyed by entity id — same rule shape and
+     * evaluator as [HKIButtonStack.buttonConfigs]. */
+    val itemConfigs: Map<String, HKIButtonConfig> = emptyMap()
 ) : HKIRoomWidget()
 
 /** A collapsible stack of sensor graphs, like the energy/climate stacks. */
@@ -1146,7 +1654,16 @@ data class HKISensorGraphStack(
     val icon: String? = null,
     val graphs: List<HKISensorGraphWidget> = emptyList(),
     val cornerRadius: Int = 28,
-    val isHidden: Boolean = false,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
     val collapsible: Boolean = true,
     val defaultCollapsed: Boolean = false,
     val isCollapsed: Boolean? = null
@@ -1162,8 +1679,75 @@ data class HKIMarkdownWidget(
     val isSquare: Boolean = false,
     val cornerRadius: Int = 28,
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
 ) : HKIRoomWidget()
+
+/**
+ * A clock face, analog or digital, in one of seven styles each.
+ *
+ * The styles are deliberately data rather than separate widget types: they change how the same
+ * time is drawn and nothing else, so a user switching from Roman to Minimal keeps every other
+ * setting they had chosen.
+ */
+@Serializable
+@SerialName("clock")
+data class HKIClockWidget(
+    override val id: String,
+    override val width: String = "full",
+    val title: String? = null,
+    /** "analog" or "digital". */
+    val mode: String = CLOCK_MODE_ANALOG,
+    /** One of [CLOCK_ANALOG_STYLES] or [CLOCK_DIGITAL_STYLES], depending on [mode]. */
+    val analogStyle: String = "classic",
+    val digitalStyle: String = "plain",
+    /** Digital only; analog faces have no am/pm to show. */
+    val use24Hour: Boolean = true,
+    val showSeconds: Boolean = false,
+    val showDate: Boolean = true,
+    val showDayName: Boolean = true,
+    val showYear: Boolean = false,
+    /** Blank means the device's own zone. An IANA id ("Europe/Amsterdam") otherwise. */
+    val timeZoneId: String? = null,
+    /**
+     * Package of the app the alarm dialog opens. Null asks the system for whichever app handles
+     * ACTION_SHOW_ALARMS — which on some phones is nothing at all, so it can be pinned to a real
+     * installed app instead.
+     */
+    val clockAppPackage: String? = null,
+    val isSquare: Boolean = true,
+    val cornerRadius: Int = 28,
+    val backgroundUrl: String? = null,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
+) : HKIRoomWidget()
+
+const val CLOCK_MODE_ANALOG = "analog"
+const val CLOCK_MODE_DIGITAL = "digital"
+
+/** Face designs, in the order the settings dialog offers them. */
+val CLOCK_ANALOG_STYLES = listOf(
+    "classic", "minimal", "roman", "railway", "bauhaus", "neon", "skeleton"
+)
+val CLOCK_DIGITAL_STYLES = listOf(
+    "plain", "segment", "mono", "flip", "outline", "stacked", "dots"
+)
 
 @Serializable
 @SerialName("iframe")
@@ -1176,7 +1760,16 @@ data class HKIIframeWidget(
     /** Widget height as an aspect ratio of its width, like the camera widget (1:1, 4:3, 16:9, tall). */
     val aspectRatio: Float = 16f / 9f,
     val cornerRadius: Int = 28,
-    val isHidden: Boolean = false
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
 ) : HKIRoomWidget()
 
 @Serializable
@@ -1190,7 +1783,17 @@ data class HKIWeatherWidget(
     val title: String? = null,
     val icon: String? = null,
     val cornerRadius: Int = 28,
-    val backgroundUrl: String? = null
+    val backgroundUrl: String? = null,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
 ) : HKIRoomWidget()
 
 @Serializable
@@ -1205,7 +1808,18 @@ data class HKICalendarWidget(
     val icon: String? = "calendar-month",
     val cornerRadius: Int = 28,
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
+    /** Per-calendar visibility (hide/schedule/condition), keyed by entity id. */
+    val itemConfigs: Map<String, HKIButtonConfig> = emptyMap()
 ) : HKIRoomWidget()
 
 /** Waste collection widget (e.g. Afvalbeheer): waste-type sensors whose state/attributes hold the
@@ -1219,6 +1833,8 @@ data class HKIWasteCollectionWidget(
     val entityIds: List<String> = emptyList(),
     /** Optional calendar entity shown as a week overview inside the dialog. */
     val calendarEntityId: String? = null,
+    /** How far the dialog's week calendar looks ahead: 7, 14, or 28 days. */
+    val calendarDaysAhead: Int = 7,
     val title: String? = "Waste Collection",
     val icon: String? = "trash-can-outline",
     /** "icon" = waste-type MDI icon; "picture" = the sensor's entity_picture. */
@@ -1226,7 +1842,88 @@ data class HKIWasteCollectionWidget(
     val isSquare: Boolean = false,
     val cornerRadius: Int = 28,
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
+    /** Per-category visibility (hide/schedule/condition), keyed by sensor entity id. */
+    val itemConfigs: Map<String, HKIButtonConfig> = emptyMap()
+) : HKIRoomWidget()
+
+/**
+ * "Find my devices": a map of trackable things — phones, watches, tags, cars — built from Home
+ * Assistant `device_tracker` (and `person`) entities that report GPS coordinates.
+ */
+@Serializable
+@SerialName("find_devices")
+data class HKIFindDevicesWidget(
+    override val id: String,
+    override val width: String = "full",
+    /** `device_tracker.*` / `person.*` entities to plot. */
+    val entityIds: List<String> = emptyList(),
+    val title: String? = "Find my devices",
+    val icon: String? = "map-marker",
+    val isSquare: Boolean = false,
+    val cornerRadius: Int = 28,
+    val backgroundUrl: String? = null,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
+    /** Per-device visibility (hide/schedule/condition), keyed by entity id. */
+    val itemConfigs: Map<String, HKIButtonConfig> = emptyMap()
+) : HKIRoomWidget()
+
+/**
+ * Formula 1 race weekend, standings and results, read from the `f1_sensor` custom integration
+ * (github.com/Nicxe/f1_sensor).
+ *
+ * Deliberately stores no entity ids: that integration lets the user pick localized or legacy entity
+ * names, so its entity ids are not predictable and can be renamed. The widget finds its sensors
+ * through the entity registry by platform and `translation_key`, which is integration-defined and
+ * stable. [deviceId] only matters when more than one F1 config entry exists.
+ */
+@Serializable
+@SerialName("f1")
+data class HKIF1Widget(
+    override val id: String,
+    override val width: String = "full",
+    /**
+     * No longer used. The widget reads every F1 sensor it can find, whichever config entry owns it,
+     * because narrowing to one only ever hid data the dialog is there to show. Kept so widgets
+     * saved by an earlier build still deserialize.
+     */
+    @Deprecated("The widget reads all F1 entities; this is ignored.")
+    val deviceId: String? = null,
+    val title: String? = null,
+    val icon: String? = "flag-checkered",
+    val isSquare: Boolean = false,
+    val cornerRadius: Int = 28,
+    val backgroundUrl: String? = null,
+    /** Which dialog tab opens first: "next" | "calendar" | "standings" | "grid" | "results" | "live". */
+    val defaultTab: String = "next",
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
 ) : HKIRoomWidget()
 
 @Serializable
@@ -1241,7 +1938,16 @@ data class HKIBatteryCardWidget(
     val isSquare: Boolean = false,
     val cornerRadius: Int = 28,
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
 ) : HKIRoomWidget()
 
 /** Carrier-agnostic parcel widget for PostNL, DHL NL, DPD and GLS integration devices. */
@@ -1262,15 +1968,143 @@ data class HKIParcelsWidget(
     val isSquare: Boolean = false,
     val cornerRadius: Int = 28,
     val backgroundUrl: String? = null,
-    val isHidden: Boolean = false
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL,
+    /** Per-carrier-account visibility (hide/schedule/condition), keyed by HA device id. */
+    val itemConfigs: Map<String, HKIButtonConfig> = emptyMap()
 ) : HKIRoomWidget()
 
-/** Identity of the current HA user, as reported by the `hki7/whoami` companion command. */
+/** Who may add, check off, edit, or delete items on a [HKITodoWidget]. */
+const val TODO_EDIT_EVERYONE = "everyone"
+const val TODO_EDIT_SPECIFIC = "specific"
+const val TODO_EDIT_ADMIN_ONLY = "admin_only"
+
+/** One line item on a [HKITodoWidget]. */
+@Serializable
+data class HKITodoItem(
+    val id: String,
+    val text: String,
+    val checked: Boolean = false,
+    /** Optional free-text note, e.g. a brand or size for a shopping item. */
+    val note: String? = null,
+    /** Optional quantity label shown beside the text, e.g. "2x" or "1kg". */
+    val quantity: String? = null,
+    /** Optional grouping label, e.g. a shopping-list aisle ("Produce", "Dairy"). */
+    val category: String? = null,
+    val priority: String = TODO_ITEM_PRIORITY_NORMAL,
+    /** Optional ISO-8601 local date (yyyy-MM-dd) this item is due/needed by. */
+    val dueDate: String? = null,
+    val addedByUserId: String? = null,
+    val addedByName: String? = null,
+    val checkedByUserId: String? = null,
+    val checkedByName: String? = null
+)
+
+const val TODO_ITEM_PRIORITY_LOW = "low"
+const val TODO_ITEM_PRIORITY_NORMAL = "normal"
+const val TODO_ITEM_PRIORITY_HIGH = "high"
+
+/**
+ * Shared todo/shopping list. Items live on the widget itself and sync the same way every other
+ * widget does — through the normal dashboard save path, and across devices via the existing
+ * shared-dashboard publish/import flow ([HaDashboardSharing]) rather than a bespoke live channel.
+ *
+ * Editing can be restricted: [editPermission] gates whether a signed-in family member may add,
+ * check off, or remove items, evaluated against the [Hki7Identity] the `hki7` companion component
+ * reports for the signed-in user. Admins/owners can always edit, matching how every other
+ * admin-only feature in this app treats them (see [HaParentalControls]).
+ */
+@Serializable
+@SerialName("todo")
+data class HKITodoWidget(
+    override val id: String,
+    override val width: String = "full",
+    val title: String? = null,
+    val icon: String? = "format-list-checks",
+    /** "todo" | "shopping" — only changes the default title/icon suggested in settings. */
+    val listMode: String = "todo",
+    val items: List<HKITodoItem> = emptyList(),
+    /** User-defined tabs (e.g. "Groceries", "Chores"), in display order. An item's own [HKITodoItem.category]
+     *  needs to case-insensitively match one of these to show under that tab; items whose category isn't
+     *  in this list any more (its tab was removed) still show under "All". */
+    val categories: List<String> = emptyList(),
+    /** Which [categories] entry (case-insensitively) is featured on the square hero card — its own
+     *  open items show there instead of the plain remaining-count pill. Null shows no hero list;
+     *  cleared automatically if that category is removed. */
+    val heroCategory: String? = null,
+    /** [TODO_EDIT_EVERYONE], [TODO_EDIT_SPECIFIC], or [TODO_EDIT_ADMIN_ONLY]. */
+    val editPermission: String = TODO_EDIT_EVERYONE,
+    /** HA user ids allowed to edit when [editPermission] is [TODO_EDIT_SPECIFIC]. */
+    val editableMemberIds: List<String> = emptyList(),
+    /** "manual" (list order) | "alphabetical" | "priority" | "newest". */
+    val sortMode: String = "manual",
+    val showCompleted: Boolean = true,
+    val isSquare: Boolean = false,
+    val cornerRadius: Int = 28,
+    val backgroundUrl: String? = null,
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
+) : HKIRoomWidget()
+
+/** Fallback for a widget `type` this app build doesn't recognize — e.g. a family dashboard shared by
+ *  someone on a newer app version that added a widget type this build predates. The polymorphic
+ *  decoder (see the `appJson` default deserializer in PreferencesManager.kt) substitutes this instead
+ *  of failing to decode the whole dashboard, so the rest of a shared dashboard still loads on an older
+ *  app; this widget itself is simply skipped everywhere it would be rendered, until the app updates. */
+@Serializable
+@SerialName("unknown")
+data class HKIUnknownWidget(
+    override val id: String = "",
+    override val width: String = "full",
+    override val isHidden: Boolean = false,
+    override val visibilityStart: String? = null,
+    override val visibilityEnd: String? = null,
+    override val visibilityRangeMode: String = "show",
+    override val visibilityRecurrence: String = "none",
+    override val visibilityConditionEntityId: String? = null,
+    override val visibilityConditionState: String? = null,
+    override val visibilityConditionNegate: Boolean = false,
+    override val visibilityConditions: List<HKIVisibilityCondition> = emptyList(),
+    override val visibilityMatch: String = VISIBILITY_MATCH_ALL
+) : HKIRoomWidget()
+
+/** Whether [userId] (already known non-admin) may add/check/remove items on [this] list. Admins and
+ *  owners should be passed as [isAdmin] = true, which always grants edit access. */
+fun HKITodoWidget.canEdit(userId: String?, isAdmin: Boolean): Boolean {
+    if (isAdmin) return true
+    return when (editPermission) {
+        TODO_EDIT_ADMIN_ONLY -> false
+        TODO_EDIT_SPECIFIC -> userId != null && userId in editableMemberIds
+        else -> true
+    }
+}
+
+/** Identity of the current HA user, as reported by the `hki7/whoami` companion command.
+ *  [componentVersion] is null against a component old enough to predate reporting it (0.6.1 or
+ *  earlier) — not the same as the component being absent entirely, which is `whoami` returning
+ *  null outright. */
 data class Hki7Identity(
     val userId: String,
     val name: String,
     val isAdmin: Boolean,
     val isOwner: Boolean,
+    val componentVersion: String? = null,
 )
 
 /** Metadata for one HA-local backup stored by the `hki7` companion component. */
@@ -1288,6 +2122,43 @@ data class Hki7User(
     val isAdmin: Boolean,
 )
 
+/** One HKI install as reported to the `hki7` companion component and read back by an admin.
+ *  [userId]/[userName] are the Home Assistant account that device is signed in as, decided by the
+ *  component from the authenticated connection rather than by anything the device claims. */
+data class Hki7FamilyDevice(
+    val userId: String,
+    val userName: String,
+    val deviceId: String,
+    val deviceName: String,
+    val appVersion: String,
+    val appVersionCode: Int?,
+    val osVersion: String?,
+    val model: String?,
+    val reported: String,
+    /** A pending "please update this phone" request from an admin, cleared by the component as
+     *  soon as the device reports a version that satisfies it. */
+    val nudgeVersionCode: Int? = null,
+    val nudgeVersionName: String = "",
+)
+
+/** The household's minimum app version, as set by an admin. A null [minVersionCode] means no
+ *  requirement — nobody is prompted to update. */
+data class Hki7AppUpdatePolicy(
+    val minVersionCode: Int?,
+    val minVersionName: String,
+    val setAt: String,
+)
+
+/** What `hki7/device/report` tells a device about the version it is expected to be on. Every field
+ *  is null/blank against component 0.7.0, which stored the report but answered with the record
+ *  alone — absence therefore means "nothing is being asked of this device". */
+data class Hki7DeviceReportResult(
+    val requiredVersionCode: Int? = null,
+    val requiredVersionName: String = "",
+    val nudgeVersionCode: Int? = null,
+    val nudgeVersionName: String = "",
+)
+
 /** Metadata for a shared dashboard stored by the `hki7` companion component. */
 data class Hki7SharedDashboardMeta(
     val id: String,
@@ -1301,6 +2172,18 @@ data class Hki7SharedDashboardMeta(
 data class Hki7Policy(
     val hiddenViews: List<String> = emptyList(),
     val hiddenRooms: List<String> = emptyList(),
+    /** Individual button entity ids and badge/widget ids hidden from this user, on top of
+     * [hiddenViews]/[hiddenRooms]. A button's id is its entity id; a badge's or widget's id is its
+     * own [HKIBadge.id]/[HKIRoomWidget.id] (visible in its Appearance settings). */
+    val hiddenItemIds: List<String> = emptyList(),
+    /** Search allow-list. When either list contains entries, global search only exposes entities
+     * matching one of these domains or exact entity ids. Empty lists retain the unrestricted
+     * default. */
+    val visibleSearchDomains: List<String> = emptyList(),
+    val visibleSearchEntityIds: List<String> = emptyList(),
+    /** Search deny-list. These matches always win over the allow-list. */
+    val hiddenSearchDomains: List<String> = emptyList(),
+    val hiddenSearchEntityIds: List<String> = emptyList(),
     /** Whether this user may enter dashboard edit mode at all. */
     val allowEdit: Boolean = true,
     /** When editing is allowed, restrict this user to aesthetic changes (theme, colors, icons,
@@ -1310,8 +2193,113 @@ data class Hki7Policy(
     val showGlobalSearch: Boolean = true,
     /** Whether this user sees the flows (automations) action. */
     val showFlows: Boolean = true,
+    /** Whether a family-dashboard subscriber may load a different existing dashboard. */
+    val allowDashboardSwitch: Boolean = true,
+    /** Whether a family-dashboard subscriber may create or duplicate a dashboard. */
+    val allowDashboardCreate: Boolean = true,
+    /** Whether this user may manually re-import or clear view data from Home Assistant. */
+    val allowReimport: Boolean = true,
+    /** This person's room-following settings (see [Hki7RoomFollow]). */
+    val roomFollow: Hki7RoomFollow = Hki7RoomFollow(),
+    /** Entities and whole domains taken out of this person's event timeline. Subtractive against
+     * the household roster an admin curates once for everybody, rather than a per-person
+     * allow-list. The component applies these itself before answering `hki7/events/roster`, so a
+     * restricted account is never told which ids it is being kept away from. */
+    val hiddenEventEntityIds: List<String> = emptyList(),
+    val hiddenEventDomains: List<String> = emptyList(),
 ) {
     val isEmpty: Boolean
-        get() = hiddenViews.isEmpty() && hiddenRooms.isEmpty() &&
-            allowEdit && !aestheticsOnly && showGlobalSearch && showFlows
+        get() = hiddenViews.isEmpty() && hiddenRooms.isEmpty() && hiddenItemIds.isEmpty() &&
+            visibleSearchDomains.isEmpty() && visibleSearchEntityIds.isEmpty() &&
+            hiddenSearchDomains.isEmpty() && hiddenSearchEntityIds.isEmpty() &&
+            allowEdit && !aestheticsOnly && showGlobalSearch && showFlows &&
+            allowDashboardSwitch && allowDashboardCreate && allowReimport &&
+            roomFollow == Hki7RoomFollow() &&
+            hiddenEventEntityIds.isEmpty() && hiddenEventDomains.isEmpty()
+}
+
+/**
+ * One person's room following, configured by an admin in Family Sharing.
+ *
+ * [sensorEntityId] is the room-presence sensor tracking that person's phone. ESPresense and HA's
+ * `mqtt_room` platform both publish the room name as the sensor's *state*, which is all this needs
+ * — no MQTT client, just an ordinary entity read.
+ *
+ * [stateRooms] holds overrides only. States are matched against the area names first (see
+ * `resolveFollowedArea`), so a household whose ESPresense rooms are named after its areas needs no
+ * mapping at all.
+ */
+@Serializable
+data class Hki7RoomFollow(
+    val sensorEntityId: String? = null,
+    val enabled: Boolean = false,
+    /** Open the resolved room as soon as the app launches. */
+    val openOnLaunch: Boolean = true,
+    /** Keep tracking room moves after that initial placement. False means [openOnLaunch] is the
+     *  only thing this person's following ever does — no prompts, no silent moves once the app
+     *  is already open, matching someone who only wants to be placed in the right room on launch. */
+    val continueAfterLaunch: Boolean = true,
+    /** Offer to switch views when this person moves to another room. Only consulted while
+     *  [continueAfterLaunch] is true. */
+    val promptOnMove: Boolean = true,
+    /**
+     * How long the new room must hold before it counts as a real move. Room-presence sensors flap
+     * between adjacent rooms, so without a dwell window the move prompt would fire constantly.
+     */
+    val dwellSeconds: Int = DEFAULT_DWELL_SECONDS,
+    /** Sensor state -> area id, for the states that don't match an area by name. */
+    val stateRooms: Map<String, String> = emptyMap()
+) {
+    /** Following without a sensor is meaningless; the component enforces the same rule. */
+    val isActive: Boolean get() = enabled && !sensorEntityId.isNullOrBlank()
+
+    companion object {
+        const val DEFAULT_DWELL_SECONDS = 20
+        const val MAX_DWELL_SECONDS = 600
+
+        /**
+         * Below this a dwell window stops doing its job: the first reading of a new room counts as
+         * a move, so the view flips on every flap between adjacent rooms. Enforced when the tracker
+         * is built as well as in the settings slider, because a policy written by an older build
+         * (or by hand through the component) can still carry a smaller value.
+         */
+        const val MIN_DWELL_SECONDS = 5
+    }
+}
+
+/** Outcome of writing a policy through the companion component. */
+enum class Hki7PolicySaveResult {
+    /** Everything in the policy was stored. */
+    SAVED,
+
+    /** The permissions were stored, but the installed component is older than the Visible/Invisible
+     *  lists and per-item hiding, so those parts were dropped. Updating HKI 7 Cloud restores them. */
+    SAVED_WITHOUT_SEARCH_ACCESS,
+
+    /** Everything else was stored, but the installed component predates room following, so those
+     *  settings were dropped. Updating HKI 7 Cloud restores them. */
+    SAVED_WITHOUT_ROOM_FOLLOW,
+
+    /** Everything else was stored, but the installed component predates per-person event
+     *  visibility, so this person would see the whole household roster. Updating HKI 7 Cloud
+     *  restores the restriction. */
+    SAVED_WITHOUT_EVENT_ACCESS,
+
+    /** Nothing was stored (not an admin, component absent, or offline). */
+    FAILED;
+
+    val isSaved: Boolean get() = this != FAILED
+}
+
+/** Whether an entity may appear in global search for this policy. An explicit invisible match
+ * takes precedence over a visible match.
+ *
+ * This governs entity **lists** only — global search and the pickers built on it. Dashboard buttons
+ * and badges are never hidden by it: an item disappears for a person only when it is named in
+ * [Hki7Policy.hiddenItemIds] or by that item's own per-person visibility rule. */
+fun Hki7Policy.canSearchEntity(entityId: String): Boolean {
+    val domain = entityId.substringBefore('.')
+    val hasAllowList = visibleSearchDomains.isNotEmpty() || visibleSearchEntityIds.isNotEmpty()
+    val allowed = !hasAllowList || domain in visibleSearchDomains || entityId in visibleSearchEntityIds
+    return allowed && domain !in hiddenSearchDomains && entityId !in hiddenSearchEntityIds
 }

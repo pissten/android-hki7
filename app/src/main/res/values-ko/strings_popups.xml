@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empty (transparent) buttons and the custom-popup action. -->
+<resources>
+    <string name="spacer_empty_button">빈 버튼</string>
+    <string name="spacer_empty_button_description">자리만 차지하는 투명한 자리 표시자</string>
+    <string name="spacer_add_empty_button">빈 버튼 추가</string>
+    <string name="popup_custom_popup">사용자 지정 팝업</string>
+    <string name="popup_choose">팝업 선택</string>
+    <string name="popup_none_yet">팝업이 아직 없습니다</string>
+    <string name="popup_new">새 팝업</string>
+    <string name="popup_default_name">새 팝업</string>
+    <string name="popup_name">팝업 이름</string>
+    <string name="popup_edit_contents">내용 편집</string>
+    <string name="popup_delete">팝업 삭제</string>
+    <string name="popup_status_entity">상태 엔티티</string>
+    <string name="popup_status_entity_hint">선택 사항입니다. 해당 상태가 대화상자의 상태 줄에 표시되고 기록 보기가 추가됩니다.</string>
+    <string name="popup_settings_subtitle">이름, 아이콘 및 상태 엔티티</string>
+    <string name="popup_shared_hint">팝업은 공유됩니다. 다른 버튼에서도 같은 팝업을 열 수 있습니다.</string>
+    <string name="popup_empty">이 팝업은 비어 있습니다. 편집을 눌러 위젯을 추가하세요.</string>
+    <string name="popup_settings_title">팝업</string>
+    <string name="popup_settings_subtitle_section">사용자 지정 팝업 만들기 및 편집</string>
+    <string name="popup_settings_hint">팝업은 사용자 지정 팝업 동작이 설정된 버튼, 배지 또는 대화상자 버튼에서 열립니다. ‘내용 편집’은 팝업 자체를 열어 위젯을 배치할 수 있게 합니다.</string>
+    <string name="button_icon_only">아이콘만</string>
+    <string name="button_icon_size">아이콘 크기</string>
+    <string name="button_icon_size_description">자동은 스택의 열이 늘어날수록 아이콘을 줄여 좁은 버튼에도 들어가게 합니다.</string>
+    <string name="button_icon_size_auto">자동</string>
+    <string name="button_icon_size_value">%1$d dp</string>
+    <string name="stack_child_icon_only">모든 버튼을 아이콘만 표시</string>
+    <string name="stack_child_icon_only_description">이 스택의 모든 버튼에 적용되므로 하나씩 설정할 필요가 없습니다.</string>
+    <string name="stack_child_icon_size">모든 버튼의 아이콘 크기</string>
+    <string name="button_icon_only_description">이름과 상태를 숨기고 아이콘을 버튼 가운데에 배치합니다</string>
+    <string name="action_button">액션 버튼</string>
+    <string name="action_button_description">엔티티가 없는 버튼입니다. 이름과 아이콘, 원하는 동작을 지정하세요</string>
+    <string name="action_button_add">액션 버튼 추가</string>
+    <string name="action_badge_add">액션 배지 추가</string>
+</resources>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empty (transparent) buttons and the custom-popup action. -->
+<resources>
+    <string name="spacer_empty_button">Bouton vide</string>
+    <string name="spacer_empty_button_description">Espace réservé transparent qui occupe seulement la place</string>
+    <string name="spacer_add_empty_button">Ajouter un bouton vide</string>
+    <string name="popup_custom_popup">Fenêtre personnalisée</string>
+    <string name="popup_choose">Choisir une fenêtre</string>
+    <string name="popup_none_yet">Aucune fenêtre pour l’instant</string>
+    <string name="popup_new">Nouvelle fenêtre</string>
+    <string name="popup_default_name">Nouvelle fenêtre</string>
+    <string name="popup_name">Nom de la fenêtre</string>
+    <string name="popup_edit_contents">Modifier le contenu</string>
+    <string name="popup_delete">Supprimer la fenêtre</string>
+    <string name="popup_status_entity">Entité d’état</string>
+    <string name="popup_status_entity_hint">Facultatif. Son état alimente la ligne d’état de la boîte de dialogue et ajoute l’historique.</string>
+    <string name="popup_settings_subtitle">Nom, icône et entité d’état</string>
+    <string name="popup_shared_hint">Les fenêtres sont partagées : d’autres boutons peuvent ouvrir la même.</string>
+    <string name="popup_empty">Cette fenêtre est vide. Appuyez sur Modifier pour ajouter des widgets.</string>
+    <string name="popup_settings_title">Fenêtres</string>
+    <string name="popup_settings_subtitle_section">Créez et modifiez vos fenêtres personnalisées</string>
+    <string name="popup_settings_hint">Les fenêtres s’ouvrent depuis un bouton, un badge ou un bouton de boîte de dialogue réglé sur l’action Fenêtre personnalisée. « Modifier le contenu » ouvre la fenêtre elle-même pour y organiser les widgets.</string>
+    <string name="button_icon_only">Icône seule</string>
+    <string name="button_icon_size">Taille de l\'icône</string>
+    <string name="button_icon_size_description">Automatique réduit l\'icône à mesure que la pile gagne des colonnes, pour qu\'elle tienne sur un bouton étroit.</string>
+    <string name="button_icon_size_auto">Automatique</string>
+    <string name="button_icon_size_value">%1$d dp</string>
+    <string name="stack_child_icon_only">Icône seule pour tous les boutons</string>
+    <string name="stack_child_icon_only_description">S\'applique à tous les boutons de cette pile, pour ne pas avoir à le régler un par un.</string>
+    <string name="stack_child_icon_size">Taille d\'icône pour tous les boutons</string>
+    <string name="button_icon_only_description">Masquer le nom et l’état, en centrant l’icône sur le bouton</string>
+    <string name="action_button">Bouton d’action</string>
+    <string name="action_button_description">Un bouton sans entité : donnez-lui un nom, une icône et une action</string>
+    <string name="action_button_add">Ajouter un bouton d’action</string>
+    <string name="action_badge_add">Ajouter un badge d’action</string>
+</resources>

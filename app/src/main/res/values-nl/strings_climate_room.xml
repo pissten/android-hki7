@@ -1,0 +1,588 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cr_state_on">Aan</string>
+    <string name="cr_state_off">Uit</string>
+    <string name="cr_open">Openen</string>
+    <string name="cr_close">Sluiten</string>
+    <string name="cr_stop">Stoppen</string>
+    <string name="cr_closed">Gesloten</string>
+    <string name="cr_opening">Wordt geopend</string>
+    <string name="cr_closing">Wordt gesloten</string>
+    <string name="cr_locked">Vergrendeld</string>
+    <string name="cr_unlocked">Ontgrendeld</string>
+    <string name="cr_unavailable">Niet beschikbaar</string>
+    <string name="cr_unknown">Onbekend</string>
+    <string name="cr_idle">Inactief</string>
+    <string name="cr_home">Thuis</string>
+    <string name="cr_away">Afwezig</string>
+    <string name="cr_cleaning">Aan het schoonmaken</string>
+    <string name="cr_returning">Keert terug</string>
+    <string name="cr_paused">Gepauzeerd</string>
+    <string name="cr_error">Fout</string>
+    <string name="cr_playing">Speelt af</string>
+    <string name="cr_buffering">Aan het bufferen</string>
+    <string name="cr_standby">Stand-by</string>
+    <string name="cr_humidifying">Aan het bevochtigen</string>
+    <string name="cr_drying">Aan het ontvochtigen</string>
+    <string name="cr_detected">Gedetecteerd</string>
+    <string name="cr_clear">Vrij</string>
+    <string name="cr_problem">Probleem</string>
+    <string name="cr_ok">In orde</string>
+    <string name="cr_low">Laag</string>
+    <string name="cr_normal">Normaal</string>
+    <string name="cr_connected">Verbonden</string>
+    <string name="cr_disconnected">Niet verbonden</string>
+    <string name="cr_plugged_in">Aangesloten</string>
+    <string name="cr_unplugged">Niet aangesloten</string>
+    <string name="cr_wet">Nat</string>
+    <string name="cr_dry">Droog</string>
+    <string name="cr_none">Geen</string>
+    <string name="cr_any">Onbeperkt</string>
+    <string name="cr_remove">Verwijderen</string>
+    <string name="cr_restore">Herstellen</string>
+    <string name="cr_general">Algemeen</string>
+    <string name="cr_identity">Naam en pictogram</string>
+    <string name="cr_appearance">Weergave</string>
+    <string name="cr_layout">Indeling</string>
+    <string name="cr_behavior">Gedrag</string>
+    <string name="cr_profiles">Profielen</string>
+    <string name="cr_playback">Afspelen</string>
+    <string name="cr_content">Inhoud</string>
+    <string name="cr_actions">Acties</string>
+    <string name="cr_protection">Beveiliging</string>
+    <string name="cr_power">Aan/uit</string>
+    <string name="cr_brightness">Helderheid</string>
+    <string name="cr_temperature">Temperatuur</string>
+    <string name="cr_color">Kleur</string>
+    <string name="cr_min">Min.</string>
+    <string name="cr_avg">Gem.</string>
+    <string name="cr_max">Max.</string>
+    <string name="cr_now">Nu</string>
+    <string name="cr_lowest">Laagste</string>
+    <string name="cr_average">Gemiddeld</string>
+    <string name="cr_highest">Hoogste</string>
+    <string name="cr_live">Live</string>
+    <string name="cr_once">Eenmalig</string>
+    <string name="cr_daily">Dagelijks</string>
+    <string name="cr_weekly">Wekelijks</string>
+    <string name="cr_monthly">Maandelijks</string>
+    <string name="cr_yearly">Jaarlijks</string>
+    <string name="cr_action_tap">Tikken</string>
+    <string name="cr_action_double_tap">Dubbeltikken</string>
+    <string name="cr_action_hold">Ingedrukt houden</string>
+
+    <string name="cr_mode">Modus</string>
+    <string name="cr_mode_auto">Automatisch</string>
+    <string name="cr_mode_heat">Verwarmen</string>
+    <string name="cr_mode_cool">Koelen</string>
+    <string name="cr_mode_heat_cool">Verwarmen/koelen</string>
+    <string name="cr_mode_dry">Ontvochtigen</string>
+    <string name="cr_mode_fan_only">Alleen ventileren</string>
+    <string name="cr_mode_low">Laag</string>
+    <string name="cr_mode_medium">Gemiddeld</string>
+    <string name="cr_mode_high">Hoog</string>
+    <string name="cr_mode_quiet">Stil</string>
+    <string name="cr_mode_boost">Boost</string>
+    <string name="cr_mode_eco">Eco</string>
+    <string name="cr_mode_sleep">Slaapstand</string>
+    <string name="cr_mode_manual">Handmatig</string>
+    <string name="cr_mode_vertical">Verticaal</string>
+    <string name="cr_mode_horizontal">Horizontaal</string>
+    <string name="cr_mode_both">Beide</string>
+    <string name="cr_mode_up">Omhoog</string>
+    <string name="cr_mode_down">Omlaag</string>
+    <string name="cr_mode_center">Midden</string>
+    <string name="cr_mode_left">Links</string>
+    <string name="cr_mode_right">Rechts</string>
+    <string name="cr_climate_fan">Ventilator</string>
+    <string name="cr_climate_vertical_airflow">Verticale luchtstroom</string>
+    <string name="cr_climate_horizontal_airflow">Horizontale luchtstroom</string>
+    <string name="cr_climate_preset">Voorkeuze</string>
+    <string name="cr_fan_speed">Ventilatorsnelheid</string>
+    <string name="cr_speed">Snelheid</string>
+    <string name="cr_lower_target">Doelwaarde verlagen</string>
+    <string name="cr_raise_target">Doelwaarde verhogen</string>
+
+    <string name="cr_climate_temperature">Temperatuur</string>
+    <string name="cr_climate_all_temperature_sensors">Alle temperatuursensoren</string>
+    <string name="cr_climate_outside">Buiten</string>
+    <string name="cr_climate_outside_summary">Buitentemperatuur, luchtvochtigheid en luchtdruk</string>
+    <string name="cr_climate_humidity">Luchtvochtigheid</string>
+    <string name="cr_climate_all_humidity_sensors">Alle luchtvochtigheidssensoren</string>
+    <string name="cr_climate_air_pressure">Luchtdruk</string>
+    <string name="cr_climate_all_pressure_sensors">Alle luchtdruksensoren</string>
+    <string name="cr_climate_co2">CO₂</string>
+    <string name="cr_climate_carbon_dioxide_sensors">Koolstofdioxidesensoren</string>
+    <string name="cr_climate_air_quality">Luchtkwaliteit</string>
+    <string name="cr_climate_air_quality_summary">Fijnstof, LKI, VOS en gassen</string>
+    <string name="cr_climate_entities">Klimaatentiteiten</string>
+    <string name="cr_climate_settings">Klimaatinstellingen</string>
+    <string name="cr_empty_climate_view">Er zijn nog geen klimaatgegevens beschikbaar.</string>
+    <string name="cr_climate_fans">Ventilatoren</string>
+    <string name="cr_climate_air_purifiers">Luchtreinigers</string>
+    <string name="cr_climate_humidifiers">Luchtbevochtigers</string>
+    <string name="cr_temperature_sensors">Temperatuursensoren</string>
+    <string name="cr_devices_active">Actieve apparaten</string>
+    <string name="cr_active_of_total">%1$d van %2$d actief</string>
+    <string name="cr_no_search_active">Geen zoekopdracht · %1$s</string>
+    <string name="cr_collapse_search">Zoeken inklappen</string>
+    <string name="cr_expand_search">Zoeken uitklappen</string>
+    <string name="cr_custom_order">Eigen volgorde</string>
+    <string name="cr_name_a_z">Naam A–Z</string>
+    <string name="cr_name_z_a">Naam Z–A</string>
+    <string name="cr_climate_device">Klimaatapparaat</string>
+    <string name="cr_climate_device_subtitle">Naam, pictogram, kaartstijl en breedte</string>
+    <string name="cr_count_with_average">%1$s · gem. %2$s%3$s</string>
+    <string name="cr_outside_temperature">Buitentemperatuur</string>
+    <string name="cr_outside_humidity">Luchtvochtigheid buiten</string>
+    <string name="cr_outside_pressure">Luchtdruk buiten</string>
+    <string name="cr_outside_air_pressure">Luchtdruk buiten</string>
+    <string name="cr_no_sensors_found_for">Geen sensoren voor %1$s gevonden.</string>
+    <string name="cr_climate_control">Klimaatbediening</string>
+    <string name="cr_thermostat_dial">Thermostaatknop</string>
+    <string name="cr_width_third">Een derde</string>
+    <string name="cr_width_half">Half</string>
+    <string name="cr_width_full">Volledig</string>
+    <string name="cr_select_item">%1$s kiezen</string>
+    <string name="cr_set_outdoor_sensors">Stel de buitentemperatuur, luchtvochtigheid en luchtdruk in</string>
+    <string name="cr_auto_discovered_device_class">Automatisch gevonden op basis van apparaatklasse</string>
+    <string name="cr_auto_discovered_climate_devices">Klimaatapparaten worden automatisch gevonden</string>
+    <string name="cr_pick_fan_entities_as_purifiers">Kies ventilatorentiteiten die je als luchtreiniger wilt gebruiken</string>
+    <string name="cr_auto_discovered_humidifier_devices">Luchtbevochtigers worden automatisch gevonden</string>
+    <string name="cr_removed_entities">Verwijderde entiteiten</string>
+    <string name="cr_entities_removed_edit_mode">Entiteiten die je in de bewerkmodus hebt verwijderd</string>
+    <string name="cr_card_indoor_climate_overview">Overzicht binnenklimaat</string>
+    <string name="cr_card_sensor_device_tiles">Sensor- en apparaattegels</string>
+    <string name="cr_card_thermostats_ac">Thermostaten en airco’s</string>
+    <string name="cr_card_temperature_summary">Temperatuuroverzicht</string>
+    <string name="cr_card_humidity_summary">Overzicht luchtvochtigheid</string>
+    <string name="cr_card_air_pressure_summary">Luchtdrukoverzicht</string>
+    <string name="cr_card_co2_summary">CO₂-overzicht</string>
+    <string name="cr_card_air_quality_summary">Overzicht luchtkwaliteit</string>
+    <string name="cr_category_overview">Overzicht</string>
+    <string name="cr_category_devices">Apparaten</string>
+    <string name="cr_category_sensors">Sensoren</string>
+    <string name="cr_no_climate_sensors_devices">Geen klimaatsensoren of -apparaten gevonden.</string>
+    <string name="cr_no_climate_devices">Geen klimaatapparaten gevonden. Thermostaten en airco’s uit Home Assistant verschijnen hier automatisch.</string>
+    <string name="cr_no_fans">Geen ventilatoren gevonden. Ventilatorentiteiten uit Home Assistant verschijnen hier automatisch.</string>
+    <string name="cr_no_air_purifiers">Geen luchtreinigers ingesteld. Kies ventilatorentiteiten via Klimaatinstellingen → Klimaatentiteiten → Luchtreinigers.</string>
+    <string name="cr_no_humidifiers">Geen luchtbevochtigers gevonden. Luchtbevochtigers uit Home Assistant verschijnen hier automatisch.</string>
+    <string name="cr_unknown_climate_card">Onbekende klimaatkaart: %1$s</string>
+    <string name="cr_select_climate_cards">Klimaatkaarten kiezen</string>
+    <string name="cr_entities_for">Entiteiten voor %1$s</string>
+    <string name="cr_climate_card">Klimaatkaart</string>
+    <string name="cr_climate_card_dialog_subtitle">Gegevensbronnen en kaartweergave</string>
+    <string name="cr_card_and_data">Kaart en gegevens</string>
+    <string name="cr_climate_stack">Klimaatstapel</string>
+    <string name="cr_climate_stack_dialog_subtitle">Kaarten, gegevensbronnen en indeling</string>
+    <string name="cr_cards_and_data">Kaarten en gegevens</string>
+
+    <plurals name="cr_sensor_count">
+        <item quantity="one">%d sensor</item>
+        <item quantity="other">%d sensoren</item>
+    </plurals>
+    <plurals name="cr_device_count_on">
+        <item quantity="one">%1$d apparaat · %2$d aan</item>
+        <item quantity="other">%1$d apparaten · %2$d aan</item>
+    </plurals>
+    <plurals name="cr_outside_sensors_set">
+        <item quantity="one">%d buitensensor ingesteld</item>
+        <item quantity="other">%d buitensensoren ingesteld</item>
+    </plurals>
+    <plurals name="cr_auto_plus_manual">
+        <item quantity="one">Automatisch + %d handmatig</item>
+        <item quantity="other">Automatisch + %d handmatig</item>
+    </plurals>
+    <plurals name="cr_selected_count">
+        <item quantity="one">%d geselecteerd</item>
+        <item quantity="other">%d geselecteerd</item>
+    </plurals>
+    <plurals name="cr_removed_count">
+        <item quantity="one">%d verwijderd</item>
+        <item quantity="other">%d verwijderd</item>
+    </plurals>
+
+    <string name="cr_room">Kamer</string>
+    <string name="cr_room_details">Kamerdetails</string>
+    <string name="cr_empty_room">Deze kamer is nog leeg. Veeg de kop omlaag, schakel de bewerkmodus in en voeg widgets, knoppen of tegels toe.</string>
+    <string name="cr_default_markdown_content"># Markdown\nOpen deze widget in de **bewerkmodus** om je eigen inhoud te schrijven.</string>
+    <string name="cr_select_camera">Camera kiezen</string>
+    <string name="cr_select_entity">Entiteit kiezen</string>
+    <string name="cr_custom_camera">Aangepaste camera</string>
+    <string name="cr_configure_widget">Widget instellen</string>
+    <string name="cr_configure_widget_subtitle">Stel eerst de belangrijkste opties in</string>
+    <string name="cr_widget_options">Widgetopties</string>
+    <string name="cr_widget_options_subtitle">Kies wat deze widget moet weergeven</string>
+    <string name="cr_add_widget">Widget toevoegen</string>
+    <string name="cr_add_widget_subtitle">Blader per functie of doorzoek alle widgets</string>
+    <string name="cr_category_with_options">%1$s · %2$s</string>
+    <string name="cr_widget_category_controls">Bediening</string>
+    <string name="cr_widget_category_controls_description">Knoppen, robotstofzuigers en gegroepeerde bediening</string>
+    <string name="cr_widget_category_cameras">Camera’s</string>
+    <string name="cr_widget_category_cameras_description">Live camerategels en weergaven met meerdere camera’s</string>
+    <string name="cr_widget_category_climate">Klimaat en weer</string>
+    <string name="cr_widget_category_climate_description">Temperatuur, comfort, verwachtingen en omstandigheden</string>
+    <string name="cr_widget_category_energy">Energie en batterijen</string>
+    <string name="cr_widget_category_energy_description">Verbruik, opwekking en apparaatstatus</string>
+    <string name="cr_widget_category_information">Informatie en media</string>
+    <string name="cr_widget_category_information_description">Agenda’s, bezorgingen, grafieken, notities en media</string>
+    <string name="cr_widget_category_layout">Indeling en structuur</string>
+    <string name="cr_widget_category_layout_description">Koppen en flexibele widgetcontainers</string>
+    <string name="cr_widget_adaptive_lighting">Adaptive Lighting</string>
+    <string name="cr_widget_adaptive_lighting_description">Bedien elk geïnstalleerd Adaptive Lighting-profiel</string>
+    <string name="cr_widget_button">Knop</string>
+    <string name="cr_widget_button_description">Eén instelbare bediening voor een entiteit</string>
+    <string name="cr_widget_buttons">Knoppen</string>
+    <string name="cr_widget_calendar">Agenda</string>
+    <string name="cr_widget_calendar_description">Agenda-, week- en maandweergaven uit Home Assistant-agenda’s</string>
+    <string name="cr_widget_waste_collection">Afvalinzameling</string>
+    <string name="cr_widget_waste_collection_description">Aankomende inzamelingen uit afvalsensoren</string>
+    <string name="cr_widget_parcels">Pakketten</string>
+    <string name="cr_widget_parcels_description">Inkomende en uitgaande pakketten van ondersteunde vervoerders</string>
+    <string name="cr_widget_camera">Camera</string>
+    <string name="cr_widget_camera_description">Eén live camerategel of stream-URL</string>
+    <string name="cr_widget_cameras">Camera’s</string>
+    <string name="cr_widget_climate_card">Klimaatkaart</string>
+    <string name="cr_widget_climate_card_description">Een kaart uit de klimaatweergave</string>
+    <string name="cr_widget_energy_card">Energiekaart</string>
+    <string name="cr_widget_energy_card_description">Een kaart uit de energieweergave</string>
+    <string name="cr_widget_battery_levels">Batterijniveaus</string>
+    <string name="cr_widget_battery_levels_description">Lege batterijen, of alleen Battery+ met typedetails</string>
+    <string name="cr_widget_header_text">Koptekst</string>
+    <string name="cr_widget_header_text_description">Voeg een sectiekop toe</string>
+    <string name="cr_widget_markdown">Markdown</string>
+    <string name="cr_widget_markdown_description">Een vrij opgemaakte kaart in Markdown</string>
+    <string name="cr_widget_iframe">iFrame</string>
+    <string name="cr_widget_iframe_description">Sluit een webpagina in op je dashboard</string>
+    <string name="cr_widget_media_player">Mediaspeler</string>
+    <string name="cr_widget_media_player_description">Tegel voor wat er nu speelt, met albumhoes als achtergrond</string>
+    <string name="cr_widget_sensor_graph">Sensorgrafiek</string>
+    <string name="cr_widget_sensor_graph_description">Historiegrafiek voor een of meer sensoren, als lijnen of balken</string>
+    <string name="cr_widget_vacuum">Robotstofzuiger</string>
+    <string name="cr_widget_vacuum_description">Bediening voor één robotstofzuiger</string>
+    <string name="cr_widget_weather">Weer</string>
+    <string name="cr_widget_weather_description">Eén weerkaart</string>
+    <string name="cr_widget_empty_stack">Lege stapel</string>
+    <string name="cr_widget_empty_stack_description">Plaats widgets in een instelbare stapel</string>
+    <string name="cr_widget_button_stack">Knoppenstapel</string>
+    <string name="cr_widget_button_stack_description">Groepeer entiteiten tot instelbare bediening</string>
+    <string name="cr_widget_camera_stack">Camerastapel</string>
+    <string name="cr_widget_camera_stack_description">Toon live camerategels of een aangepaste stream-URL</string>
+    <string name="cr_widget_climate_stack">Klimaatstapel</string>
+    <string name="cr_widget_climate_stack_description">Groepeer klimaatkaarten, zoals overzicht, thermostaten en sensoren</string>
+    <string name="cr_widget_energy_stack">Energiestapel</string>
+    <string name="cr_widget_energy_stack_description">Groepeer energiekaarten, zoals verbruik, zon, gas en water</string>
+    <string name="cr_widget_sensor_graph_stack">Sensorgrafiekstapel</string>
+    <string name="cr_widget_sensor_graph_stack_description">Groepeer meerdere sensorhistoriegrafieken</string>
+    <string name="cr_widget_swiping_stack">Veegstapel</string>
+    <string name="cr_widget_swiping_stack_description">Veeg horizontaal door geneste widgets</string>
+    <string name="cr_widget_vacuum_stack">Robotstofzuigerstapel</string>
+    <string name="cr_widget_vacuum_stack_description">Bedien robotstofzuigers met kaart en batterijstatus</string>
+    <string name="cr_widget_weather_stack">Weerstapel</string>
+    <string name="cr_widget_weather_stack_description">Groepeer kaarten voor omstandigheden, verwachting, wind of regenradar</string>
+    <string name="cr_camera_settings">Camera-instellingen</string>
+    <string name="cr_vacuum_settings">Instellingen robotstofzuiger</string>
+    <string name="cr_button_settings">Knopinstellingen</string>
+    <string name="cr_robot_image">Afbeelding robot</string>
+    <string name="cr_map_camera">Kaartcamera</string>
+    <string name="cr_valetudo_map">Valetudo-kaart</string>
+    <string name="cr_valetudo_map_hint">Tekent de kaart van een Valetudo-robot en laat je op een kamer tikken om die te laten stofzuigen. Kies hieronder de kaartcamera van de robot.</string>
+    <string name="cr_valetudo_camera_mode_note">Kaartcamera bij een Valetudo-kaartentiteit toont een lege tegel. Valetudo tekent de kaart niet op de robot — de PNG is alleen een omhulsel voor de kaartgegevens. Kies Valetudo-kaart zodat HKI hem zelf tekent.</string>
+    <string name="cr_external_url">Externe URL</string>
+    <string name="cr_animation_glow">Gloeien</string>
+    <string name="cr_animation_spin">Draaien</string>
+    <string name="cr_animation_pulse">Pulseren</string>
+    <string name="cr_adaptive_lighting_widget">Adaptive Lighting-widget</string>
+    <string name="cr_adaptive_lighting_widget_subtitle">Profielen, formaat en weergave</string>
+    <string name="cr_button_stack_dialog_subtitle">Indeling, weergave en volgorde van entiteiten</string>
+    <string name="cr_expand_stack">Stapel uitklappen</string>
+    <string name="cr_collapse_stack">Stapel inklappen</string>
+    <string name="cr_hide_stack">Stapel verbergen</string>
+    <string name="cr_unhide_stack">Stapel weergeven</string>
+    <string name="cr_swiping_stack_dialog_subtitle">Pagina’s, hoogte en kaartweergave</string>
+    <string name="cr_empty_stack_dialog_subtitle">Indeling en weergave van de container</string>
+    <string name="cr_header_text_dialog_subtitle">Inhoud en weergave van de kop</string>
+    <string name="cr_animation_swipe">Vegen</string>
+    <string name="cr_animation_fade">Vervagen</string>
+    <string name="cr_animation_zoom">Zoomen</string>
+    <string name="cr_animation_slide_fade">Schuiven + vervagen</string>
+    <string name="cr_animation_cube">Kubus</string>
+    <string name="cr_animation_instant">Direct</string>
+    <string name="cr_paged_status">%1$d/%2$d · %3$s</string>
+    <string name="cr_cover_status">%1$d%% · %2$s</string>
+    <string name="cr_paged_cover_status">%1$d/%2$d · %3$d%% · %4$s</string>
+
+    <plurals name="cr_widget_option_count">
+        <item quantity="one">%d optie</item>
+        <item quantity="other">%d opties</item>
+    </plurals>
+    <plurals name="cr_configured_lights">
+        <item quantity="one">%d ingestelde lamp</item>
+        <item quantity="other">%d ingestelde lampen</item>
+    </plurals>
+
+    <string name="cr_quick_notifications">Meldingen</string>
+    <string name="cr_quick_notifications_instruction">Veeg vanaf de linkerbovenrand naar rechts.</string>
+    <string name="cr_quick_switch_homes">Van woning wisselen</string>
+    <string name="cr_quick_switch_homes_instruction">Veeg vanaf de rechterbovenrand van de kop naar links.</string>
+    <string name="cr_quick_actions">Snelle acties</string>
+    <string name="cr_quick_actions_instruction">Trek de kop van een pagina omlaag voor Zoeken, Flows, Bewerken en Instellingen.</string>
+    <string name="cr_quick_media_player">Mediaspeler</string>
+    <string name="cr_quick_media_player_instruction">Veeg de onderste balk omhoog zodra de greep verschijnt om de speler terug te halen.</string>
+    <string name="cr_quick_make_it_yours">Maak het van jou</string>
+    <string name="cr_quick_make_it_yours_instruction">Voeg in de bewerkmodus kamers, verdiepingen en widgets toe of wijzig hun volgorde. Tik op een onderdeel om het in te stellen.</string>
+
+<string-array name="cr_whats_new_1_1_0">
+    <item>Nog achttien talen, wat HKI 7 naar 36 brengt. Pools, Russisch, Tsjechisch, Slowaaks, Hongaars, Roemeens, Bulgaars, Kroatisch, Grieks, Litouws, Lets, Ests, Deens, Thais en Hebreeuws voegen zich bij de lijst, samen met Oostenrijks Duits, Zwitserduits en Mexicaans Spaans. Het Hebreeuws legt de interface van rechts naar links uit, zoals het Arabisch dat doet.</item>
+    <item>HKI 7 draait nu op Android 12 en hoger. Voorheen was Android 14 nodig, waardoor veel perfect capabele telefoons en tablets werden uitgesloten.</item>
+    <item>Energiekosten worden weergegeven in uw eigen valuta in plaats van altijd in euro\'s. HKI 7 volgt wat uw kostensensoren rapporteren, en er is een Valuta-instelling in de Energie-instellingen als u er liever zelf een kiest.</item>
+    <item>De taalkiezer heeft een zoekvak en is gesorteerd, wat nodig was op 36 vermeldingen. Als je ooit in een taal terechtkomt die je niet kunt lezen, is de terugweg nog steeds het eerste wat op het scherm verschijnt.</item>
+    <item>Weergaven onthouden waar u naartoe bent gescrolld en als u op het tabblad tikt waar u zich al bevindt, gaat u terug naar het begin.</item>
+    <item>Als u zijwaarts veegt, verlaat u niet langer een pagina die u hebt geopend, zoals Solar inside Energy. Terug nu keert u terug naar de weergave waar u vandaan kwam in plaats van naar de startpagina te springen.</item>
+    <item>Scrollbare rijen zeggen dat. Het vervolgkeuzemenu, de navigatiebalk en de instellingentabbladen tonen allemaal een pijl aan de rand als er meer te bereiken is.</item>
+    <item>Dialogen zien er overal hetzelfde uit en gedragen zich hetzelfde. Zes ervan waren eenvoudige Android-dialogen zonder sluitknop in de hoek, en knoppen in de app zijn het nu eens over wat Sluiten, Opslaan en Klaar betekenen.</item>
+    <item>Bij het maken van een dashboard wordt eerst gevraagd en vervolgens worden dezelfde keuzes geboden als bij de eerste installatie. Een nieuw dashboard kan dus beginnen vanaf een back-up of vanaf een dashboard dat uw gezin heeft gedeeld, maar ook worden gegenereerd of leeg worden gelaten. Uw huidige dashboard wordt nooit overschreven en gedeelde dashboards worden nu in de lijst gemarkeerd als gedeeld.</item>
+    <item>De batterijwidget opent een lijst in plaats van u naar een aparte pagina te brengen, gegroepeerd op hoe urgent elke pagina is en toont het batterijtype waar Home Assistant dit weet. Er is een zoekvak en een knop om de volledige batterijweergave te openen als je dat wilt.</item>
+    <item>Door op de personenteller in een kamer te tikken, wordt weergegeven wie daar aanwezig is, met de foto van elke persoon. De kop Kamers heeft nu ook een huishoudteller, die laat zien waar iedereen is zonder elke kamer te openen.</item>
+    <item>Er kan een knop worden weggelaten uit de lampen- en apparatentellers van een kamer, voor degenen die zich in de kamer bevinden maar er niet echt deel van uitmaken.</item>
+    <item>Widgets die een integratie nodig hebben die jij niet hebt – Formule 1, Pakketten, Afvalinzameling – zijn grijs en geven aan wat er ontbreekt, in plaats van dat ze worden toegevoegd en vervolgens leeg blijven.</item>
+    <item>Pakkettracking omvat nog eens vijftien vervoerders, waaronder PostNord, InPost, Swiss Post, An Post, Budbee, Sameday en Nova Post, elk met een eigen logo.</item>
+    <item>Een Valetudo robotstofzuiger pikt zijn live-kaart automatisch op wanneer uw kamers worden geïmporteerd, in plaats van dat hij de handmatig gekozen camera nodig heeft.</item>
+</string-array>
+
+<string-array name="cr_whats_new_1_0_1">
+    <item>Vegen tussen tabbladen volgt nu uw vinger. De pagina\'s bewegen terwijl u sleept, u kunt tijdens het vegen van gedachten veranderen en ze terugtrekken, en ze blijven hangen waar u ze loslaat. Voorheen werd de wijziging besloten op het moment dat je ver genoeg had gesleept en niet kon worden teruggenomen, terwijl de animatie die daarna werd afgespeeld een eigen timer had en geen verband hield met het gebaar - dus de app legde zich vast aan een pagina voordat je vinger erom had gevraagd.</item>
+    <item>De onderste balk houdt nu het geselecteerde tabblad in beeld. Op een telefoon die te smal is voor elk tabblad, schuift hij het actieve tabblad naar het midden, zodat het tabblad waarop je je bevindt altijd zichtbaar is, samen met de buren - wat ook de hint is dat er meer pagina\'s zijn om naartoe te vegen. Als u het laatste tabblad bereikt, blijft de indicator ergens aan het einde van de balk achter.</item>
+    <item>Als u tussen kamers veegt, ziet u hoeveel kamers er zijn en in welke u zich bevindt, als stippen boven de navigatiebalk - of als telling zodra er meer dan acht zijn. Het vegen van kamers stopt ook bij de laatste kamer in plaats van rond te gaan naar de eerste, passend bij hoe de tabbladen zich gedragen. Kamers die een beheerder heeft verborgen, worden nu overgeslagen door te swipen in plaats van alleen te blokkeren wanneer ze worden geopend.</item>
+    <item>Het vervolgkeuzemenu met koptekst beweegt naar waar je het ook maar laat gaan, in plaats van in één frame open of dicht te springen. Het bepaalt met welke helft je het hebt losgelaten, een snelle beweging opent het zonder te slepen over de volledige lengte, en het kan midden in de animatie worden opgevangen en opnieuw worden gesleept. Hij stopt ook niet langer halverwege als hij ver wordt getrokken, maar niet helemaal ver genoeg.</item>
+    <item>Instellingen onthoudt waar u was. Als u terugkeert vanuit een submenu, keert u terug naar de plaats in de lijst waar u was gebleven in plaats van naar de top, wat het meest opviel op de lange weg naar Over en Licenties. Het dialoogvenster met pagina-instellingen had het tegenovergestelde probleem: één schuifpositie die door niet-gerelateerde submenu\'s werd overgedragen, en dat is ook opgelost.</item>
+    <item>Het meldingenpaneel heeft nu een knop in het vervolgkeuzemenu, zodat een veegbeweging naar de linkerrand niet langer de enige manier is om deze te bereiken. Daardoor werd de strook schermrand die gereserveerd was voor het vegen kleiner van 200 dp naar 88 dp: de gereserveerde strook is waar Androids eigen teruggebaar niet meer werkt, en het bedekte precies de hoek waar de pijl terug zit.</item>
+    <item>Een probleem opgelost waarbij de app werd gesloten in plaats van het meldingenpaneel wanneer op de rug werd gedrukt tijdens de openingsanimatie van het paneel. Terug is nu ook gedefinieerd voor de tabbladen: het keert terug naar het eerste tabblad voordat het de app verlaat, in plaats van af te sluiten waar je toevallig naartoe hebt geveegd.</item>
+    <item>Het thuisschakelpaneel volgt het voorspellende teruggebaar van Android, schuift met uw vinger naar buiten en springt terug als u van gedachten verandert.</item>
+    <item>Nog vier talen: Noors, Zweeds, Fins en Arabisch. Arabisch legt de hele app van rechts naar links: de navigatiebalk, de panelen die vanaf de schermrand naar binnen schuiven en de veegbeweging die tussen tabbladen beweegt, zijn allemaal gespiegeld, in plaats van dat alleen de tekst van richting verandert. Productnamen zoals Home Assistant blijven in het Latijnse schrift, waar ze ook voorkomen.</item>
+    <item>Vegen tussen kamers gaat veel soepeler. Een kamerscherm is veruit de zwaarste pagina in de app, en de volgende werd gebouwd tijdens de eerste frames van de swipe – precies toen er geen tijd voor was. Het wordt nu voorbereid terwijl er niets beweegt, en live sensorupdates wachten tot het vegen is voltooid in plaats van elke geopende pagina midden in het gebaar opnieuw te tekenen.</item>
+    <item>Het meldingenpaneel en de thuisschakelaar worden gesleept in plaats van opengeklapt, waarbij uw vinger wordt gevolgd en wordt bepaald waar u loslaat. Ze sluiten op dezelfde manier: duw ze terug naar de rand waar ze vandaan kwamen. Als u op het paneel zelf tikt, wordt het niet langer gesloten, wat voorheen overal gebeurde waar u aanraakte en geen knop was.</item>
+    <item>Een horizontale rij binnen een pagina – een moduskiezer, een veegrij, een veegstapel – geeft niet langer de rest van het gebaar door aan de pagina zodra deze het einde bereikt. Als u het eerste of het laatste item in zo\'n rij koos, werd de hele pagina omgeslagen.</item>
+    <item>Dialogen met tabbladen laten zien hoeveel er zijn en op welke u zich bevindt, en een zijwaartse veegbeweging ergens in het dialoogvenster verandert van tabblad. Vroeger werd de veegbeweging afgeschreven als een scroll wanneer deze begon met de lichte neerwaartse boog die een duim van nature maakt, waardoor het voelde alsof het maar af en toe werkte.</item>
+    <item>De demomodus praat niet meer met het netwerk. Zesentwintig verzoeken – het hele HKI 7 Cloud-oppervlak plus de tijdlijn van de gebeurtenissen, camera-snapshots en vacuümkaarten – werden nog steeds geprobeerd tegen een server die niet bestaat, en één daarvan probeerde de hele sessie elke drie seconden opnieuw, waardoor het verbindingslogboek vol stond met mislukkingen. Het herstarten van Home Assistant in de demo wordt nu binnen een paar seconden gesimuleerd in plaats van twee minuten lang "herstarten" en opgeven te tonen.</item>
+</string-array>
+
+<string-array name="cr_whats_new_1_0_0">
+    <item>Nieuw tabblad Gebeurtenissen in de meldingenlade: een tijdlijn van wat uw huis daadwerkelijk heeft gedaan. De voordeur gaat open, het licht gaat uit, iemand komt thuis – elk met de tijd en, voor zover Home Assistant weet, wie het heeft gedaan. Een beheerder kiest welke entiteiten verschijnen onder Instellingen ›Delen met gezin › Evenementen, één keer voor het hele gezin in plaats van op elke telefoon. Het leest het eigen logboek van Home Assistant in plaats van iets op het apparaat op te nemen, zodat het nog steeds laat zien wat er \'s nachts is gebeurd terwijl de app was gesloten, en het wordt geopend in de afgelopen 3 uur (een tijdlijn geeft antwoord op wat er net is gebeurd) met 6 uur tot 72 uur een tik verwijderd. Gebeurtenissen bereiken nooit het ongelezen aantal van de meldingsbel: een tijdlijn met geopende deuren zou die badge permanent verlicht laten en niets betekenen. Vereist HKI 7 Cloud 0.9.0.*</item>
+    <item>Een beheerder kan delen van de tijdlijn wegnemen van individuele gezinsleden (een heel domein of benoemde entiteiten) vanaf hetzelfde tabblad Gebeurtenissen. Iedereen ziet de volledige tijdlijn, tenzij er iets voor hen wordt uitgenomen, dus het toevoegen van een persoon aan de familie betekent niet dat ze hun tijdlijn helemaal opnieuw moeten opbouwen. Het filteren gebeurt in de HKI 7 Cloud-component in plaats van in de app, dus een beperkt apparaat krijgt nooit te horen van welke entiteiten het wordt weggehouden. Net als bij verborgen weergaven en kamers verbergt dit de tijdlijn in plaats van de entiteiten: Home Assistant heeft geen leesrechten per entiteit voor niet-beheerdersaccounts, dus iedereen die is ingelogd kan die entiteiten nog steeds lezen via Home Assistant zelf.*</item>
+    <item>Het gebeurtenisrooster bevat zowel hele domeinen als benoemde entiteiten, dus \'elke vergrendeling\' is één keuze in plaats van elf. Domeinen worden elke keer dat de tijdlijn wordt geopend opnieuw opgelost, dus een slot dat volgende maand wordt toegevoegd, wordt automatisch toegevoegd in plaats van aan het rooster, wat betekent wat er ook bestond op de dag dat het werd ingesteld. De editor laat zien wat elk domein momenteel omvat, aangezien één domein uit honderden entiteiten kan bestaan. Vereist HKI 7 Cloud 0.10.0.*</item>
+    <item>Gebeurtenissen worden gelabeld en gefilterd op basis van wat er is gebeurd: deuren, ramen, beweging, verlichting, sloten. De filterrij is opgebouwd uit wat je tijdlijn daadwerkelijk bevat, je krijgt dus nooit een filter aangeboden dat alleen maar leeg terug kan komen. Dagen blijven staan als lijstkoppen: een tijdlijn die zichzelf opnieuw ordent op categorie is niet langer een tijdlijn.</item>
+    <item>Weerillustraties worden nu geanimeerd in de dagelijkse voorspelling, de uurstrook en de koppil, niet alleen op de heldenkaart. Animatie werd eerder uitgeschakeld onder een vast formaat, waardoor ze alle drie opvielen.</item>
+    <item>Waar weerkunstwerken nu worden geanimeerd, zijn er nu vier afzonderlijke schakelaars - headerpil, weerdialoog, voorspellingsstroken, weerwidget - in plaats van te rijden op de animatie-instelling van het entiteitspictogram. De voorspellingsstrips animeren een tiental pictogrammen naast elkaar en zijn de enige die ooit iets merkbaars hebben gekost, dus het uitschakelen ervan hoeft niet te betekenen dat het enkele kleine pictogram in de headerpil verloren gaat. Alle vier zijn standaard ingeschakeld en verschijnen zowel in Instellingen › Uiterlijk › Pictogrammen als in de eigen instellingen van de headerpil.</item>
+    <item>De bereikkiezer voor 6 uur/12 uur/24 uur/48 uur/72 uur is overal gecentreerd in plaats van links uitgelijnd, en krijgt een optie van 3 uur.</item>
+    <item>Nieuw verbindingslogboek onderaan Instellingen › Verbinding: wat de verbinding van de app feitelijk heeft gedaan (verbindingspogingen, opnieuw verbinden, synchroniseren en abonnementen) met knoppen om deze te kopiëren of te wissen. Dit alles werd al opgenomen; niets liet het zien. Het bevat de laatste 300 regels en begint elke lancering leeg.</item>
+    <item>De lay-outopties van een knoppenstapel hebben nu dezelfde naam als die van een enkele knop. Dezelfde vorm werd Tile on a button en Compact on a stack genoemd, waardoor ze op verschillende kenmerken leken.</item>
+    <item>Nieuwe gecentreerde knopindeling naast Standaard, Vierkant en Tegel: een vierkante kaart waarvan het pictogram in het midden van de ruimte boven de tekst staat, met de naam en staat eronder gecentreerd. Het pictogram wordt naar boven geduwd in plaats van te vol naarmate de tekst groter wordt. Een raster hiervan leest als een toetsenbord, wat een afstandsbediening mogelijk maakt.</item>
+    <item>Het pictogram, de naam en de status van een knop worden elk afzonderlijk weergegeven of verborgen, onder een nieuwe sectie Elementen in de instellingen. De oude schakelaar voor alleen het pictogram is verdwenen; zowel de naam als de status werden verborgen, en hiermee kun je er ook één behouden. Bestaande knoppen met alleen pictogrammen blijven werken.</item>
+    <item>Een knoppenstapel heeft voor al zijn kinderen dezelfde drie schakelaars, dus een stapel van twintig knoppen hoeft niet twintig keer te worden ingesteld. Als u er één op de stapel uitschakelt, wordt deze op elke knop verborgen; als je hem aan laat staan, bepaalt elke knop.</item>
+    <item>Probleem opgelost dat het dialoogvenster voor de instellingen van de knoppenstapel ongeveer tweederde van de onderkant stopte met lege ruimte eronder, waardoor de rest onbereikbaar bleef op een grote telefoon of tablet.</item>
+    <item>Navigatiebalk, mediaspelers en pop-ups verplaatst van Instellingen › Weergave naar Instellingen › Dashboard, onder de dashboards zelf. Ze maken deel uit van waar het dashboard van is gemaakt en niet van hoe het is vormgegeven.</item>
+    <item>Instellingen › De verbinding eindigt met het verbindingslogboek, en Home Assistant opnieuw opstarten bevindt zich er nu onder in plaats van erboven. Dit is het meest storende op het scherm en het minst gewenste.</item>
+    <item>Het tabblad Gebeurtenissen geeft een beheerder een knop rechtstreeks naar Instellingen ›Delen met gezin › Gebeurtenissen wanneer er nog niets wordt bijgehouden, in plaats van alleen maar te benoemen waar hij heen moet.</item>
+    <item>Entiteits- en domeinkiezers vermelden eerst wat al geselecteerd is, dus het ongedaan maken van een keuze betekent niet dat je er alfabetisch naar moet zoeken. De volgorde staat vast als de picker opengaat, dus als je iets aanvinkt, springt het niet van je vinger weg.</item>
+    <item>De kop van een knoppenstapel heeft nu expliciete schakelaars voor Naam tonen en Pictogram tonen, plus een optie om ze te centreren. Het leegmaken van het tekstveld was vroeger de enige manier om een stapel zonder kop te krijgen, wat verhulde dat het mogelijk was en betekende dat de naam verloren ging om het te verbergen.</item>
+</string-array>
+
+<string-array name="cr_whats_new_beta_18">
+        <item>Een beheerder kan nu wijzigen met wie een gepubliceerd familiedashboard wordt gedeeld, in plaats van alleen te kunnen kiezen op het moment van publicatie. Instellingen › Delen met gezin › Dashboards geeft een overzicht van wie elk gepubliceerd dashboard bereikt, met een knop Toegang beheren om mensen toe te voegen of te verwijderen. Tot nu toe was de enige manier om een dashboard van één persoon weg te nemen, het voor iedereen te verwijderen.*</item>
+        <item>Als u de toegang tot een gezinsdashboard verliest, wordt nu gewist wat er bovenop lag. Het dashboard zelf was al verwijderd, maar de kamers, widgets, pagina\'s, navigatiebalk, headerpil en thema die het op het apparaat had achtergelaten, bleven bestaan - dus het volgende dashboard dat een beheerder deelde kwam bovenop de restjes van het vorige en zag eruit alsof het niet volledig kon worden geïmporteerd. Alles wat bij het ingetrokken dashboard hoorde, wordt er nu mee verwijderd. Home Assistant-verbindingen, profielen en notificatie-instellingen blijven onaangetast: het verliezen van een dashboard betekent niet uitloggen.*</item>
+        <item>Nieuw tabblad Apparaten onder Instellingen ›Delen met gezin, waarop wordt weergegeven welke HKI-versie elk gezinsapparaat gebruikt en apparaten die ouder zijn dan het uwe worden gemarkeerd, met het Home Assistant-account, de apparaatnaam, de Android-versie en wanneer deze voor het laatst is gerapporteerd. Elke installatie registreert dit via de HKI 7 Cloud-component via de verbinding die de app al gebruikt, dus elk ingelogd apparaat is gedekt – inclusief een apparaat waarop Locatie en Meldingen beide zijn uitgeschakeld – en er wordt niets toegevoegd aan de entiteitenlijst van Home Assistant. Een apparaat kan alleen zichzelf rapporteren. Een beheerder kan een vervangende telefoon vergeten; een die nog in gebruik is, verschijnt opnieuw de volgende keer dat de app wordt geopend. Vereist HKI 7 Cloud 0.7.0.*</item>
+        <item>Een beheerder kan nu eisen dat de familie updatet. Met "Vereisen dat iedereen deze versie gebruikt" op het tabblad Apparaten wordt een huishoudelijk minimum ingesteld; iedereen daaronder krijgt een prompt op volledig scherm bij de volgende lancering in plaats van op het dashboard, waarbij de in-app-update van Google Play de installatie uitvoert. Er is ook een "Vraag om update" per apparaat voor wanneer één telefoon achterloopt in plaats van iedereen, die zichzelf opruimt zodra dat apparaat wordt bijgewerkt. Geen enkele app kan een nieuwere versie van zichzelf installeren, dus Play doet het eigenlijke werk – wat ook betekent dat de prompt alleen kan aandringen als Play de update echt klaar heeft. Als dit niet het geval is, legt de prompt uit waarom en kunt u langskomen voor die sessie, in plaats van iemand uit zijn eigen vergrendelingen en alarmen te sluiten vanwege een update die hij niet kan krijgen. U kunt alleen een versie vereisen die op een gezinsapparaat al wordt uitgevoerd. Vereist HKI 7 Cloud 0.8.0.*</item>
+        <item>Elk Family Sharing-tabblad zegt nu voor zichzelf wanneer het een nieuwere HKI 7 Cloud nodig heeft dan degene die is geïnstalleerd, in plaats van dat dit alleen in het overzicht bovenaan het scherm verschijnt. Ouderlijk toezicht, Machtigingen, Aanwezigheid en Apparaten hebben elk de versie die ze nodig hebben, dus voordat u een tabblad configureert, is het duidelijk waarvan de instellingen de geïnstalleerde component nog niet kan opslaan.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_17">
+        <item>Een crash verholpen waardoor de hele app kon worden uitgeschakeld tijdens de allereerste verbindingspoging na het openen ervan, die luidde als "de app wil niet eens openen". De installatie die bij elke start wordt uitgevoerd, had zelf geen foutafhandeling, dus een fout daar (meestal een verlopen sessie die wordt vernieuwd op een wankel netwerk) ontsnapte als een onverwerkte fout in plaats van naar boven te komen als een verbindingsfout die je opnieuw kon proberen. Als backstop kan een onverwachte fout in een achtergrondtaak de app helemaal niet meer beëindigen.</item>
+        <item>Het dashboard wordt niet langer automatisch opnieuw opgebouwd telkens wanneer Home Assistant een statuswijziging rapporteert. Het startscherm volgde de volledige entiteitenlijst, dus een enkele bewegingssensor die uitschakelde of een vermogensmeter die tikte (meerdere keren per seconde bij een drukke installatie) maakte het hele scherm en elke widget erop ongeldig, zelfs als er niets zichtbaars was veranderd. Hij kijkt nu alleen naar wat hij daadwerkelijk tekent.</item>
+        <item>Entiteitspictogramanimaties hoeven het lay-outwerk niet langer opnieuw uit te voeren op elk frame dat ze animeren. De draai-, puls- en gloei-effecten hebben de compositie van de omliggende widget op elk animatieframe opnieuw uitgevoerd in plaats van alleen het pictogram opnieuw te tekenen, zodat elk dashboard met actief licht, een open deur of een opnamecamera die kosten voortdurend betaalde. De animaties zien er precies hetzelfde uit.</item>
+        <item>Probleem opgelost dat de app niet meer reageerde (en uiteindelijk werd gedood door Android) bij het openen van de geschiedenis van een drukke entiteit, zoals een bewegingssensor die duizenden statusveranderingen per dag registreert. Door elke geschiedenisvermelding aan de actor te koppelen, werden de tijdstempels van het hele logboek voor elke afzonderlijke vermelding opnieuw gescand en ontleed, werk dat schaalde met de geschiedenisgrootte in het kwadraat; een stille entiteit heeft het nooit opgemerkt, maar een drukke entiteit kan de CPU tien seconden achter elkaar vastzetten. Het logboek wordt nu één keer geparseerd in plaats van één keer per invoer, en de hele ophaalactie loopt buiten de hoofdthread.</item>
+        <item>Verhard hoe de app attributen leest die Home Assistant naar een entiteit stuurt: een aanwezige maar onverwacht gevormde waarde (een object of array waar een gewoon getal of stuk tekst werd verwacht) die werd gebruikt om welk scherm dan ook te laten crashen, in plaats van alleen maar als ontbrekend te worden behandeld.</item>
+        <item>Probleem opgelost waarbij \'Push naar familiedashboard\' werd gemeld dat een dashboard al up-to-date was, ongeacht wat er was veranderd. Een dashboard dat opnieuw wordt geïmporteerd na een herinstallatie, wordt lokaal opgeslagen onder een andere ID dan de ID waaronder de cloudkopie is gepubliceerd, en de push-check zocht nog steeds de lokale export op aan de hand van de cloud-ID, vond niets en sloeg dat dashboard stilletjes over bij elke push.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_15">
+        <item>De Formule 1-widget krijgt twee nieuwe tabbladen en breidt twee bestaande uit. Op de kalender staan de races van het seizoen op volgorde, met elk circuit en de vlag van het gastland. Het raster toont de startopstelling, waarbij elke coureur omhoog of omlaag gaat vanaf het punt waarop hij zich kwalificeerde. Het klassement kan nu naast de puntentabel een kampioenschapsvoorspelling weergeven (huidige en voorspelde eindpunten, voor coureurs of constructeurs) wanneer de optionele F1TV Auth van F1 Sensor is ingesteld. Live krijgt een goede timinglijst: afstand tot de leider, interval tot de auto voor hem, bandensamenstelling en stintlengte, en pit-/gepensioneerde status voor elke coureur, plus in welke ronde de leider zich bevindt.</item>
+        <item>Probleem opgelost dat gedeelde familiedashboards helemaal niet werden bijgewerkt nadat de eigenaar een widgettype had toegevoegd dat was geïntroduceerd in een nieuwere app-versie, zoals de takenlijst of Formule 1-widgets. Een enkele niet-herkende widget faalde vroeger in het hele dashboard, dus een familielid met een oudere versie ontving geen wijzigingen meer in dat dashboard, in plaats van alleen de nieuwe widget te missen. Niet-herkende widgets worden nu afzonderlijk overgeslagen, zodat de rest van een gedeeld dashboard in alle app-versies blijft werken.</item>
+        <item>De vierkante kaart van de To-Do-widget kan nu één hele lijst bevatten in plaats van items die individueel met hoge prioriteit zijn gemarkeerd. Een nieuwe lijstkiezer voor helden op het tabblad Algemeen van de widget (die wordt weergegeven zodra deze ten minste één tabblad heeft) kiest welke lijst open items op de kaart verschijnen, gelabeld met de naam van die lijst, dus wat je in één oogopslag ziet is een specifieke lijst zoals Klusjes in plaats van een verspreide mix die uit elk tabblad wordt gehaald. Als u een tabblad verwijdert dat momenteel de heldenlijst is, wordt de instelling automatisch gewist.</item>
+        <item>Probleem opgelost dat de app crashte telkens wanneer opnieuw verbinding moest worden gemaakt met Home Assistant of de verbinding mislukte. Het in-app push-notificatiekanaal beheerde zijn abonnement op een manier waardoor de fout bij een verbroken verbinding volledig voorbij de omliggende foutafhandeling kon gaan en de app regelrecht crashte. Een afzonderlijke mismatch betekende ook dat elke nieuwe verbinding onmiddellijk de hele synchronisatiestack afbrak en voor de tweede keer opnieuw opbouwde, waarbij hij zijn eigen, vers gemaakte verbinding racete. Beide zijn opgelost.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_14">
+        <item>Instellingen › Delen met gezin laat nu zien welke HKI 7 Cloud-versie is geïnstalleerd en, als deze achterloopt, precies welke gezinsfuncties niet beschikbaar zijn, elk gelabeld met de versie waarmee deze wordt ontgrendeld. Voorheen was de enige manier om erachter te komen dat een component verouderd was, een opslagbewerking, waarbij stilletjes een deel van wat u had geconfigureerd, werd verwijderd.*</item>
+        <item>Nieuwe To-Do List-widget: een gedeelde checklist of boodschappenlijst waar het hele gezin aan kan toevoegen. Items ondersteunen een optionele hoeveelheid, categorie, prioriteit (laag, normaal of hoog, weergegeven als een vlag) en vervaldatum, met de toeschrijving Toegevoegd door en Gecontroleerd door wanneer meer dan één persoon de lijst bewerkt. Kies Handmatig, A-Z, Prioriteit of Nieuwste eerst en filter in het dialoogvenster tussen Te doen, Alles en Gereed. Bewerken kan worden beperkt tot iedereen, specifieke gezinsleden gekozen uit de echte Home Assistant-gebruikerslijst, of alleen beheerders, op dezelfde manier afgedwongen als de rest van de gezinsrechten van de app. Het volgt hetzelfde ontwerp als elke andere widget, met de gebruikelijke tabbladen Algemeen, Machtigingen, Vormgeving en Zichtbaarheid.</item>
+        <item>Kamer volgen kan nu zo worden ingesteld dat iemand alleen in de juiste kamer wordt geplaatst als de app start, zonder hem of haar de rest van de sessie te volgen. De bestaande \'Vraag voordat je van kamer wisselt\'-schakelaar kon alleen kiezen tussen vragen en stil schakelen; er was geen manier om de eenmalige plaatsing te bemachtigen zonder dat de app daarna elke beweging bleef volgen. Een nieuwe schakelaar \'Blijf volgen terwijl de app open is\' onder de instellingen voor het volgen van de kamer van elke persoon zorgt ervoor dat het voortgezette volgen vanzelf wordt uitgeschakeld, waardoor de kamer Openen wanneer de app begint de enige plaatsing te doen die het altijd deed.*</item>
+        <item>Nieuw Formule 1-widget voor de F1 Sensor-integratie. De kaart toont de volgende race met aftelling en de omtrek van het circuit; als je hem opent krijg je vier tabbladen — Volgende race met het volledige sessieschema en het weer aan het circuit, Klassement voor coureurs en constructeurs, Uitslagen van de vorige grand prix met gewonnen of verloren plaatsen, en een Live-tabblad dat alleen verschijnt tijdens een sessie, met de vlag en de race control-berichten. Het vindt zijn sensoren zelf: in F1 Sensor kun je entiteiten hernoemen en een taal kiezen, dus het widget zoekt op de vaste interne sleutels van de integratie in plaats van op entiteits-id\'s.</item>
+        <item>Nieuw widget Vind mijn apparaten: een kaart met je telefoons, horloges, tags en trackers. Voeg elke device_tracker- of person-entiteit toe; die met gps verschijnen als pin op de kaart, de rest staat in de lijst met hun status. Vink er zoveel aan als je wilt om ze samen te tonen, of vink niets aan om alles te zien. Drie filters beperken de lijst: Alle, Apparaten en Personen. De kaart volgt hetzelfde ontwerp als de andere widgets, dus achtergrondafbeelding, pictogram, breedte, vorm en hoekradius werken zoals verwacht.</item>
+        <item>De kaarten in de app zien er niet langer uit als een gedrukte atlas. HKI gebruikt nu dezelfde ingetogen CARTO-basiskaart als de kaartkaart van Home Assistant zelf, in plaats van de standaard OpenStreetMap-weergave, die bedoeld is als referentie voor kaartmakers en niet als achtergrond in een app. Er is ook een echte donkere variant, dus de kaart volgt eindelijk je thema in plaats van wit op te lichten in een donker venster.</item>
+        <item>Opgelost dat het volgen van kamers helemaal niets meer deed zodra Vraag voor het wisselen van kamer uitstond. Die schakelaar werd behandeld als een hoofdschakelaar voor de hele functie, dus met het vragen uit werd er niet gevraagd én niet gewisseld. Nu doet hij wat er staat: met vragen aan krijg je de vraag, met vragen uit gaat de kamer gewoon open. Niet meer vragen tot ik de app herstart stopt nog steeds allebei, want een verrassende sprong in plaats van een vraag zou erger zijn.</item>
+        <item>Opgelost dat het instellingenvenster van het afvalwidget rond tweederde werd afgekapt terwijl er daaronder lege ruimte stond. Het venster reserveert een hoge kaart, maar de inhoud zat vast op een vaste hoogte, zodat het scrolgebied de beschikbare ruimte niet gebruikte. Zowel het instellingenvenster als het afvalvenster zelf gebruiken nu de volle hoogte.</item>
+        <item>De kalender in het afvalvenster kan nu 7, 14 of 28 dagen vooruit kijken en wordt getekend als weekrooster zoals bij het agendawidget, in plaats van een platte lijst: kolommen per weekdag, een rij per week en een gekleurde stip per ophaling in de kleur van die fractie. Tik een dag aan om te zien wat er dan wordt opgehaald; hij opent op de eerstvolgende dag met een ophaling.</item>
+        <item>Pakketvensters tonen nu Vandaag of Morgen in plaats van de naam van de dag. De vraag die een bezorgdatum beantwoordt is hoe snel, en “woensdag” op een woensdag liet je dat zelf uitrekenen.</item>
+        <item>De +2-bubbel in de koptekst, die verschijnt als er meer personen zijn dan passen, doet nu iets. Tik erop voor een lijst met iedereen, met naam en status; iemand aantikken opent zoals gewoonlijk zijn detailvenster. Voorheen waren die personen op een smalle koptekst simpelweg onbereikbaar.</item>
+        <item>Opgelost dat de kaart in het personenvenster buiten het venster liep op een tablet of uitgevouwen foldable. De kaart werd getekend als vierkant zo breed als het venster, dus op een kaart van 620dp breed werd hij 620dp hoog en duwde het adres eruit. Hij gebruikt nu de resterende hoogte.</item>
+        <item>Opgelost dat meldingen niet aankwamen terwijl Home Assistant het apparaat als niet verbonden met lokale pushmeldingen aanmerkte, zelfs met de app open. De app deed een stap opzij voor zijn achtergrondverbinding zodra de instellingen zeiden dat die moest draaien — maar als Android weigerde die te starten, bijvoorbeeld na een herstart, luisterde er niets. De app controleert nu of die verbinding echt draait in plaats van of het de bedoeling is, neemt het anders zelf over en geeft het kanaal terug zodra de verbinding er wel is.</item>
+        <item>Opgelost dat instellingen voor kamer volgen geen effect hadden op het apparaat waarop je ze wijzigde. Het volgen uitzetten, of wijzigen hoe lang een kamer moet standhouden voordat het als verplaatsing telt, werd naar de companion-component geschreven maar niet naar de eigen kopie van het apparaat — dus bleef het volgen en bleef het de oude wachttijd gebruiken tot de app opnieuw werd gestart. Wijzigingen gelden nu meteen. De schuifregelaar biedt ook geen nul seconden meer aan, waardoor de allereerste sensormeting al als verplaatsing telde.</item>
+        <item>De Formule 1-kaart zegt nu één ding: de volgende grand prix en wanneer die is — “Vandaag 15:00” op de dag zelf, anders de datum en tijd, in je eigen tijdzone. De baanstatus is eraf, want buiten een sessie stond er “Niet actief”, en daar kijk je niet voor op de kaart. De status staat in dezelfde donkere pil als de camera-, stofzuiger- en afvalkaarten, zodat hij weer aansluit bij de rest van je dashboard. De omtrek van het circuit blijft als vaag watermerk en de vlag van het gastland in de hoek. Het widget vraagt ook niet meer welke F1-instantie het moet gebruiken — het leest alles wat de integratie publiceert, zodat het venster altijd het volledige beeld heeft.</item>
+        <item>De knoppen Ongedaan maken/Opnieuw en Sluiten van het dialoogvenster Takenlijst zijn verplaatst van de titelrij naar de onderste actiebalk, passend bij elk ander dialoogvenster in de app.</item>
+        <item>* HKI 7 Cloud Component-integratie vereist.</item>
+
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_13">
+        <item>HKI kan je nu van kamer naar kamer volgen. Wijs het naar een kamersensor zoals ESPresense: bij het starten opent de app de kamer waarin je bent en biedt aan mee te gaan als je je verplaatst. Kamers krijgen ook een paarse teller met het aantal aanwezige personen, naast de tellers voor beweging en aanwezigheid. Een beheerder stelt dit voor het hele gezin in via Instellingen › Delen met gezin › Aanwezigheid: de sensor per persoon en hoe lang een nieuwe kamer moet standhouden voordat het als verplaatsing telt. Sensorkamers die net zo heten als je Home Assistant-gebieden worden automatisch gekoppeld.*</item>
+        <item>Meldingen van Home Assistant kunnen nu actieknoppen bevatten. Wanneer actions aan een notify.mobile_app_…-bericht worden toegevoegd, verschijnt elke actie op de melding; een tik stuurt de actie terug naar Home Assistant, waar een automatisering erop kan reageren. De knoppen verschijnen ook in de banner in de app en in de meldingenlade, omdat HKI systeemmeldingen verbergt zolang de app open is. Een URI-actie opent de link, een REPLY-actie neemt een getypt antwoord aan, en een actie die offline wordt getikt, wordt verstuurd zodra de verbinding terug is. Elke melding kan één keer worden gebruikt.</item>
+        <item>Nieuw: Actieknop, een knop die helemaal geen entiteit nodig heeft. Geef hem een naam, een pictogram en elke gewenste actie bij tikken, lang drukken of dubbeltikken — navigeren naar een weergave of kamer, een Home Assistant-actie uitvoeren, een URL of een aangepaste pop-up openen. Toe te voegen via de widgetkiezer, vanuit een knoppenstapel of als actiebadge in het badgegebied naast de koptekst.</item>
+        <item>Knoppen met alleen een pictogram zijn nu in grootte in te stellen. Automatisch verkleint het pictogram naarmate de stapel meer kolommen krijgt — dat maakt alleen-pictogram bruikbaar in pop-ups met vier, vijf of zes kolommen, waar een vaste grootte eerder overliep. Een knop kan ook een eigen grootte krijgen.</item>
+        <item>Knopstapels kunnen hun uiterlijk doorgeven aan alle knoppen erin: één schakelaar Alleen pictogram voor elke knop in plaats van dezelfde schakelaar op twintig knoppen, plus een pictogramgrootte die ze allemaal erven. Een losse knop kan de grootte nog steeds overschrijven.</item>
+        <item>De snelstartgids is nu zelf door te bladeren. Veeg over het gebarenvoorbeeld, tik op een stip of op een tip om ernaartoe te springen. Hij speelt nog steeds vanzelf tot je het overneemt.</item>
+        <item>Opgelost dat de afvalwidget buiten het Nederlands voor elke soort het verkeerde pictogram en de verkeerde kleur toonde: de soort werd vergeleken met het vertaalde label, dus PMD als Packaging viel terug op een algemene grijsblauwe bak. PMD is weer oranje met een recyclingsymbool.</item>
+        <item>Opgelost dat de kamerwissel-vraag verscheen nadat Vragen voordat van kamer wordt gewisseld was uitgezet, en ook voor de kamer die al op het scherm staat. Er is nu ook Niet meer vragen tot ik de app opnieuw start, en de wachttijd is los daarvan in te stellen.</item>
+        <item>Flows kunnen nu Een van deze en geneste logica uitdrukken, niet alleen een platte EN-lijst. Een groep opent in een eigen lijst met kruimelpad, en groepen kunnen groepen bevatten, dus beweging gedetecteerd EN (na zonsondergang OF gastmodus aan) is te bouwen. Het is dezelfde structuur die de automatiseringseditor van Home Assistant schrijft, dus een in HA gemaakte flow met OF is geen onaantastbaar geavanceerd blok meer.</item>
+        <item>Thermostaatknoppen in de Klimaatweergave persen zich niet langer met zes op een rij op een liggende foldable. Ze blijven op vier per rij tot het venster echt heel breed is, zodat elke knop leesbaar blijft.</item>
+        <item>De melding Wachten op meldingen heeft nu een knop Deze melding verbergen die direct naar de Android-kanaalinstellingen springt. Zet je het kanaal daar uit, dan verdwijnt hij definitief terwijl de verbinding blijft werken. Android staat geen achtergrondverbinding zonder zichtbare melding toe, verder dempen kan niet. Hij gaat ook vanzelf aan als je meer dan één Home Assistant-server hebt.</item>
+        <item>Het stofzuigerwidget kan nu zelf een Valetudo-kaart tekenen. Kies Valetudo-kaart als knopafbeelding en wijs het naar de kaartcamera van je robot: HKI leest de kaartgegevens die Valetudo in die PNG verstopt en tekent de vloer, muren, kamers, de robot, het dock en de gereden route. Er is geen add-on, custom component of extra Home Assistant-integratie voor nodig, en de kaart ververst zichzelf terwijl de robot stofzuigt.</item>
+        <item>Tik op een kamer op de Valetudo-kaart om de robot die te laten stofzuigen. Kamers gebruiken de namen die je ze in Valetudo hebt gegeven. Eén kamer stofzuigen loopt via de clean_area-actie van Home Assistant, dus koppel eerst de segmenten van de robot aan je zones in Home Assistant — tot dat gebeurd is zegt de kaart dat, in plaats van een tik te negeren.</item>
+        <item>De stofzuigerinstellingen waarschuwen nu dat gewone Kaartcamera bij een Valetudo-kaartentiteit een lege tegel toont. Valetudo tekent de kaart bewust niet op de robot, dus de PNG is alleen een omhulsel voor de gegevens — Valetudo-kaart is de modus die wél iets laat zien.</item>
+        <item>Het stofzuigervenster toont nu een Valetudo-kaart zodra de gekozen kaartcamera er één bevat, ongeacht de knopafbeelding — die bepaalt alleen hoe de tegel op het dashboard eruitziet. Camera\'s die geen Valetudo-kaart blijken te zijn tonen gewoon hun beeld, en HKI controleert dat daarna niet opnieuw.</item>
+        <item>De robotafbeelding draait nu terwijl de stofzuiger bezig is of terugkeert naar het dock, met dezelfde pictogramanimatie-instellingen als de rest van de app. De eigen animatie-instelling van een knop gaat nog steeds voor, en Uit houdt hem stil.</item>
+        <item>* HKI 7 Cloud Component-integratie vereist.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_12">
+        <item>Knopwidgets en knoppenstapels kunnen nu een lege, volledig transparante knop bevatten. Die neemt een vak in zonder iets te tekenen, zodat de knoppen eromheen precies staan waar je ze wilt.</item>
+        <item>Knoppen kunnen alleen hun pictogram tonen. De nieuwe schakelaar Alleen pictogram bij het uiterlijk van een knop verbergt de naam en status en zet een groter pictogram midden op de knop.</item>
+        <item>Nieuwe actie Aangepaste pop-up voor knoppen, badges en dialoogknoppen. Koppel elke tik, lange druk of dubbele tik aan een pop-up die je zelf samenstelt: die opent met de gebruikelijke titel, status, geschiedenis en sluitknop, en je vult hem met elke widget van de app. Pop-ups staan onder Instellingen › Weergave › Pop-ups, waar Inhoud bewerken er een klaar voor indeling opent. Pop-ups worden gedeeld, dus meerdere knoppen kunnen dezelfde openen, en stapels in een pop-up kunnen tot zes kolommen gebruiken in plaats van drie. Terwijl je een pop-up indeelt, staat er naast Widget toevoegen een knop Klaar om de bewerkmodus te verlaten zonder te sluiten.</item>
+        <item>Opgelost dat de Energie-detailweergaven (Zon, Elektriciteit, Gas, Water, Stadsverwarming, Accu) hun kaarten tegen elkaar aan tekenden zonder koppen. Productie, Voorspelling, Omvormers en de rest gingen schuil achter de kaart eronder; de kaarten houden nu hun koppen en de gebruikelijke tussenruimte.</item>
+        <item>Opgelost dat Ouderlijk toezicht niet meer opsloeg. Een verouderde HKI 7 Cloud-component weigert de lijsten Zichtbaar en Onzichtbaar, waardoor het hele beleid mislukte; de rechten worden nu wel opgeslagen en de melding vertelt dat de component moet worden bijgewerkt. Die lijsten filteren alleen entiteitenlijsten zoals de algemene zoekfunctie — een knop op een gezinsdashboard blijft zichtbaar tenzij die voor die persoon expliciet is verborgen.*</item>
+        <item>* HKI 7 Cloud Component-integratie vereist.</item>
+</string-array>
+
+    <string-array name="cr_whats_new_beta_11">
+        <item>De dashboards Kamers, Klimaat, Beveiliging, Energie en Batterij benutten tablets en foldables nu beter. Grote kaarten volgen de indeling met één, twee of drie kolommen van Start en kamerdetails, terwijl compacte tegels zich automatisch aanpassen zonder te krap te worden. Kaarten voor Klimaat, Beveiliging en Energie gebruiken op brede schermen een hoogtebewuste masonry-indeling, zodat onder kortere kaarten geen grote lege ruimtes meer ontstaan.</item>
+        <item>Statusgekleurde pictogrammen op entiteitsknoppen en kop-/statuspillen behouden hun herkenbare kleur, maar worden automatisch lichter of donkerder als ze anders wegvallen tegen het huidige thema.</item>
+        <item>Als je tijdens de onboarding een familiedashboard kiest, wordt deze installatie daarop geabonneerd. Wijzigingen van de eigenaar worden gepubliceerd bij Opslaan of Gereed, actieve clients worden direct bijgewerkt en offline clients worden bijgewerkt zodra ze weer openen. Niet-beheerders kunnen geen dashboards maken of dupliceren totdat de app volledig wordt gereset.*</item>
+        <item>Tijdens de dashboardconfiguratie in de onboarding kun je nu een lokale, Google Drive- of Home Assistant-back-up herstellen. Nieuwe back-ups in Google Drive en Home Assistant krijgen consistente, duidelijke namen met de appversie en aanmaakdatum.*</item>
+        <item>Agenda-widgets kunnen verticaal scrollen als ze te laag zijn voor alle afspraken, en verborgen widgets op Start worden uit de indeling verwijderd zodat ze geen lege ruimte achterlaten.</item>
+        <item>Kaarten van pakketbezorgers tonen nu rechtsboven de eerst verwachte bezorgdatum en -tijd voor actieve inkomende of uitgaande zendingen, ook bij integraties met een aparte sensor voor de volgende bezorging.</item>
+        <item>Familiemachtigingen kunnen het wisselen en maken van dashboards nu afzonderlijk toestaan. Volledig beperkte abonnees zien een vergrendeld tabblad Dashboard; de onboarding verwijdert het tijdelijke dashboard als wisselen niet is toegestaan en een verwijderd familiedashboard opent een herstelkeuze op basis van de machtigingen in plaats van stil een vervanging te maken.*</item>
+        <item>Familiemachtigingen bepalen nu ook of handmatig opnieuw importeren is toegestaan. Niet-beheerders kunnen Gezinsdeling niet openen, uitgeschakelde onboardingkeuzes leggen uit waarom ze niet beschikbaar zijn en gebruikers met alleen esthetische rechten zien uitsluitend visuele instellingen. Hun lokale namen, pictogrammen, kleuren, achtergronden, stijlen, formaten en indelingen krijgen voorrang wanneer updates van de eigenaar binnenkomen.*</item>
+        <item>Klima-sensor- en apparaattabbladen, beveiligingsgroepen en elk energiedetailtabblad volgen nu dezelfde responsieve masonryregels met één, twee of drie kolommen, ook tijdens bewerken en herschikken.</item>
+        <item>Gezinseditors met alleen esthetische rechten kunnen de configuratie van headerpillen of de personen van het dashboard niet meer wijzigen; deze functionele instellingen blijven onder beheer van de eigenaar.*</item>
+        <item>Ouderlijk toezicht vervangt de handmatige invoer van entiteits-ID\'s door lijsten Zichtbaar en Onzichtbaar. Beheerders kunnen volledige Home Assistant-domeinen of afzonderlijke entiteiten selecteren; de algemene zoekfunctie verbergt beperkte entiteiten en apparaten. Onzichtbaar heeft altijd voorrang.*</item>
+        <item>Energie-instellingen importeren nu SmartGateways- en DSMR Reader-P1-meters, ook als het Energiedashboard van Home Assistant nog niet is ingesteld en de sensoren niet aan een apparaat hangen. Tarief 1 en tarief 2 worden apart herkend en verbruiksgrafieken en periodetotalen tellen beide tarieven bij elkaar op als er geen losse import- of exportsensor is ingesteld.</item>
+        <item>* HKI 7 Cloud Component-integratie vereist.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_10">
+        <item>Zichtbaarheidsregels werken voor alle widgets en onderdelen, met Tijd, Entiteit, Persoon en vrij te combineren EN/OF-voorwaarden. Beheerders van een gedeeld familiedashboard kunnen kiezen of een onderdeel Zichtbaar of Verborgen is voor een geselecteerde gebruiker. Persoonsvoorwaarden gebruiken HKI 7 Cloud; de vereiste wordt getoond als deze ontbreekt. Nieuwe regels beginnen leeg, zodat je Tijd, Entiteit of Persoon kiest.</item>
+        <item>Badges met kamerstatustellers behouden een vaste breedte voor twee cijfers. Koppen passen zich aan naar één, twee of drie tellers per rij, zoals badges op de startpagina en personenbadges, zonder de titel omlaag te duwen.</item>
+        <item>Energie-instellingen herkennen nu MQTT-sensornamen van SmartGateways en DSMR Reader. Het kiezen van een bronapparaat vult de afzonderlijke sensoren weer in. Stadsverwarming heeft eigen instellingen, een brontegel en detailtab, plus een geschat aardgasequivalent voor warmte in J/GJ.</item>
+        <item>Kalenderwidgetvensters gebruiken nu de beschikbare hoogte correct, zodat inhoud niet meer slechts de helft van het instellingenvenster gebruikt of wordt afgesneden.</item>
+        <item>Instellingen voor Opnieuw importeren gebruiken nu in Kamers, Klimaat, Beveiliging, Energie en Batterij hetzelfde correct gespelde en vertaalde label. Ook de terminologie voor conditionele zichtbaarheid is in alle ondersteunde talen verbeterd.</item>
+        <item>Schermrotatie volgt nu de instelling voor automatisch draaien van je apparaat in plaats van vast te blijven staan in portretstand.</item>
+        <item>De tegel Buiten in Klimaat verschijnt zodra een weerapparaat is gekoppeld, ook zonder losse sensoren, telt temperatuur, luchtvochtigheid en luchtdruk uit de kenmerken mee in de samenvatting en toont grafieken met bijpassende sensorkleuren.</item>
+        <item>Pakketstatuscodes worden nu als normale zinnen weergegeven. Datums en tijden volgen de gekozen taal en 12/24-uursnotatie, nabije bezorgingen gebruiken weekdagen, het huidige jaar wordt weggelaten en dezelfde datum wordt niet meer herhaald.</item>
+        <item>PostNL en de parser voor de huidige pakkettenintegratie zijn hersteld. Inkomende zendingen tonen weer alle track-en-tracegegevens en de juiste bezorgstatus. Ook de ondersteuning voor vervoerders is bijgewerkt.</item>
+        <item>De taalkeuze in de app biedt nu volledige dekking voor alle 13 ondersteunde talen. Elke taal toont de eigen naam met daaronder een Engelse aanduiding.</item>
+        <item>De verbindingsmelding toont nu de echte fout tijdens het opnieuw verbinden. Daardoor zijn wisselingen tussen wifi, mobiele data en VPN veel makkelijker te beoordelen.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_9">
+        <item>Versleep camera’s, thermostaten en energiekaarten om hun volgorde te wijzigen. In de bewerkmodus hebben Beveiliging, Klimaat en Energie elk een knop Opnieuw ordenen.</item>
+        <item>Nieuwe tegel Buiten in Klimaat. Koppel een weerentiteit of buitensensoren voor temperatuur, luchtvochtigheid en luchtdruk en open de tegel voor afzonderlijke historiegrafieken.</item>
+        <item>Zichtbaarheid stel je nu per knop en kopbadge in. Verberg een onderdeel of plan het eenmalig, dagelijks, wekelijks, maandelijks of jaarlijks.</item>
+        <item>Je kunt kopbadges nu een eigen naam geven via Weergave.</item>
+        <item>Veegkaarten spelen standaard automatisch af en gaan elke drie seconden verder.</item>
+        <item>Het Weer-dialoogvenster speelt Seizoen automatisch af en voegt kaarten voor een windroos en een optionele regenradar toe.</item>
+        <item>De Pakketten-widget is opnieuw opgebouwd rond vervoerders, met logo’s, totalen, zendingsoverzichten, bezorgverwachtingen, track-en-tracehistorie en waar mogelijk toevoegen op zendingsnummer.</item>
+        <item>Luchtbevochtigers en ontvochtigers hebben nu overal eigen bediening voor voeding, luchtvochtigheid, modus, snelheid en hulpfuncties.</item>
+        <item>Kamerstatussen zijn interactief en openen de entiteiten achter een teller.</item>
+        <item>Knoppen en badges kunnen een live aftelling tonen op basis van een entiteit met eindtijd.</item>
+        <item>Gedeelde dashboards publiceren wijzigingen van de eigenaar automatisch en ontvangers krijgen ze bij de volgende synchronisatie.</item>
+        <item>Instellingen voor de kop horen nu bij het dashboard en gaan mee met back-ups en Delen met gezin.</item>
+        <item>Camerawidgets vullen de hele tegel en volgen de ingestelde hoekafronding.</item>
+        <item>Afvalinzamelingen op dezelfde dag blijven zichtbaar door overlappende pictogrammen. Het grotere venster sluit door erbuiten te tikken.</item>
+        <item>De weergave van Batterij, Afval, camera, weer en Over is consistenter gemaakt.</item>
+        <item>Binaire sensoren gebruiken Home Assistant-termen zoals Open/Gesloten, Nat/Droog, Gedetecteerd/Vrij en Verbonden/Niet verbonden.</item>
+        <item>Bewerkers met alleen vormgevingsrechten kunnen bestaande badges aanpassen, maar niet toevoegen, verwijderen of opnieuw instellen.</item>
+        <item>Netwerkwisselingen zijn hersteld: verbindingen op het oude Android-netwerk worden gesloten en de opgeslagen Home Assistant-sessie verbindt opnieuw zonder onnodig inloggen. De verbindingsmelding toont ook de echte fout.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_8">
+        <item>Kindersloten worden niet meer automatisch als kamerbediening geïmporteerd.</item>
+        <item>Alle knoppen en badges gebruiken nu het pictogram dat je in Home Assistant hebt ingesteld.</item>
+        <item>Robotstofzuigers verschijnen nu in de badgebalk van een kamer en openen hun bediening wanneer je erop tikt.</item>
+        <item>Afzonderlijke knoppen in widgets met meerdere onderdelen kunnen worden verborgen of gepland, ook met jaarlijks terugkerende datumbereiken.</item>
+        <item>Meerdere camerabadges openen nu één veegbaar venster met navigatie op volledig scherm.</item>
+        <item>Delen met gezin toont gepubliceerde dashboards uit de cloud, zodat je ze na een herinstallatie kunt importeren, opnieuw delen of verwijderen.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_7">
+        <item>De automatische kamerimport slaat ingebouwde hulpbediening over, maar behoudt echte extra bediening.</item>
+        <item>Klimaatapparaten van verschillende integraties worden niet meer samengevoegd.</item>
+        <item>Pictogrammen voor airco’s, bevochtigers, ontvochtigers en luchtreinigers passen nu bij het apparaat.</item>
+        <item>Pictogrammen van luchtreinigers en bevochtigers pulseren rustig in plaats van te draaien.</item>
+        <item>Deursloten gebruiken nu pictogrammen van een gesloten of geopende deur.</item>
+        <item>Badges met meerdere apparaten kunnen opnieuw worden geordend om de leidende entiteit te kiezen.</item>
+        <item>Geanimeerde pictogrameffecten staan bij nieuwe installaties standaard aan.</item>
+        <item>Knoppen en badges kunnen een attribuut en optionele eenheid tonen in plaats van de status.</item>
+        <item>Je kunt dashboards nu kopiëren met alle kamers, widgets en pagina-instellingen.</item>
+        <item>Delen met gezin bundelt ouderlijk toezicht, dashboarddeling en rechten per gebruiker.</item>
+        <item>Gedeelde dashboards worden automatisch bijgewerkt, terwijl toegestane lokale vormgevingswijzigingen behouden blijven.</item>
+        <item>Gezinsleden zonder beheerdersrechten kunnen automatische Adaptive Lighting-bediening per kamer gebruiken met de HKI 7 Cloud-component.</item>
+        <item>Onleesbare kop- en uitklapteksten in de lichte modus en bij aangepaste vormgeving zijn hersteld.</item>
+        <item>Over bevat nu de knoppen Wat is er nieuw en Volledig wijzigingsoverzicht.</item>
+        <item>Het scherm Kan niet verbinden verschijnt nu betrouwbaar wanneer Home Assistant niet bereikbaar is.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_6">
+        <item>Actiebalken in de bewerkmodus overlappen de Android-navigatie met drie knoppen niet meer.</item>
+        <item>Back-up en herstel toont nu wanneer elke automatische cloudback-up voor het laatst is uitgevoerd.</item>
+        <item>Elke cloudback-up heeft nu een knop Nu back-up maken.</item>
+        <item>Het te grote app-pictogram na de update voor themapictogrammen is hersteld.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_4_to_5">
+        <item>Back-up en herstel toont nu wanneer elke automatische cloudback-up voor het laatst is uitgevoerd.</item>
+        <item>Elke cloudback-up heeft nu een knop Nu back-up maken.</item>
+        <item>Het te grote app-pictogram na de update voor themapictogrammen is hersteld.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_3">
+        <item>Simple Icons, Tabler en Phosphor zijn toegevoegd naast Material Design Icons.</item>
+        <item>Entiteitspictogrammen kunnen nu gloeien, draaien of pulseren wanneer ze actief zijn.</item>
+        <item>Beheerders kunnen dashboards delen met gezinsleden.*</item>
+        <item>Ouderlijk toezicht kan bepaalde weergaven en kamers voor personen verbergen.*</item>
+        <item>Dagelijkse automatische back-up naar je eigen Home Assistant is toegevoegd.*</item>
+        <item>Pictogrammen van mediabronnen hebben kleur en kunnen de bijbehorende app openen.</item>
+        <item>Nieuwe iFrame-widget om webpagina’s in te sluiten.</item>
+        <item>Energie toont nu negatieve waarden wanneer je stroom teruglevert.</item>
+        <item>Onboarding wordt niet meer voltooid wanneer je de app verlaat voordat je klaar bent.</item>
+        <item>De modusknop van de thermostaatknop overlapt omliggende onderdelen niet meer.</item>
+        <item>Veel kleinere fouten opgelost.</item>
+        <item>* HKI 7 Cloud Component-integratie vereist.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_2">
+        <item>Indelingen op korte en smalle schermen zijn verbeterd, met overal een terugval naar één kolom.</item>
+        <item>Koppen van dialoogvensters gebruiken op smalle schermen twee regels, zodat titels niet meer worden afgekapt.</item>
+        <item>Overlappende Adaptive Lighting-schuifregelaars zijn hersteld.</item>
+        <item>Navigatiebalken geven nu aan wanneer buiten beeld meer onderdelen beschikbaar zijn.</item>
+        <item>Camera’s respecteren de vergrendelde schermstand weer.</item>
+        <item>Zoomen in cameravensters en camera’s op volledig scherm werkt weer.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_1">
+        <item>Nieuwe klokwidget. Analoog of digitaal, elk zeven ontwerpen, 12- of 24-uurs tijd, en de dag, datum en jaar als u dat wilt. Tik erop om je volgende alarm te zien.</item>
+        <item>Bereik Home Assistant zelf via Instellingen. Beheerders krijgen de instellingen, ontwikkelaarstools en HACS op volledig scherm binnen HKI 7, al ingelogd.</item>
+        <item>HKI 7 vertelt je wanneer er een nieuwe versie uit is - handig als je deze vanuit GitHub hebt geïnstalleerd in plaats van vanuit de Play Store. Schakel het uit via Instellingen › Info.</item>
+        <item>Home Assistant kan nu het volgende alarm van je telefoon zien, dezelfde sensor die de officiële app biedt.</item>
+        <item>Mediaspelers laten zien wat er wordt afgespeeld, niet alleen welke app geopend is. Een Android TV die een serie streamt, toont het programma, het seizoen en de aflevering.</item>
+        <item>Terug gaat elke keer naar de pagina waar u zich bevond, totdat u Thuis bereikt. Het slaat geen pagina\'s meer over of verlaat de app niet langer voortijdig.</item>
+        <item>Vaste temperatuur- en energiemetingen in het Tsjechisch, Slowaaks, Grieks, Noors, Zweeds en Deens, waarbij de cijfers verkeerd werden weergegeven of het scherm konden crashen.</item>
+        <item>Iets slecht verwoord in uw taal? Elke taal is nu één enkel bestand dat je op GitHub kunt corrigeren, zonder dat er code nodig is.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_2">
+        <item>Terugkerend vanuit Home Assistant Instellingen, Ontwikkelaarstools of HACS herstelt nu dezelfde positie in HKI 7 Instellingen in plaats van opnieuw bovenaan te openen.</item>
+        <item>Android 17 vraagt nu om lokale netwerktoegang voordat Home Assistant wordt gevonden of er rechtstreeks verbinding mee wordt gemaakt, zodat lokale servers blijven werken met API 37. Instellingen › Verbinding laat zien of dit is toegestaan en kan opnieuw vragen, voor wanneer de Android 17-upgrade lang na de installatie arriveert.</item>
+        <item>Updatemeldingen verschijnen nu ook in het eigen meldingenpaneel van HKI 7, met een link \'Zie wat er is veranderd\' naar de release-opmerkingen. De systeemmelding is verdwenen zodra u deze wegveegt; deze blijft staan, en als je controleert op updates onder Instellingen ›Over, komt deze terug.</item>
+        <item>Toestemmingstegels in Instellingen worden nu bijgewerkt zodra u terugkomt van het verlenen ervan. Locatie, batterijoptimalisatie en achtergrondgebruik bleven de oude status tonen totdat Instellingen werd gesloten en opnieuw geopend.</item>
+    </string-array>
+</resources>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Empty (transparent) buttons and the custom-popup action. -->
+<resources>
+    <string name="spacer_empty_button">Pulsante vuoto</string>
+    <string name="spacer_empty_button_description">Segnaposto trasparente che occupa solo lo spazio</string>
+    <string name="spacer_add_empty_button">Aggiungi pulsante vuoto</string>
+    <string name="popup_custom_popup">Finestra personalizzata</string>
+    <string name="popup_choose">Scegli una finestra</string>
+    <string name="popup_none_yet">Ancora nessuna finestra</string>
+    <string name="popup_new">Nuova finestra</string>
+    <string name="popup_default_name">Nuova finestra</string>
+    <string name="popup_name">Nome della finestra</string>
+    <string name="popup_edit_contents">Modifica contenuto</string>
+    <string name="popup_delete">Elimina finestra</string>
+    <string name="popup_status_entity">Entità di stato</string>
+    <string name="popup_status_entity_hint">Facoltativa. Il suo stato riempie la riga di stato della finestra e aggiunge la cronologia.</string>
+    <string name="popup_settings_subtitle">Nome, icona ed entità di stato</string>
+    <string name="popup_shared_hint">Le finestre sono condivise: altri pulsanti possono aprire la stessa finestra.</string>
+    <string name="popup_empty">Questa finestra è vuota. Tocca Modifica per aggiungere widget.</string>
+    <string name="popup_settings_title">Finestre</string>
+    <string name="popup_settings_subtitle_section">Crea e modifica le tue finestre personalizzate</string>
+    <string name="popup_settings_hint">Le finestre si aprono da un pulsante, un badge o un pulsante di dialogo impostato sull’azione Finestra personalizzata. «Modifica contenuto» apre la finestra stessa per disporne i widget.</string>
+    <string name="button_icon_only">Solo icona</string>
+    <string name="button_icon_size">Dimensione icona</string>
+    <string name="button_icon_size_description">Automatico riduce l\'icona man mano che la pila guadagna colonne, così sta in un pulsante stretto.</string>
+    <string name="button_icon_size_auto">Automatico</string>
+    <string name="button_icon_size_value">%1$d dp</string>
+    <string name="stack_child_icon_only">Solo icona per ogni pulsante</string>
+    <string name="stack_child_icon_only_description">Vale per tutti i pulsanti di questa pila, così non devi impostarlo su ognuno.</string>
+    <string name="stack_child_icon_size">Dimensione icona per ogni pulsante</string>
+    <string name="button_icon_only_description">Nasconde nome e stato, centrando l’icona sul pulsante</string>
+    <string name="action_button">Pulsante azione</string>
+    <string name="action_button_description">Un pulsante senza entità: dagli un nome, un’icona e qualsiasi azione</string>
+    <string name="action_button_add">Aggiungi pulsante azione</string>
+    <string name="action_badge_add">Aggiungi badge azione</string>
+</resources>

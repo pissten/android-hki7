@@ -2,6 +2,10 @@
 
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import android.app.Activity
 import androidx.navigation.NavController
 import androidx.compose.foundation.BorderStroke
@@ -47,8 +51,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.graphics.toColorInt
 import androidx.core.view.WindowCompat
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.abs
+import kotlin.time.Duration.Companion.seconds
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import coil3.compose.AsyncImage
 import com.jimz011apps.hki7.data.HAEntity
 import com.jimz011apps.hki7.data.HKIAreaConfig
@@ -56,7 +70,9 @@ import com.jimz011apps.hki7.data.HKIBadgeBarConfig
 import com.jimz011apps.hki7.data.HKICustomPage
 import com.jimz011apps.hki7.data.HKIPageConfig
 import com.jimz011apps.hki7.ui.MainViewModel
+import com.jimz011apps.hki7.ui.GreetingPeriod
 import com.jimz011apps.hki7.ui.ConnectionStatus
+import com.jimz011apps.hki7.ui.localizedStateLabel
 import com.jimz011apps.hki7.ui.screens.SettingsDialog
 import com.jimz011apps.hki7.ui.theme.LocalHKIAppColors
 import com.jimz011apps.hki7.ui.utils.MdiIcon
@@ -71,6 +87,14 @@ private fun alarmDisplayPriority(state: String): Int = when (state.lowercase()) 
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun greetingText(period: GreetingPeriod): String = when (period) {
+    GreetingPeriod.MORNING -> stringResource(R.string.core_greeting_morning)
+    GreetingPeriod.AFTERNOON -> stringResource(R.string.core_greeting_afternoon)
+    GreetingPeriod.EVENING -> stringResource(R.string.core_greeting_evening)
+    GreetingPeriod.NIGHT -> stringResource(R.string.core_greeting_night)
+}
+
 @Composable
 fun HKIPage(
     viewModel: MainViewModel,
@@ -102,11 +126,13 @@ fun HKIPage(
     navController: NavController? = null,
     content: @Composable (PaddingValues) -> Unit
 ) {
+    val greeting = greetingText(viewModel.greetingPeriod)
     val weather by viewModel.weather.collectAsState()
     val people by viewModel.people.collectAsState()
     val displayName by viewModel.displayName.collectAsState()
     val currentUrl by viewModel.currentUrl.collectAsState()
     val isEditMode by viewModel.isEditMode.collectAsState()
+    val aestheticsOnly by viewModel.aestheticsOnlyEditing.collectAsState()
     val status by viewModel.status.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
     val unreadNotificationCount = notifications.count { !it.read && !it.archived }
@@ -132,12 +158,47 @@ fun HKIPage(
     var showRoomConfig by remember { mutableStateOf(false) }
     var showPageConfig by remember { mutableStateOf(false) }
     var previewHeaderColor by remember { mutableStateOf<String?>(null) }
-    var pullOffset by remember { mutableFloatStateOf(0f) }
     var showSettings by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     var showFlows by remember { mutableStateOf(false) }
-    
-    val maxPull = 450f 
+
+    val maxPull = 450f
+    // Animatable, not a bare Float: the panel has to settle to an anchor when the finger lifts.
+    // Assigning the raw value teleported the header — a partial pull resolved to fully open or fully
+    // closed in a single frame, and anything past the old 400f threshold simply stayed wherever the
+    // finger stopped because nothing ever moved it the rest of the way.
+    val pullAnimatable = remember { Animatable(0f) }
+    val pullScope = rememberCoroutineScope()
+    val pullOffset = pullAnimatable.value
+    /** Settles to whichever anchor the gesture is closest to, carrying fling velocity into the
+     *  decision so a quick flick opens the menu without travelling the full distance. */
+    fun settlePull(velocity: Float) {
+        pullScope.launch {
+            val flung = abs(velocity) > 900f
+            val target = when {
+                flung -> if (velocity > 0f) maxPull else 0f
+                pullAnimatable.value > maxPull / 2f -> maxPull
+                else -> 0f
+            }
+            pullAnimatable.animateTo(
+                targetValue = target,
+                animationSpec = spring(dampingRatio = 0.85f, stiffness = 380f),
+                initialVelocity = velocity
+            )
+        }
+    }
+    /** Closes the menu with the same animation the gesture uses, for the action buttons. */
+    fun closePull() {
+        pullScope.launch {
+            pullAnimatable.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 420f))
+        }
+    }
+    // Swiping to another page collapses the pull-down: it belongs to the page that was showing
+    // when it was opened, and leaving it open outlives that.
+    val pageSwiping = LocalPageSwipeInProgress.current
+    LaunchedEffect(pageSwiping) {
+        if (pageSwiping && pullAnimatable.value > 0f) closePull()
+    }
     val pullOffsetDp = (pullOffset / 3f).dp
     val menuVisible = pullOffset > 120f
     val headerColorSource = previewHeaderColor ?: headerColor ?: pageConfig.headerColor
@@ -231,16 +292,30 @@ fun HKIPage(
         .fillMaxSize()
         .background(appColors.background)
         .pointerInput(Unit) {
+            // Tracks velocity so a flick settles the way the finger was going, and stops any
+            // in-flight settle on touch-down so the panel can be caught and re-dragged mid-animation.
+            val velocityTracker = VelocityTracker()
             detectVerticalDragGestures(
-                onDragEnd = {
-                    if (pullOffset < 400f) pullOffset = 0f
+                onDragStart = {
+                    velocityTracker.resetTracking()
+                    pullScope.launch { pullAnimatable.stop() }
                 },
+                onDragEnd = { settlePull(velocityTracker.calculateVelocity().y) },
+                onDragCancel = { settlePull(0f) },
                 onVerticalDrag = { change, dragAmount ->
                     val isHeaderGesture = change.position.y < 260.dp.toPx()
-                    val isPullingMenu = pullOffset > 0f || dragAmount > 0f
-                    if ((isHeaderGesture || pullOffset > 0f) && isPullingMenu) {
+                    val current = pullAnimatable.value
+                    val isPullingMenu = current > 0f || dragAmount > 0f
+                    if ((isHeaderGesture || current > 0f) && isPullingMenu) {
                         change.consume()
-                        pullOffset = (pullOffset + dragAmount).coerceIn(0f, maxPull)
+                        velocityTracker.addPointerInputChange(change)
+                        // Rubber-band past the anchor instead of stopping dead, so overshoot reads
+                        // as resistance rather than a broken gesture.
+                        val next = current + dragAmount
+                        val damped = if (next > maxPull) maxPull + (next - maxPull) * 0.25f else next
+                        pullScope.launch {
+                            pullAnimatable.snapTo(damped.coerceIn(0f, maxPull * 1.15f))
+                        }
                     }
                 }
             )
@@ -288,48 +363,64 @@ fun HKIPage(
             Color.White.copy(alpha = 0.72f)
         }
         val menuButtonContentColor = if (menuUsesLightContent) Color.White else Color(0xFF1C1B1F)
+        // The menu is revealed over header artwork as often as over a flat surface, so the edge
+        // chevrons fade to a scrim rather than a solid colour — a solid one would smear over an image.
+        val menuEdgeFadeColor = if (menuUsesLightContent) {
+            Color.Black.copy(alpha = 0.55f)
+        } else {
+            Color.White.copy(alpha = 0.70f)
+        }
         // Admin-set per-user permissions (Settings › Family Sharing). Defaults allow everything, so
         // these only restrict when an admin has locked something down for this user.
         val allowEdit by prefs.enforcedAllowEdit.collectAsState(initial = true)
         val showGlobalSearchAllowed by prefs.enforcedShowGlobalSearch.collectAsState(initial = true)
         val showFlowsAllowed by prefs.enforcedShowFlows.collectAsState(initial = true)
+        val openNotificationsPanel = LocalOpenNotifications.current
         val headerMenuActions = buildList {
+            // The notification panel used to be reachable only by a left-edge swipe, which meant the
+            // gesture-exclusion strip that made it work had to be large enough to find. With a button
+            // here that strip could shrink back out of the system back gesture's way.
+            add(HeaderMenuAction(Icons.Default.Notifications, stringResource(R.string.ui_notifications_753a22b)) {
+                closePull()
+                openNotificationsPanel?.invoke()
+            })
             if (showGlobalSearchAllowed) {
-                add(HeaderMenuAction(Icons.Default.Search, "Search") {
+                add(HeaderMenuAction(Icons.Default.Search, stringResource(R.string.ui_search_bce0641)) {
                     showSearch = true
-                    pullOffset = 0f
+                    closePull()
                 })
             }
             if (showFlowsAllowed) {
-                add(HeaderMenuAction(Icons.Default.AccountTree, "Flows") {
+                add(HeaderMenuAction(Icons.Default.AccountTree, stringResource(R.string.ui_flows_1242655)) {
                     showFlows = true
-                    pullOffset = 0f
+                    closePull()
                 })
             }
             if (allowEdit) {
                 add(HeaderMenuAction(
                     if (isEditMode) Icons.Default.CheckCircle else Icons.Default.Edit,
-                    if (isEditMode) "Done" else "Edit"
+                    if (isEditMode) stringResource(R.string.ui_done_e9b450d)
+                    else stringResource(R.string.ui_edit_5301648)
                 ) {
                     viewModel.toggleEditMode()
-                    pullOffset = 0f
+                    closePull()
                 })
             }
             if (pageKey != null && pageSettingsTitle != null) {
                 add(HeaderMenuAction(Icons.Default.Tune, pageSettingsTitle) {
                     showPageConfig = true
-                    pullOffset = 0f
+                    closePull()
                 })
             }
-            if (title != null && title != viewModel.greeting && areaId != null) {
-                add(HeaderMenuAction(Icons.Default.Tune, "Room Config") {
+            if (title != null && areaId != null) {
+                add(HeaderMenuAction(Icons.Default.Tune, stringResource(R.string.room_config_title)) {
                     showRoomConfig = true
-                    pullOffset = 0f
+                    closePull()
                 })
             }
-            add(HeaderMenuAction(Icons.Default.Settings, "Settings") {
+            add(HeaderMenuAction(Icons.Default.Settings, stringResource(R.string.ui_settings_c7f73bb)) {
                 showSettings = true
-                pullOffset = 0f
+                closePull()
             })
         }
         BoxWithConstraints(
@@ -343,24 +434,48 @@ fun HKIPage(
                 }
         ) {
             val fitsWithoutScrolling = maxWidth >= 64.dp * headerMenuActions.size
-            Row(
-                modifier = if (fitsWithoutScrolling) {
-                    Modifier.fillMaxWidth()
-                } else {
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp)
-                },
-                horizontalArrangement = if (fitsWithoutScrolling) Arrangement.SpaceEvenly else Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                headerMenuActions.forEach { action ->
-                    MenuButton(
-                        icon = action.icon,
-                        label = action.label,
-                        enabled = menuVisible,
-                        surfaceColor = menuButtonSurfaceColor,
-                        contentColor = menuButtonContentColor,
-                        onClick = action.onClick
-                    )
+            val menuScrollState = rememberScrollState()
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = if (fitsWithoutScrolling) {
+                        Modifier.fillMaxWidth()
+                    } else {
+                        Modifier.fillMaxWidth().horizontalScroll(menuScrollState).padding(horizontal = 12.dp)
+                    },
+                    horizontalArrangement = if (fitsWithoutScrolling) Arrangement.SpaceEvenly else Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    headerMenuActions.forEach { action ->
+                        MenuButton(
+                            icon = action.icon,
+                            label = action.label,
+                            enabled = menuVisible,
+                            surfaceColor = menuButtonSurfaceColor,
+                            contentColor = menuButtonContentColor,
+                            onClick = action.onClick
+                        )
+                    }
+                }
+                if (!fitsWithoutScrolling) {
+                    // Same affordance the bottom bar uses when it overflows. matchParentSize takes
+                    // the row's measured height without influencing it, so the chevrons track the
+                    // buttons rather than the 144dp pull-down area they sit in.
+                    Box(modifier = Modifier.matchParentSize()) {
+                        ScrollEdgeChevron(
+                            visible = menuScrollState.canScrollBackward,
+                            fadeColor = menuEdgeFadeColor,
+                            contentColor = menuButtonContentColor,
+                            fromStart = true,
+                            modifier = Modifier.align(Alignment.CenterStart)
+                        )
+                        ScrollEdgeChevron(
+                            visible = menuScrollState.canScrollForward,
+                            fadeColor = menuEdgeFadeColor,
+                            contentColor = menuButtonContentColor,
+                            fromStart = false,
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        )
+                    }
                 }
             }
         }
@@ -431,7 +546,7 @@ fun HKIPage(
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             Icons.AutoMirrored.Filled.ArrowBack,
-                                            contentDescription = "Back",
+                                            contentDescription = stringResource(R.string.ui_back_b52b36b),
                                             tint = pillContentColor,
                                             modifier = Modifier.size(16.dp)
                                         )
@@ -452,7 +567,7 @@ fun HKIPage(
                                     alarm = leftAlarmEntity,
                                     use24hFormat = use24h,
                                     useFullDayName = useFullDayName,
-                                    isEditMode = isEditMode,
+                                    isEditMode = isEditMode && !aestheticsOnly,
                                     pillColor = pillColor,
                                     textColor = pillContentColor,
                                     editSurfaceColor = appColors.surface.copy(alpha = 0.7f),
@@ -472,92 +587,29 @@ fun HKIPage(
                             val rightAlarmEntities = rightAlarmIds.mapNotNull { id -> allEntities.find { it.entity_id == id } }
                                 .ifEmpty { listOfNotNull(allEntities.firstOrNull { it.entity_id.startsWith("alarm_control_panel.") }) }
                             val rightAlarmEntity = rightAlarmEntities.minByOrNull { alarmDisplayPriority(it.state) }
-                            val showPill = weatherDisplayType != "None"
-                            Box(
-                                modifier = if (!showPill && isEditMode) Modifier.size(36.dp) else Modifier,
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (showPill) {
-                                    val pillShape = itemCornerShape()
-                                    Surface(
-                                        modifier = Modifier
-                                            .height(36.dp)
-                                            .clip(pillShape)
-                                            .background(translucentHeaderControlGradient(pillColor))
-                                            .clickable {
-                                                if (!isEditMode) {
-                                                    when (weatherDisplayType) {
-                                                        "Weather", "DateTime" -> showWeatherDialog = true
-                                                        "Alarm" -> if (rightAlarmEntities.isNotEmpty())
-                                                            headerAlarmDialogEntityIds = rightAlarmEntities.map { it.entity_id }
-                                                    }
-                                                }
-                                            },
-                                        color = Color.Transparent,
-                                        shape = pillShape
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            val now = LocalDateTime.now()
-                                            val use24h by viewModel.use24hFormat.collectAsState()
-                                            val useFullDayName by viewModel.useFullDayName.collectAsState()
-                                            val timePattern = if (use24h) "HH:mm" else "hh:mm a"
-                                            val dayPattern = if (useFullDayName) "EEEE" else "EEE"
-                                            
-                                            val displayStr = when(weatherDisplayType) {
-                                                "Date" -> now.format(DateTimeFormatter.ofPattern("$dayPattern, MMM d"))
-                                                "Time" -> now.format(DateTimeFormatter.ofPattern(timePattern))
-                                                "DateTime" -> now.format(DateTimeFormatter.ofPattern("$dayPattern d, $timePattern"))
-                                                "Alarm" -> rightAlarmEntity?.state?.replace("_", " ")?.replaceFirstChar { it.uppercase() } ?: "Alarm"
-                                                else -> "${weather?.state?.let { formatWeatherState(it) } ?: "Cloudy"} ${weather?.temperature?.toInt() ?: 12}°C"
-                                            }
-
-                                            if (weatherDisplayType == "Weather" || weatherDisplayType == "DateTime" || weatherDisplayType == "Alarm") {
-                                                if (weatherDisplayType == "Alarm") {
-                                                    MdiIcon(
-                                                        name = rightAlarmEntity?.let { defaultEntityIconSlug(it) } ?: "shield-home",
-                                                        contentDescription = null,
-                                                        tint = alarmStateColor(rightAlarmEntity?.state.orEmpty()),
-                                                        size = 18.dp
-                                                    )
-                                                } else {
-                                                    WeatherStateIcon(
-                                                        state = weather?.state,
-                                                        size = 20.dp,
-                                                        contentDescription = weather?.state?.let(::formatWeatherState)
-                                                    )
-                                                }
-                                                if (displayStr.isNotEmpty()) Spacer(Modifier.width(8.dp))
-                                            }
-                                            
-                                            if (displayStr.isNotEmpty()) {
-                                                Text(
-                                                    text = displayStr,
-                                                    color = pillContentColor,
-                                                    style = MaterialTheme.typography.bodyMedium
-                                                )
-                                            }
+                            val rightUse24h by viewModel.use24hFormat.collectAsState()
+                            val rightUseFullDayName by viewModel.useFullDayName.collectAsState()
+                            HeaderStatusPill(
+                                displayType = weatherDisplayType,
+                                weather = weather,
+                                alarm = rightAlarmEntity,
+                                use24hFormat = rightUse24h,
+                                useFullDayName = rightUseFullDayName,
+                                isEditMode = isEditMode && !aestheticsOnly,
+                                pillColor = pillColor,
+                                textColor = pillContentColor,
+                                editSurfaceColor = appColors.surface.copy(alpha = 0.7f),
+                                onSettingsClick = { showRightPillSettings = true },
+                                onClick = {
+                                    when (weatherDisplayType) {
+                                        "Weather", "DateTime" -> showWeatherDialog = true
+                                        "Alarm" -> if (rightAlarmEntities.isNotEmpty()) {
+                                            headerAlarmDialogEntityIds =
+                                                rightAlarmEntities.map { it.entity_id }
                                         }
                                     }
                                 }
-                                
-                                if (isEditMode) {
-                                    val overlayModifier = if (showPill) Modifier.matchParentSize() else Modifier.fillMaxSize()
-                                    val pillShape = itemCornerShape()
-                                    Surface(
-                                        modifier = overlayModifier
-                                            .clip(pillShape)
-                                            .clickable { showRightPillSettings = true },
-                                        color = appColors.surface.copy(alpha = 0.7f)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            EditSettingsButton(onClick = { showRightPillSettings = true })
-                                        }
-                                    }
-                                }
-                            }
+                            )
                         }
 
                         Spacer(Modifier.height(16.dp))
@@ -594,7 +646,31 @@ fun HKIPage(
                             val shownPeople =
                                 if (overflowCount > 0) visiblePeople.take(avatarCapacity - 1) else visiblePeople
                             val avatarRows = if (perRow > 0) shownPeople.chunked(perRow) else emptyList()
+
+                            // The "+N" bubble used to be inert, which made the hidden people simply
+                            // unreachable on a narrow header. Tapping it lists everyone, and picking
+                            // someone opens the same detail dialog their avatar would have.
+                            var showAllPeople by remember { mutableStateOf(false) }
+                            if (showAllPeople) {
+                                AllPeopleDialog(
+                                    people = visiblePeople,
+                                    currentUrl = currentUrl,
+                                    onDismiss = { showAllPeople = false },
+                                    onPersonClick = { person ->
+                                        showAllPeople = false
+                                        onPeopleClick?.invoke(person)
+                                    }
+                                )
+                            }
                             val wrappedPeopleCapacity = rowCapacity(maxWidth).coerceAtLeast(1)
+                            // Follow the person layout's responsive principle: reduce the trailing
+                            // counter columns as the header narrows. Badges wrap before they can take
+                            // enough horizontal space to force the page title onto two lines.
+                            val trailingContentWidth = when {
+                                maxWidth >= 400.dp -> 180.dp // 3 x 53dp pills + two 6dp gaps
+                                maxWidth >= 280.dp -> 112.dp // 2 x 53dp pills + one 6dp gap
+                                else -> 53.dp
+                            }
 
                             if (perRow == 0) {
                                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -609,7 +685,7 @@ fun HKIPage(
                                                 .padding(end = if (headerTrailingContent != null) 12.dp else 0.dp)
                                         ) {
                                             Text(
-                                                text = title ?: viewModel.greeting,
+                                                text = title ?: greeting,
                                                 style = MaterialTheme.typography.headlineLarge,
                                                 color = headerTextColor,
                                                 fontWeight = FontWeight.Bold,
@@ -617,7 +693,13 @@ fun HKIPage(
                                                 lineHeight = 44.sp
                                             )
                                             HeaderSubtitle(
-                                                text = subtitle ?: (if (title == null) displayName else (if (status == ConnectionStatus.ERROR) "Connection Error" else "All systems normal")),
+                                                text = subtitle ?: if (title == null) {
+                                                    displayName
+                                                } else if (status == ConnectionStatus.ERROR) {
+                                                    stringResource(R.string.connection_error_title)
+                                                } else {
+                                                    stringResource(R.string.connection_all_systems_normal)
+                                                },
                                                 icon = subtitleIcon,
                                                 color = headerMutedColor
                                             )
@@ -633,7 +715,7 @@ fun HKIPage(
                                         if (headerTrailingContent != null) {
                                             Box(
                                                 modifier = Modifier
-                                                    .widthIn(max = 168.dp)
+                                                    .width(trailingContentWidth)
                                                     .padding(top = 4.dp),
                                                 contentAlignment = Alignment.TopEnd
                                             ) {
@@ -674,7 +756,7 @@ fun HKIPage(
                                             .padding(end = if (showPeopleRow) 12.dp else 0.dp)
                                     ) {
                                         Text(
-                                            text = title ?: viewModel.greeting,
+                                            text = title ?: greeting,
                                             style = MaterialTheme.typography.headlineLarge,
                                             color = headerTextColor,
                                             fontWeight = FontWeight.Bold,
@@ -682,7 +764,13 @@ fun HKIPage(
                                             lineHeight = 44.sp
                                         )
                                         HeaderSubtitle(
-                                            text = subtitle ?: (if (title == null) displayName else (if (status == ConnectionStatus.ERROR) "Connection Error" else "All systems normal")),
+                                            text = subtitle ?: if (title == null) {
+                                                displayName
+                                            } else if (status == ConnectionStatus.ERROR) {
+                                                stringResource(R.string.connection_error_title)
+                                            } else {
+                                                stringResource(R.string.connection_all_systems_normal)
+                                            },
                                             icon = subtitleIcon,
                                             color = headerMutedColor
                                         )
@@ -720,7 +808,9 @@ fun HKIPage(
                                                         )
                                                     }
                                                     if (overflowCount > 0 && rowIndex == avatarRows.lastIndex) {
-                                                        PersonOverflowAvatar(overflowCount, headerTextColor)
+                                                        PersonOverflowAvatar(overflowCount, headerTextColor) {
+                                                            showAllPeople = true
+                                                        }
                                                     }
                                                 }
                                             }
@@ -780,7 +870,7 @@ fun HKIPage(
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back",
+                                        contentDescription = stringResource(R.string.ui_back_b52b36b),
                                         tint = pillContentColor,
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -789,7 +879,7 @@ fun HKIPage(
                         }
 
                         Text(
-                            text = title ?: viewModel.greeting,
+                            text = title ?: greeting,
                             modifier = Modifier.weight(1f),
                             color = headerTextColor,
                             style = MaterialTheme.typography.titleLarge,
@@ -812,7 +902,7 @@ fun HKIPage(
                             alarm = compactRightAlarm,
                             use24hFormat = compactUse24h,
                             useFullDayName = compactUseFullDayName,
-                            isEditMode = isEditMode,
+                            isEditMode = isEditMode && !aestheticsOnly,
                             pillColor = pillColor,
                             textColor = pillContentColor,
                             editSurfaceColor = appColors.surface.copy(alpha = 0.7f),
@@ -834,7 +924,7 @@ fun HKIPage(
                 val badgeContent: @Composable () -> Unit = {
                     HKIBadgeBar(
                         badgeBarConfig = badgeBarConfig,
-                        isEditMode = isEditMode,
+                            isEditMode = isEditMode && !aestheticsOnly,
                         viewModel = viewModel,
                         navController = navController,
                         onConfigChange = { newBarConfig ->
@@ -919,14 +1009,14 @@ fun HKIPage(
             )
         }
 
-        if (showLeftPillSettings && weather != null) {
+        if (!aestheticsOnly && showLeftPillSettings && weather != null) {
             val leftDisplayType by viewModel.headerLeftDisplayType.collectAsState()
             val leftAlarmEntityIds by viewModel.headerLeftAlarmEntityIds.collectAsState()
             HKIWeatherDialog(
                 weather = weather!!,
                 onDismiss = { showLeftPillSettings = false },
                 viewModel = viewModel,
-                settingsTitle = "Left Header Pill",
+                settingsTitle = stringResource(R.string.header_pill_left),
                 displayType = leftDisplayType,
                 alarmEntityIds = leftAlarmEntityIds,
                 onDisplayTypeSelected = { viewModel.setHeaderLeftDisplayType(it) },
@@ -934,14 +1024,14 @@ fun HKIPage(
             )
         }
 
-        if (showRightPillSettings && weather != null) {
+        if (!aestheticsOnly && showRightPillSettings && weather != null) {
             val rightDisplayType by viewModel.weatherDisplayType.collectAsState()
             val rightAlarmEntityIds by viewModel.headerAlarmEntityIds.collectAsState()
             HKIWeatherDialog(
                 weather = weather!!,
                 onDismiss = { showRightPillSettings = false },
                 viewModel = viewModel,
-                settingsTitle = "Right Header Pill",
+                settingsTitle = stringResource(R.string.header_pill_right),
                 displayType = rightDisplayType,
                 alarmEntityIds = rightAlarmEntityIds,
                 onDisplayTypeSelected = { viewModel.setWeatherDisplayType(it) },
@@ -992,7 +1082,7 @@ fun HKIPage(
         }
         if (showPageConfig && pageKey != null) {
             PageSettingsDialog(
-                title = pageSettingsTitle ?: "Page Settings",
+                title = pageSettingsTitle ?: stringResource(R.string.page_settings_default_title),
                 config = pageConfig,
                 people = people,
                 showPeopleSettings = showPeople,
@@ -1000,6 +1090,7 @@ fun HKIPage(
                 customPage = customPage,
                 onCustomPageSave = onCustomPageSave,
                 extraSections = listOfNotNull(extraPageSettingsSection) + additionalPageSettingsSections,
+                aestheticsOnly = aestheticsOnly,
                 onHeaderColorPreview = { previewHeaderColor = it },
                 onBadgeBarPreview = { previewBadgeBarConfig = it },
                 onDismiss = {
@@ -1020,17 +1111,17 @@ fun HKIPage(
 
 /** "+N" bubble closing the avatar grid when more people exist than the two-row cap allows. */
 @Composable
-private fun PersonOverflowAvatar(count: Int, headerTextColor: Color) {
+private fun PersonOverflowAvatar(count: Int, headerTextColor: Color, onClick: () -> Unit) {
     val appColors = LocalHKIAppColors.current
     Surface(
-        modifier = Modifier.size(44.dp),
+        modifier = Modifier.size(44.dp).clip(CircleShape).clickable { onClick() },
         shape = CircleShape,
         border = BorderStroke(1.dp, headerTextColor.copy(alpha = 0.7f)),
         color = appColors.elevated
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
-                "+$count",
+                stringResource(R.string.ui_text_f168b71, count),
                 style = MaterialTheme.typography.labelMedium,
                 color = appColors.onSurface,
                 fontWeight = FontWeight.Bold,
@@ -1038,6 +1129,81 @@ private fun PersonOverflowAvatar(count: Int, headerTextColor: Color) {
             )
         }
     }
+}
+
+/** Everyone in the header, including the faces the "+N" bubble stands in for. */
+@Composable
+private fun AllPeopleDialog(
+    people: List<HAEntity>,
+    currentUrl: String,
+    onDismiss: () -> Unit,
+    onPersonClick: (HAEntity) -> Unit
+) {
+    val appColors = LocalHKIAppColors.current
+    val grayscaleFilter = remember {
+        ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+    }
+    val scroll = rememberScrollState()
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0] ?: java.util.Locale.getDefault()
+    ModernAlertDialog(
+        onDismissRequest = onDismiss,
+        dismissOnTapOutside = true,
+        title = { Text(stringResource(R.string.ui_people_dialog_title)) },
+        text = {
+            Column(
+                modifier = Modifier.fadingEdges(scroll).verticalScroll(scroll),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                people.forEach { person ->
+                    val imageUrl = person.entityPicture?.let {
+                        if (it.startsWith("http") || it.startsWith("content:") || it.startsWith("file:")) it
+                        else "$currentUrl$it"
+                    }
+                    val isHome = person.state == "home"
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().clip(itemCornerShape()).clickable { onPersonClick(person) },
+                        shape = itemCornerShape(),
+                        color = appColors.subtleSurface
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(modifier = Modifier.size(38.dp), shape = CircleShape, color = appColors.elevated) {
+                                if (imageUrl != null) {
+                                    AsyncImage(
+                                        model = imageUrl,
+                                        contentDescription = person.friendlyName,
+                                        contentScale = ContentScale.Crop,
+                                        colorFilter = if (!isHome) grayscaleFilter else null,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Person, contentDescription = null, tint = appColors.onMuted)
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                person.friendlyName ?: person.entity_id,
+                                color = appColors.onSurface,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                person.state.replaceFirstChar { it.titlecase(locale) },
+                                color = if (isHome) MaterialTheme.colorScheme.primary else appColors.onMuted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {}
+    )
 }
 
 @Composable
@@ -1103,6 +1269,7 @@ fun PageSettingsDialog(
     customPage: HKICustomPage? = null,
     onCustomPageSave: (HKICustomPage) -> Unit = {},
     extraSections: List<Pair<String, @Composable ColumnScope.(setBack: ((() -> Unit)?) -> Unit) -> Unit>> = emptyList(),
+    aestheticsOnly: Boolean = false,
     onHeaderColorPreview: (String?) -> Unit = {},
     onBadgeBarPreview: (HKIBadgeBarConfig?) -> Unit = {},
     onDismiss: () -> Unit,
@@ -1125,6 +1292,8 @@ fun PageSettingsDialog(
     var badgeLeftOverflow by remember(config) { mutableStateOf(config.badgeBar?.leftOverflow ?: false) }
     var badgeRightOverflow by remember(config) { mutableStateOf(config.badgeBar?.rightOverflow ?: false) }
     var section by remember { mutableStateOf("menu") }
+    // Where the section list was left, so returning from a sub-page doesn't snap back to the top.
+    var menuScrollOffset by remember { mutableIntStateOf(0) }
     var extraSectionInnerBack by remember { mutableStateOf<(() -> Unit)?>(null) }
     var customOrder by remember(config, people) {
         mutableStateOf(
@@ -1155,53 +1324,101 @@ fun PageSettingsDialog(
     val extraIndex = section.removePrefix("extra:").toIntOrNull()
     val currentTitle = when (section) {
         "menu" -> title
-        "page" -> "Page settings"
+        "page" -> stringResource(R.string.ui_page_settings_0a44afc)
+        "header" -> stringResource(R.string.ui_header_31341c6)
+        "badgebar" -> stringResource(R.string.page_settings_badge_bar)
+        "persons" -> stringResource(R.string.page_settings_persons)
         else -> extraIndex?.let { extraSections.getOrNull(it)?.first } ?: section.replaceFirstChar { it.uppercase() }
     }
     ModernSettingsDialogFrame(
         title = currentTitle,
-        subtitle = if (section == "menu") "Choose an area to configure" else "Focused options for this page area",
+        subtitle = if (section == "menu") {
+            stringResource(R.string.page_settings_choose_area)
+        } else {
+            stringResource(R.string.page_settings_focused_options)
+        },
         onDismiss = onDismiss,
         onBack = if (section == "menu") null else ::navigateBack,
         content = {
             val settingsScrollState = rememberScrollState()
+            // One scroll state serves every section here, so it needs the same save/restore the
+            // main settings dialog does — otherwise a deep scroll in one sub-page carries straight
+            // into the next one. This hierarchy is only two levels: back always means "menu".
+            LaunchedEffect(section) {
+                val target = if (section == "menu") menuScrollOffset else 0
+                if (target > 0) {
+                    withTimeoutOrNull(1.seconds) {
+                        snapshotFlow { settingsScrollState.maxValue }.first { it > 0 }
+                    }
+                    settingsScrollState.scrollTo(target.coerceAtMost(settingsScrollState.maxValue))
+                } else {
+                    settingsScrollState.scrollTo(0)
+                }
+                if (section == "menu") {
+                    snapshotFlow { settingsScrollState.value }.collect { menuScrollOffset = it }
+                }
+            }
             Column(
                 modifier = Modifier.fillMaxSize().fadingEdges(settingsScrollState).verticalScroll(settingsScrollState),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 if (section == "menu") {
-                    SettingsSubcategory("Page areas", "Each group controls one part of this page")
-                    SettingsMenuChoice(Icons.Default.Image, "Header", "Wallpaper and custom header color") { section = "header" }
+                    if (aestheticsOnly) {
+                        SettingsGroup {
+                            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.family_aesthetics_only_explanation), color = appColors.onMuted, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                    SettingsSubcategory(stringResource(R.string.ui_page_areas_1068b64), stringResource(R.string.ui_each_group_controls_one_part_of_this_page_286a40b))
+                    SettingsMenuChoice(
+                        Icons.Default.Image,
+                        stringResource(R.string.ui_header_31341c6),
+                        stringResource(R.string.page_settings_header_description)
+                    ) { section = "header" }
                     if (customPage != null) {
-                        SettingsMenuChoice(Icons.Default.DashboardCustomize, "Page Settings", "Name, subtitle and navigation icon") { section = "page" }
+                        SettingsMenuChoice(
+                            Icons.Default.DashboardCustomize,
+                            stringResource(R.string.page_settings_default_title),
+                            stringResource(R.string.page_settings_custom_page_description)
+                        ) { section = "page" }
                     }
-                    if (showBadgeBarSettings) {
-                        SettingsMenuChoice(Icons.Default.ViewStream, "Badge Bar", "Visibility, alignment, and display options") { section = "badgebar" }
+                    if (showBadgeBarSettings && !aestheticsOnly) {
+                        SettingsMenuChoice(
+                            Icons.Default.ViewStream,
+                            stringResource(R.string.page_settings_badge_bar),
+                            stringResource(R.string.page_settings_badge_description)
+                        ) { section = "badgebar" }
                     }
-                    if (showPeopleSettings) {
-                        SettingsMenuChoice(Icons.Default.Person, "Persons", "Visibility and ordering") { section = "persons" }
+                    if (showPeopleSettings && !aestheticsOnly) {
+                        SettingsMenuChoice(
+                            Icons.Default.Person,
+                            stringResource(R.string.page_settings_persons),
+                            stringResource(R.string.page_settings_persons_description)
+                        ) { section = "persons" }
                     }
                     extraSections.forEachIndexed { index, extra ->
                         SettingsMenuChoice(
-                            if (extra.first.equals("Re-import", ignoreCase = true)) Icons.Default.CloudDownload else Icons.Default.Tune,
+                            Icons.Default.Tune,
                             extra.first,
-                            if (extra.first.equals("Re-import", ignoreCase = true)) "Fetch from Home Assistant" else "Configure"
+                            stringResource(R.string.page_settings_configure)
                         ) { section = "extra:$index" }
                     }
                 }
                 if (section == "page" && customPage != null) {
-                    SettingsSubcategory("Identity", "Name, subtitle, and navigation icon")
+                    SettingsSubcategory(stringResource(R.string.ui_identity_7e5a975), stringResource(R.string.ui_name_subtitle_and_navigation_icon_3f2e8c4))
                     OutlinedTextField(
                         value = customPageName,
                         onValueChange = { customPageName = it },
-                        label = { Text("Page name") },
+                        label = { Text(stringResource(R.string.ui_page_name_c99f51a)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
                         value = customPageSubtitle,
                         onValueChange = { customPageSubtitle = it },
-                        label = { Text("Page subtitle") },
+                        label = { Text(stringResource(R.string.ui_page_subtitle_8a04084)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1214,7 +1431,7 @@ fun PageSettingsDialog(
                             MdiIcon(customPageIcon, contentDescription = null, tint = appColors.onSurface, size = 24.dp)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text("Page icon", color = appColors.onSurface, style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.ui_page_icon_b58a288), color = appColors.onSurface, style = MaterialTheme.typography.labelLarge)
                                 Text(customPageIcon, color = appColors.onMuted, style = MaterialTheme.typography.bodySmall)
                             }
                             Icon(Icons.Default.ChevronRight, null, tint = appColors.onMuted)
@@ -1222,11 +1439,11 @@ fun PageSettingsDialog(
                     }
                 }
                 if (section == "header") {
-                    SettingsSubcategory("Header appearance", "Wallpaper and an optional custom color")
+                    SettingsSubcategory(stringResource(R.string.ui_header_appearance_40327c9), stringResource(R.string.ui_wallpaper_and_an_optional_custom_color_f4f12f1))
                     OutlinedTextField(
                         value = wallpaper,
                         onValueChange = { wallpaper = it },
-                        label = { Text("Header wallpaper URL or path") },
+                        label = { Text(stringResource(R.string.ui_header_wallpaper_url_or_path_25cf2b6)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1236,7 +1453,7 @@ fun PageSettingsDialog(
                             headerColorText = it
                             onHeaderColorPreview(it.ifBlank { null })
                         },
-                        label = { Text("Header custom color (#RRGGBB)") },
+                        label = { Text(stringResource(R.string.ui_header_custom_color_rrggbb_1887d0a)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1251,18 +1468,18 @@ fun PageSettingsDialog(
                         modifier = Modifier.align(Alignment.CenterHorizontally).size(220.dp)
                     )
                 }
-                if (section == "persons" && showPeopleSettings) {
-                    SettingsSubcategory("People", "Visibility and ordering in the page header")
+                if (section == "persons" && showPeopleSettings && !aestheticsOnly) {
+                    SettingsSubcategory(stringResource(R.string.ui_people_b37554f), stringResource(R.string.ui_visibility_and_ordering_in_the_page_header_0f9e3d8))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = showPeople, onCheckedChange = { showPeople = it })
-                        Text("Show persons")
+                        Text(stringResource(R.string.ui_show_persons_c4e81a0))
                     }
-                    Text("Persons order", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ui_persons_order_9fe91dc), style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         FilterChip(
                             selected = peopleSort == "custom",
                             onClick = { peopleSort = "custom" },
-                            label = { Text("Custom") }
+                            label = { Text(stringResource(R.string.ui_custom_081ae3f)) }
                         )
                     }
                     if (peopleSort == "custom") {
@@ -1302,7 +1519,7 @@ fun PageSettingsDialog(
                         }
                     }
                     if (people.isNotEmpty()) {
-                        Text("Visible persons", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_visible_persons_4b7ae6c), style = MaterialTheme.typography.labelLarge)
                         people.forEach { person ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(
@@ -1319,17 +1536,17 @@ fun PageSettingsDialog(
                         FilterChip(
                             selected = peopleSort == "changed",
                             onClick = { peopleSort = "changed" },
-                            label = { Text("State") }
+                            label = { Text(stringResource(R.string.ui_state_a725020)) }
                         )
                         FilterChip(
                             selected = peopleSort == "name",
                             onClick = { peopleSort = "name" },
-                            label = { Text("Name") }
+                            label = { Text(stringResource(R.string.ui_name_709a232)) }
                         )
                         FilterChip(
                             selected = peopleSort == "name_desc",
                             onClick = { peopleSort = "name_desc" },
-                            label = { Text("Reverse") }
+                            label = { Text(stringResource(R.string.ui_reverse_57f9933)) }
                         )
                     }
                 }
@@ -1338,14 +1555,15 @@ fun PageSettingsDialog(
                         extraSections.getOrNull(index)?.second?.invoke(this) { extraSectionInnerBack = it }
                     }
                 }
-                if (section == "badgebar" && showBadgeBarSettings) {
-                    SettingsSubcategory("Badge bar layout", "Visibility, alignment, and overflow behavior")
+                if (section == "badgebar" && showBadgeBarSettings && !aestheticsOnly) {
+                    SettingsSubcategory(stringResource(R.string.ui_badge_bar_layout_4b4dfdd), stringResource(R.string.ui_visibility_alignment_and_overflow_behavior_467f44f))
+                    if (!aestheticsOnly) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Show badge bar", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.ui_show_badge_bar_827499b), style = MaterialTheme.typography.bodyMedium)
                         Switch(
                             checked = badgeBarEnabled,
                             onCheckedChange = {
@@ -1354,9 +1572,15 @@ fun PageSettingsDialog(
                             }
                         )
                     }
-                    Text("Alignment", style = MaterialTheme.typography.labelLarge)
+                    }
+                    Text(stringResource(R.string.ui_alignment_7f8c517), style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        listOf("split" to "Split", "left" to "Left", "center" to "Center", "right" to "Right").forEach { (value, label) ->
+                        listOf(
+                            "split" to stringResource(R.string.alignment_split),
+                            "left" to stringResource(R.string.ui_left_8ae1c34),
+                            "center" to stringResource(R.string.alignment_center),
+                            "right" to stringResource(R.string.ui_right_954daa8)
+                        ).forEach { (value, label) ->
                             FilterChip(
                                 selected = badgeAlignment == value,
                                 onClick = {
@@ -1373,7 +1597,7 @@ fun PageSettingsDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Span badges", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.ui_span_badges_58c73f2), style = MaterialTheme.typography.bodyMedium)
                             Switch(
                                 checked = badgeSpanIcons,
                                 onCheckedChange = {
@@ -1389,7 +1613,7 @@ fun PageSettingsDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Left side overflows right", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.ui_left_side_overflows_right_fc8533c), style = MaterialTheme.typography.bodyMedium)
                             Switch(
                                 checked = badgeLeftOverflow,
                                 onCheckedChange = {
@@ -1403,7 +1627,7 @@ fun PageSettingsDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Right side overflows left", style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.ui_right_side_overflows_left_d75893d), style = MaterialTheme.typography.bodyMedium)
                             Switch(
                                 checked = badgeRightOverflow,
                                 onCheckedChange = {
@@ -1417,7 +1641,7 @@ fun PageSettingsDialog(
             }
         },
         footer = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) }
             Button(onClick = {
                 customPage?.let {
                     onCustomPageSave(
@@ -1432,11 +1656,13 @@ fun PageSettingsDialog(
                     config.copy(
                         wallpaper = wallpaper.ifBlank { null },
                         headerColor = headerColorText.ifBlank { null },
-                        showPeople = showPeople,
-                        peopleSort = peopleSort,
-                        customPeopleOrder = customOrder,
-                        hiddenPeople = hiddenPeople,
-                        badgeBar = if (showBadgeBarSettings) {
+                        showPeople = if (aestheticsOnly) config.showPeople else showPeople,
+                        peopleSort = if (aestheticsOnly) config.peopleSort else peopleSort,
+                        customPeopleOrder = if (aestheticsOnly) config.customPeopleOrder else customOrder,
+                        hiddenPeople = if (aestheticsOnly) config.hiddenPeople else hiddenPeople,
+                        badgeBar = if (aestheticsOnly) {
+                            config.badgeBar
+                        } else if (showBadgeBarSettings) {
                             (config.badgeBar ?: HKIBadgeBarConfig()).copy(
                                 visible = badgeBarEnabled,
                                 alignment = badgeAlignment,
@@ -1447,7 +1673,7 @@ fun PageSettingsDialog(
                         } else config.badgeBar
                     )
                 )
-            }, enabled = customPage == null || customPageName.isNotBlank()) { Text("Save") }
+            }, enabled = customPage == null || customPageName.isNotBlank()) { Text(stringResource(R.string.ui_save_efc007a)) }
         }
     )
 }
@@ -1517,6 +1743,7 @@ private fun HeaderStatusPill(
     onSettingsClick: () -> Unit,
     onClick: () -> Unit
 ) {
+    val appColors = LocalHKIAppColors.current
     val showPill = displayType != "None"
     Box(
         modifier = if (!showPill && isEditMode) Modifier.size(36.dp) else Modifier,
@@ -1524,16 +1751,27 @@ private fun HeaderStatusPill(
     ) {
         if (showPill) {
             val now = LocalDateTime.now()
-            val timePattern = if (use24hFormat) "HH:mm" else "hh:mm a"
-            val dayPattern = if (useFullDayName) "EEEE" else "EEE"
+            val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0] ?: java.util.Locale.getDefault()
+            val timeSkeleton = if (use24hFormat) "Hm" else "hma"
+            val daySkeleton = if (useFullDayName) "EEEE" else "EEE"
+            fun pattern(skeleton: String) =
+                android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton)
             val displayText = when (displayType) {
-                "Date" -> now.format(DateTimeFormatter.ofPattern("$dayPattern, MMM d"))
-                "Time" -> now.format(DateTimeFormatter.ofPattern(timePattern))
-                "DateTime" -> now.format(DateTimeFormatter.ofPattern("$dayPattern d, $timePattern"))
-                "Alarm" -> alarm?.state?.replace("_", " ")?.replaceFirstChar { it.uppercase() } ?: "Alarm"
-                else -> "${weather?.state?.let { formatWeatherState(it) } ?: "Cloudy"} ${weather?.temperature?.toInt() ?: 12}°C"
+                "Date" -> now.format(DateTimeFormatter.ofPattern(pattern("${daySkeleton}MMMd"), locale))
+                "Time" -> now.format(DateTimeFormatter.ofPattern(pattern(timeSkeleton), locale))
+                "DateTime" -> now.format(
+                    DateTimeFormatter.ofPattern(pattern("${daySkeleton}MMMd$timeSkeleton"), locale)
+                )
+                "Alarm" -> alarm?.localizedStateLabel() ?: stringResource(R.string.ui_alarm_25f8c55)
+                else -> stringResource(
+                    R.string.ui_c_286a95c,
+                    weather?.state?.let { localizedWeatherStateLabel(it) }
+                        ?: stringResource(R.string.weather_cloudy),
+                    weather?.temperature?.toInt() ?: 12
+                )
             }
             val pillShape = itemCornerShape()
+            val resolvedPillBackground = pillColor.compositeOver(appColors.background)
             Surface(
                 modifier = Modifier
                     .height(36.dp)
@@ -1548,10 +1786,14 @@ private fun HeaderStatusPill(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (displayType == "Alarm") {
+                        val alarmIconColor = semanticColorForBackground(
+                            alarmStateColor(alarm?.state.orEmpty()),
+                            resolvedPillBackground,
+                        )
                         MdiIcon(
                             name = alarm?.let { defaultEntityIconSlug(it) } ?: "shield-home",
                             contentDescription = null,
-                            tint = alarmStateColor(alarm?.state.orEmpty()),
+                            tint = alarmIconColor,
                             size = 18.dp
                         )
                         Spacer(Modifier.width(8.dp))
@@ -1560,7 +1802,14 @@ private fun HeaderStatusPill(
                             WeatherStateIcon(
                                 state = weather?.state,
                                 size = 20.dp,
-                                contentDescription = weather?.state?.let(::formatWeatherState)
+                                surface = WeatherAnimationSurface.PILL,
+                                fallbackTint = semanticColorForBackground(
+                                    weatherStateColor(weather?.state),
+                                    resolvedPillBackground,
+                                ),
+                                contentDescription = weather?.state?.let {
+                                    localizedWeatherStateLabel(it)
+                                }
                             )
                             Spacer(Modifier.width(8.dp))
                         }
@@ -1601,7 +1850,7 @@ private fun HeaderSubtitle(text: String, icon: ImageVector?, color: Color) {
 @Composable
 private fun HeaderNotificationSummary(count: Int, color: Color) {
     if (count == 0) {
-        Text("No Notifications", color = color, style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.ui_no_notifications_a72159d), color = color, style = MaterialTheme.typography.labelMedium)
         return
     }
     val openNotifications = LocalOpenNotifications.current
@@ -1623,7 +1872,7 @@ private fun HeaderNotificationSummary(count: Int, color: Color) {
                 fontWeight = FontWeight.Bold
             )
         }
-        Text(if (count == 1) "Notification" else "Notifications", color = color, style = MaterialTheme.typography.labelMedium)
+        Text(if (count == 1) stringResource(R.string.ui_notification_c18f8f2) else stringResource(R.string.ui_notifications_753a22b), color = color, style = MaterialTheme.typography.labelMedium)
     }
 }
 

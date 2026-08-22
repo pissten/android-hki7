@@ -23,6 +23,12 @@ object HaDashboardSharing {
     suspend fun whoami(context: Context): Hki7Identity? =
         Hki7Endpoint.withClient(context) { it.hki7WhoAmI() }
 
+    /** Whether Home Assistant itself marks the signed-in user as an administrator. This uses the
+     * built-in auth/current_user command, so callers must not depend on the optional HKI 7 Cloud
+     * component merely to protect native Home Assistant administration links. */
+    suspend fun currentUserIsAdmin(context: Context): Boolean =
+        Hki7Endpoint.withClient(context) { it.getCurrentUser()?.is_admin == true } ?: false
+
     /** HA users the admin can share with. Empty if the caller isn't an admin or the component is absent. */
     suspend fun listUsers(context: Context): List<Hki7User> =
         Hki7Endpoint.withClient(context) { it.hki7ListUsers() } ?: emptyList()
@@ -47,6 +53,24 @@ object HaDashboardSharing {
     suspend fun unpublish(context: Context, sharedId: String): Boolean =
         Hki7Endpoint.withClient(context) { it.hki7UnpublishDashboard(sharedId) } ?: false
 
+    /** Replaces who a published dashboard is shared with, leaving its contents alone. Granting and
+     * revoking are the same call — the component stores the list it is given — so this republishes
+     * the dashboard's own current payload rather than the owner's local copy, which may not exist on
+     * this device at all (a reinstall, or an admin managing a dashboard from a second phone).
+     *
+     * Everyone dropped from [sharedWith] loses the dashboard the next time their app syncs, which
+     * deletes their local copy along with everything they styled on it. */
+    suspend fun setSharedWith(
+        context: Context,
+        meta: Hki7SharedDashboardMeta,
+        sharedWith: List<String>,
+    ): Boolean = Hki7Endpoint.withClient(context) { client ->
+        val raw = client.hki7GetDashboard(meta.id) ?: return@withClient false
+        val payload = runCatching { json.parseToJsonElement(raw) }.getOrNull() as? JsonObject
+            ?: return@withClient false
+        client.hki7PublishDashboard(meta.name, payload, sharedWith, meta.id) != null
+    } ?: false
+
     /** Dashboards visible to the current user (own + shared-with-them + everyone). */
     suspend fun listSharedForMe(context: Context): List<Hki7SharedDashboardMeta> =
         Hki7Endpoint.withClient(context) { it.hki7ListSharedDashboards() } ?: emptyList()
@@ -57,24 +81,40 @@ object HaDashboardSharing {
         prefs: PreferencesManager,
         meta: Hki7SharedDashboardMeta,
     ): String? {
-        val raw = Hki7Endpoint.withClient(context) { it.hki7GetDashboard(meta.id) } ?: return null
-        return prefs.importSharedDashboard(meta.id, raw, nameOverride = meta.name, updatedAt = meta.updated)
+        val imported = Hki7Endpoint.withClient(context) { client ->
+            val identity = client.hki7WhoAmI() ?: return@withClient null
+            val policy = if (identity.isAdmin || identity.isOwner) Hki7Policy() else client.hki7GetMyPolicy()
+            val raw = client.hki7GetDashboard(meta.id) ?: return@withClient null
+            raw to policy
+        } ?: return null
+        val (raw, policy) = imported
+        // Cache the policy before activating the subscription so every storage-level permission
+        // check observes the administrator's current values immediately.
+        prefs.saveEnforcedPolicy(policy)
+        val localId = prefs.importSharedDashboard(
+            meta.id,
+            raw,
+            nameOverride = meta.name,
+            updatedAt = meta.updated,
+        ) ?: return null
+        prefs.markFamilyDashboardSubscribed()
+        return localId
     }
 
     /** Outcome of a shared-dashboard sync. */
-    data class SyncResult(val activeChanged: Boolean, val needsAutoGenerate: Boolean)
+    data class SyncResult(val activeChanged: Boolean, val accessLost: Boolean)
 
     /** Reconciles this user's imported shared dashboards with the cloud: merges newer versions in
      * (preserving the recipient's aesthetic changes) and removes any the admin unpublished. If the
      * cloud can't be reached the local dashboards are left completely untouched, so a transient outage
-     * never deletes anything. When the removal empties the dashboard list, [SyncResult.needsAutoGenerate]
-     * asks the caller to build the app's default dashboard. */
+     * never deletes anything. When the removal empties the dashboard list, [SyncResult.accessLost]
+     * asks the caller to return to the permission-aware dashboard chooser. */
     suspend fun syncUpdates(context: Context, prefs: PreferencesManager): SyncResult {
         val locals = prefs.dashboards.first().filter { it.id.startsWith("shared-") }
-        if (locals.isEmpty()) return SyncResult(activeChanged = false, needsAutoGenerate = false)
+        if (locals.isEmpty()) return SyncResult(activeChanged = false, accessLost = false)
         // null (not empty) means the component is unreachable — do not prune on a failed call.
         val shared = Hki7Endpoint.withClient(context) { it.hki7ListSharedDashboards() }
-            ?: return SyncResult(activeChanged = false, needsAutoGenerate = false)
+            ?: return SyncResult(activeChanged = false, accessLost = false)
         val sharedByLocalId = shared.associateBy { "shared-${it.id}" }
         // The current user owns some of these; those are the source of truth and are pushed by
         // pushOwnedUpdates, never pulled — pulling would merge the (older) cloud copy back over a
@@ -91,7 +131,7 @@ object HaDashboardSharing {
         val prune = prefs.pruneUnpublishedSharedDashboards(sharedByLocalId.keys)
         return SyncResult(
             activeChanged = activeChanged || prune.activeReplaced,
-            needsAutoGenerate = prune.needsAutoGenerate,
+            accessLost = prune.needsDashboardChoice,
         )
     }
 
@@ -109,8 +149,13 @@ object HaDashboardSharing {
         var pushed = 0
         for (meta in shared) {
             if (meta.ownerId != me.userId) continue
-            val local = localById[meta.id] ?: continue
-            val currentRaw = prefs.exportDashboard(meta.id) ?: continue
+            // The original publishing device keeps the source id; after a reinstall the owner may
+            // re-import that same cloud dashboard, which deliberately uses "shared-<id>" locally.
+            val local = localById[meta.id] ?: localById["shared-${meta.id}"] ?: continue
+            // Must look the export up under the *local* id -- when it only exists under the
+            // "shared-<id>" fallback above, exportDashboard(meta.id) finds nothing and this
+            // dashboard is silently skipped on every push, regardless of what was edited.
+            val currentRaw = prefs.exportDashboard(local.id) ?: continue
             val currentJson = runCatching { json.parseToJsonElement(currentRaw) }.getOrNull() as? JsonObject ?: continue
             // Skip when the cloud copy already matches the local content (structural comparison, so
             // formatting differences from the round-trip don't cause a spurious push).

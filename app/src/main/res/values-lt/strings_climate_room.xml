@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="cr_whats_new_1_1_0">
+        <item>Dar aštuoniolika kalbų, nuo HKI 7 iki 36. Į sąrašą įtrauktos lenkų, rusų, čekų, slovakų, vengrų, rumunų, bulgarų, kroatų, graikų, lietuvių, latvių, estų, danų, tajų ir hebrajų kalbos, taip pat austrų vokiečių, šveicarų vokiečių ir meksikiečių ispanų kalbos. Hebrajų kalba sąsaja išdėstoma iš dešinės į kairę, kaip tai daro arabų kalba.</item>
+        <item>HKI 7 dabar veikia 12 ir naujesnėse versijose „Android“. Anksčiau jam reikėjo „Android 14“, kuri atmetė daugybę puikiai veikiančių telefonų ir planšetinių kompiuterių.</item>
+        <item>Energijos sąnaudos rodomos jūsų valiuta, o ne visada eurais. HKI 7 seka, ką praneša jūsų išlaidų jutikliai, o energijos nustatymuose yra valiutos nustatymas, jei norėtumėte patys pasirinkti.</item>
+        <item>Kalbos parinkiklis turi paieškos laukelį ir yra surūšiuotas taip, kad jam prireikė 36 įrašų. Jei kada nors pasieksite kalbą, kurios nemokate skaityti, kelias atgal vis tiek yra pirmas dalykas ekrane.</item>
+        <item>Rodiniai prisimena, kur slinkote, o palietus skirtuką, kurį jau esate, grįšite į viršų.</item>
+        <item>Perbraukdami į šoną nebeišleisite iš atidaryto puslapio, pvz., Saulės energijos viduje. Atgal dabar grąžina jus į rodinį, iš kurio atėjote, o ne pereina į pagrindinį puslapį.</item>
+        <item>Slenkamose eilutėse taip rašoma. Išskleidžiamajame meniu, naršymo juostoje ir nustatymų skirtukuose krašte rodoma rodyklė, kai reikia daugiau pasiekti.</item>
+        <item>Dialogai visame pasaulyje atrodo ir veikia taip pat. Šeši iš jų buvo paprasti „Android“ dialogo langai be uždarymo mygtuko kampe, o programėlės mygtukai dabar sutaria, ką reiškia „Uždaryti“, „Išsaugoti“ ir „Atlikta“.</item>
+        <item>Kuriant prietaisų skydelį pirmiausia klausiama, o tada siūlomi tie patys pasirinkimai, kaip ir pirmą kartą nustatant, todėl nauja informacijos suvestinė gali prasidėti nuo atsarginės kopijos arba nuo tos, kurią bendrino jūsų šeima, taip pat gali būti sukurta arba palikta tuščia. Dabartinė informacijos suvestinė niekada neperrašoma, o bendrinamos informacijos suvestinės dabar pažymėtos kaip bendrinamos sąraše.</item>
+        <item>Akumuliatoriaus valdiklis atidaro sąrašą vietoje, o ne nukreipia jus į atskirą puslapį, sugrupuotą pagal tai, kaip kiekvienas iš jų yra skubus, ir rodo akumuliatoriaus tipą, kur Home Assistant tai žino. Jei norite, yra paieškos laukelis ir mygtukas, skirtas atidaryti visą akumuliatoriaus rodinį.</item>
+        <item>Paspaudus žmonių skaitiklį kambaryje, parodoma, kas ten yra, su kiekvieno asmens nuotrauka. Kambarių antraštėje dabar taip pat yra namų ūkio skaitiklis, rodantis, kur visi yra, neatidarant kiekvieno kambario.</item>
+        <item>Mygtukas gali būti paliktas iš kambario šviesų ir įrenginių skaitiklių, skirtų tiems, kurie yra kambaryje, bet iš tikrųjų nėra jo dalis.</item>
+        <item>Valdikliai, kuriems reikalinga integracija, kurios neturite – Formulė 1, Siuntiniai, Atliekų surinkimas – yra pilkos spalvos ir nurodo, ko trūksta, užuot pridėjus ir tuščius.</item>
+        <item>Siuntų sekimas apima dar penkiolika vežėjų, įskaitant „PostNord“, „InPost“, „Swiss Post“, „An Post“, „Budbee“, „Sameday“ ir „Nova Post“, kurių kiekvienas turi savo logotipą.</item>
+        <item>Valetudo robotas siurblys automatiškai paima tiesioginį žemėlapį, kai importuojami jūsų kambariai, o ne reikia pasirinkti kamerą rankomis.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_1">
+        <item>Naujas Laikrodžio valdiklis. Analoginis arba skaitmeninis, septyni dizainai, 12 arba 24 valandų laikas ir diena, data ir metai, jei norite. Bakstelėkite jį, kad pamatytumėte kitą signalą.</item>
+        <item>Pasiekite Home Assistant iš Nustatymų. Administratoriai jau prisijungę gauna nustatymus, kūrėjo įrankius ir HACS visą ekraną HKI 7.</item>
+        <item>HKI 7 praneša, kai išleidžiama nauja versija – naudinga, jei ją įdiegėte iš „GitHub“, o ne „Play“ parduotuvės. Išjunkite jį nustatymuose › Apie.</item>
+        <item>Home Assistant dabar gali matyti kitą jūsų telefono žadintuvą – tą patį jutiklį, kurį teikia oficiali programa.</item>
+        <item>Medijos grotuvai rodo, kas groja, o ne tik kuri programa atidaryta. Serialą transliuojančiame „Android TV“ rodoma programa, sezonas ir serija.</item>
+        <item>Kiekvieną kartą grįžtama į puslapį, kuriame buvote anksčiau, kol pasieksite pagrindinį puslapį. Ji nebepraleidžia puslapių ir anksti nepalieka programos.</item>
+        <item>Fiksuoti temperatūros ir energijos rodmenys čekų, slovakų, graikų, norvegų, švedų ir danų kalbomis, kur skaičiai rodomi neteisingai arba gali sugadinti ekraną.</item>
+        <item>Kažkas blogai parašyta jūsų kalba? Dabar kiekviena kalba yra vienas failas, kurį galite taisyti naudodami „GitHub“, kodo nereikia.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_2">
+        <item>Grįžus iš Home Assistant Nustatymai, Kūrėjų įrankiai arba HACS dabar atkuria tą pačią padėtį HKI 7 nustatymuose, o ne iš naujo atidaro viršuje.</item>
+        <item>„Android 17“ dabar prašo prieigos prie vietinio tinklo, prieš surasdama arba tiesiogiai prisijungdama prie Home Assistant, todėl vietiniai serveriai ir toliau dirba su API 37. Nustatymai › Ryšys rodo, ar jis leidžiamas, ir gali dar kartą paklausti, kai „Android 17“ naujinimas bus pristatytas praėjus ilgai po sąrankos.</item>
+        <item>Naujinimo pranešimai dabar taip pat rodomi paties HKI 7 pranešimų skydelyje su nuoroda „Žiūrėkite, kas pasikeitė“ į laidos pastabas. Sistemos pranešimas dingsta, kai jį perbraukiate; šis išlieka, o patikrinus, ar nėra naujinimų skiltyje „Nustatymai“ › „Apie“, jis grąžinamas.</item>
+        <item>Leidimų plytelės nustatymuose dabar atnaujinamos, kai tik grįšite jį suteikę. Vieta, akumuliatoriaus optimizavimas ir naudojimas fone buvo rodomi sena būsena, kol nebuvo uždaryta ir vėl atidaryta „Nustatymai“.</item>
+    </string-array>
+</resources>

@@ -2,6 +2,11 @@
 
 package com.jimz011apps.hki7
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
+import android.os.Build
 import android.os.Bundle
 import android.Manifest
 import android.annotation.SuppressLint
@@ -9,8 +14,6 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -19,12 +22,22 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.systemGestureExclusion
@@ -50,8 +63,9 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.coroutines.cancellation.CancellationException
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import kotlinx.coroutines.launch
@@ -67,8 +81,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -81,30 +93,55 @@ import com.jimz011apps.hki7.data.PreferencesManager
 import com.jimz011apps.hki7.data.PushForegroundService
 import com.jimz011apps.hki7.data.EXTRA_HA_INSTANCE_ID
 import com.jimz011apps.hki7.data.isDemoServerUrl
+import com.jimz011apps.hki7.data.canAccessLocalNetwork
+import com.jimz011apps.hki7.data.LOCAL_NETWORK_PERMISSION
 import com.jimz011apps.hki7.data.withDisplayName
+import com.jimz011apps.hki7.data.withStoredAppLocale
 import com.jimz011apps.hki7.ui.ConnectionStatus
 import com.jimz011apps.hki7.ui.connectionIssueGraceMillis
 import com.jimz011apps.hki7.ui.HomeAssistantRestartPhase
 import com.jimz011apps.hki7.ui.MainViewModel
+import com.jimz011apps.hki7.ui.NavigationHistory
+import com.jimz011apps.hki7.ui.VisitedPlace
 import com.jimz011apps.hki7.data.HaParentalControls
+import com.jimz011apps.hki7.data.HaDashboardSharing
+import com.jimz011apps.hki7.data.VisibilityUserSession
+import com.jimz011apps.hki7.ui.components.AppUpdateRequiredScreen
 import com.jimz011apps.hki7.ui.components.IconEffectDefaults
+import com.jimz011apps.hki7.ui.components.RoomMovePrompt
+import com.jimz011apps.hki7.ui.components.LocalEntityCatalogProvider
+import com.jimz011apps.hki7.ui.components.LocalVisibilityFamilyContext
+import com.jimz011apps.hki7.ui.components.VisibilityFamilyContext
 import com.jimz011apps.hki7.ui.components.LocalIconAnimationsEnabled
+import com.jimz011apps.hki7.ui.components.LocalWeatherAnimations
+import com.jimz011apps.hki7.ui.components.WeatherAnimationSettings
 import com.jimz011apps.hki7.ui.NavBarConfig
-import com.jimz011apps.hki7.ui.homeAssistantConnectionStatusLabel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import com.jimz011apps.hki7.ui.Screen
+import com.jimz011apps.hki7.ui.localizedTitle
+import com.jimz011apps.hki7.ui.localizedName
+import com.jimz011apps.hki7.ui.components.EdgePanel
+import com.jimz011apps.hki7.ui.components.EdgePanelState
+import com.jimz011apps.hki7.ui.components.PanelEdge
+import com.jimz011apps.hki7.ui.components.awaitEdgePanelDrags
 import com.jimz011apps.hki7.ui.components.HKIBottomBar
-import com.jimz011apps.hki7.ui.components.awaitHorizontalTabSwipes
+import com.jimz011apps.hki7.ui.components.HKIBottomBarTabWidth
+import com.jimz011apps.hki7.ui.components.rememberPagerHandoffBlocker
+import com.jimz011apps.hki7.ui.components.PagerIndicator
+import com.jimz011apps.hki7.ui.components.PagerIndicatorHeight
 import com.jimz011apps.hki7.ui.components.HKIMediaPlayerDialog
 import com.jimz011apps.hki7.ui.components.MediaPlayerMiniBar
 import com.jimz011apps.hki7.ui.components.LocalMediaPlayerBarInset
 import com.jimz011apps.hki7.ui.components.LocalItemCornerRadius
 import com.jimz011apps.hki7.ui.components.LocalOpenNotifications
+import com.jimz011apps.hki7.ui.components.LocalOpenSettingsRoute
+import com.jimz011apps.hki7.ui.screens.SettingsDialog
 import com.jimz011apps.hki7.ui.components.itemCornerShape
 import com.jimz011apps.hki7.ui.utils.IconPack
 import com.jimz011apps.hki7.ui.utils.IconPreferences
 import com.jimz011apps.hki7.ui.utils.MdiIcon
+import com.jimz011apps.hki7.ui.components.CustomPopupHost
 import com.jimz011apps.hki7.ui.components.NotificationPanel
 import com.jimz011apps.hki7.ui.components.NotificationBannerHost
 import com.jimz011apps.hki7.ui.components.QuickStartGuideDialog
@@ -122,16 +159,23 @@ import kotlin.time.Duration.Companion.seconds
 class MainActivity : ComponentActivity() {
     private var forceHighRefresh = false
 
+    // Applies the stored per-app language below API 33, where the platform has no LocaleManager to
+    // do it for us. A no-op on API 33+ — see AppLocale.withStoredAppLocale.
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase.withStoredAppLocale())
+    }
+
     @SuppressLint("SourceLockedOrientationActivity")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Portrait everywhere except fullscreen camera, which temporarily switches to FULL_USER and
-        // restores this on exit. Deliberately set at runtime rather than via
+        // Follow the system's rotation-lock setting rather than hard-locking to portrait: FULL_USER
+        // rotates freely with the sensor when the user allows rotation, and behaves like a lock when
+        // they've disabled auto-rotate. Deliberately set at runtime rather than via
         // android:screenOrientation: Play builds its device catalogue from the manifest only, and a
         // declared portrait lock drops every landscape-only form factor (it cost us all car devices
-        // and a tablet). A runtime lock is invisible to that catalogue while behaving identically
+        // and a tablet). A runtime setting is invisible to that catalogue while behaving identically
         // on phones. Note Android 16+ ignores orientation locks on large screens either way.
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         enableEdgeToEdge()
         applyPreferredRefreshRate()
         val prefs = PreferencesManager(this)
@@ -152,6 +196,20 @@ class MainActivity : ComponentActivity() {
             val fontWeightAdjust by prefs.fontWeightAdjust.collectAsState(initial = 0)
             val fontFamily by prefs.fontFamily.collectAsState(initial = "default")
             val iconAnimationsEnabled by prefs.iconAnimationsEnabled.collectAsState(initial = false)
+            val weatherAnimatePill by prefs.weatherAnimatePill.collectAsState(initial = true)
+            val weatherAnimateDialog by prefs.weatherAnimateDialog.collectAsState(initial = true)
+            val weatherAnimateForecast by prefs.weatherAnimateForecast.collectAsState(initial = true)
+            val weatherAnimateWidget by prefs.weatherAnimateWidget.collectAsState(initial = true)
+            val weatherAnimations = remember(
+                weatherAnimatePill, weatherAnimateDialog, weatherAnimateForecast, weatherAnimateWidget
+            ) {
+                WeatherAnimationSettings(
+                    pill = weatherAnimatePill,
+                    dialog = weatherAnimateDialog,
+                    forecast = weatherAnimateForecast,
+                    widget = weatherAnimateWidget,
+                )
+            }
             val iconEffectDefaults by prefs.iconEffectDefaults.collectAsState(initial = emptyMap())
             LaunchedEffect(iconEffectDefaults) { IconEffectDefaults.byGroup = iconEffectDefaults }
             val defaultIconPack by prefs.defaultIconPack.collectAsState(initial = "mdi")
@@ -172,6 +230,7 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalItemCornerRadius provides itemCornerRadius,
                     LocalIconAnimationsEnabled provides iconAnimationsEnabled,
+                    LocalWeatherAnimations provides weatherAnimations,
                 ) {
                 val appColors = LocalHKIAppColors.current
                 val loading = "__hki_loading__"
@@ -196,6 +255,7 @@ class MainActivity : ComponentActivity() {
                 })
 
                 val forcedLogoutReason by viewModel.forcedLogoutReason.collectAsState()
+                val aestheticsOnlyEditing by viewModel.aestheticsOnlyEditing.collectAsState()
                 LaunchedEffect(forcedLogoutReason) {
                     val reason = forcedLogoutReason
                     if (reason != null) {
@@ -218,6 +278,38 @@ class MainActivity : ComponentActivity() {
                 val isLoading = serverUrl == loading || internalUrl == loading || accessToken == loading || refreshToken == loading
                 val hasConnectionUrl = !serverUrl.isNullOrBlank() || !internalUrl.isNullOrBlank()
                 val loggedIn = hasConnectionUrl && (!accessToken.isNullOrBlank() || !refreshToken.isNullOrBlank())
+                var visibilityFamilyContext by remember(activeInstanceId) {
+                    mutableStateOf(VisibilityFamilyContext())
+                }
+                LaunchedEffect(loggedIn, activeInstanceId) {
+                    if (!loggedIn) {
+                        visibilityFamilyContext = VisibilityFamilyContext()
+                        VisibilityUserSession.update(null)
+                    } else {
+                        // Never carry one HA account's identity across an instance switch while the
+                        // new companion-component identity is still being resolved.
+                        visibilityFamilyContext = VisibilityFamilyContext()
+                        VisibilityUserSession.update(null)
+                        val identity = runCatching {
+                            HaDashboardSharing.whoami(applicationContext)
+                        }.getOrNull()
+                        val users = if (identity?.isAdmin == true || identity?.isOwner == true) {
+                            runCatching {
+                                HaDashboardSharing.listUsers(applicationContext)
+                            }.getOrDefault(emptyList())
+                        } else {
+                            emptyList()
+                        }
+                        visibilityFamilyContext = VisibilityFamilyContext(
+                            currentUserId = identity?.userId,
+                            isAdmin = identity?.isAdmin == true || identity?.isOwner == true,
+                            users = users,
+                            componentChecked = true,
+                            componentAvailable = identity != null,
+                        )
+                        VisibilityUserSession.update(identity?.userId)
+                    }
+                }
                 // Latch onboarding on once we know the user needs to log in, and keep it on through the
                 // login + permission steps (saving the token mid-flow would otherwise jump to the app).
                 // rememberSaveable so backgrounding on the permission step and returning to a recreated
@@ -239,6 +331,26 @@ class MainActivity : ComponentActivity() {
                         // mistaken for re-login and jump back to the login WebView.
                         onboardingStartsAtLogin = forceLogin || hasConnectionUrl
                         onboardingActive = true
+                    }
+                }
+                // Existing installations did not pass through Android 17's new permission step.
+                // Ask once when a real, already-configured session opens. First-time onboarding
+                // requests it on the server-discovery page, before any LAN traffic starts.
+                var localNetworkPermissionRequested by rememberSaveable { mutableStateOf(false) }
+                val localNetworkPermissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission()
+                ) { granted ->
+                    if (granted) viewModel.onLocalNetworkPermissionGranted()
+                }
+                LaunchedEffect(isLoading, loggedIn, onboardingActive, serverUrl, internalUrl) {
+                    val configuredUrl = internalUrl?.takeIf { it.isNotBlank() }
+                        ?: serverUrl?.takeIf { it.isNotBlank() }
+                    if (!isLoading && loggedIn && !onboardingActive &&
+                        !configuredUrl.isNullOrBlank() && !isDemoServerUrl(configuredUrl) &&
+                        !canAccessLocalNetwork(this@MainActivity) && !localNetworkPermissionRequested
+                    ) {
+                        localNetworkPermissionRequested = true
+                        localNetworkPermissionLauncher.launch(LOCAL_NETWORK_PERMISSION)
                     }
                 }
                 when {
@@ -263,7 +375,13 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     else -> {
-                        MainApp(prefs, viewModel)
+                        CompositionLocalProvider(
+                            LocalEntityCatalogProvider provides { viewModel.entities.value },
+                            LocalVisibilityFamilyContext provides visibilityFamilyContext,
+                            com.jimz011apps.hki7.ui.components.LocalAestheticsOnlyEditing provides aestheticsOnlyEditing,
+                        ) {
+                            MainApp(prefs, viewModel)
+                        }
                     }
                 }
                 }
@@ -311,6 +429,31 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** The single nav destination that hosts every bottom-bar tab as a page of one [HorizontalPager]. */
+private const val TABS_ROUTE = "tabs"
+
+/**
+ * Somewhere the user has been, in the order they went there.
+ *
+ * Tabs are pages of one pager rather than back-stack entries, so back through them has to be
+ * tracked by hand. Detail screens *are* back-stack entries — but tapping a tab from one pops it,
+ * because the page change must not happen behind it, and that pop is what used to lose it. A
+ * room the user tabbed away from is recorded here so back can return to the room itself instead
+ * of stranding them on the Rooms overview.
+ */
+
+/** Tab routes kept in the graph purely as redirects into the pager, so route-based navigation from
+ *  dashboard actions, badges, and popups (via `navRouteForTarget`) keeps resolving. Custom pages
+ *  are handled separately because their route carries a `pageId` argument. */
+private val topLevelRedirectRoutes: List<String> = listOf(
+    Screen.Home.route,
+    Screen.Rooms.route,
+    Screen.Security.route,
+    Screen.Energy.route,
+    Screen.Climate.route,
+    Screen.Battery.route,
+)
+
 @Composable
 fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
     val navController = rememberNavController()
@@ -322,7 +465,6 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
     val homeAssistantInstances by prefs.homeAssistantInstances.collectAsState(initial = emptyList())
     val activeHomeAssistantInstanceId by prefs.activeHomeAssistantInstanceId.collectAsState(initial = null)
     val quickStartScope = rememberCoroutineScope()
-    var instancePanelOpen by remember { mutableStateOf(false) }
     var showAddHomeAssistantInstance by remember { mutableStateOf(false) }
     val viewModel: MainViewModel = sharedViewModel ?: viewModel(factory = object : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -333,6 +475,49 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     })
+    // Registered before the two full-screen gates below, both of which return early. They still
+    // need the view model going through its normal foreground path — connecting, refreshing an
+    // expired token, and re-reading what the admin currently requires — or a device could be shown
+    // a gate it has no way of ever getting out of, because nothing would fetch the change that
+    // lifts it.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> viewModel.setAppVisible(true)
+                Lifecycle.Event.ON_STOP -> viewModel.setAppVisible(false)
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // "Your family expects a newer HKI." Shown ahead of everything else, including the dashboard
+    // chooser, because being on a version the household has moved past is exactly the case where
+    // the rest of the app may misbehave. Dismissal lives in this composable rather than in storage:
+    // it lasts the session, and the next launch re-checks whether Play can serve the update now.
+    val requiredAppUpdate by prefs.requiredAppUpdate.collectAsState(initial = null)
+    var updatePromptDismissed by remember { mutableStateOf(false) }
+    requiredAppUpdate?.takeIf { it.applies && !updatePromptDismissed }?.let { required ->
+        AppUpdateRequiredScreen(
+            required = required,
+            prefs = prefs,
+            onContinue = { updatePromptDismissed = true },
+        )
+        return
+    }
+
+    val familyDashboardAccessLost by prefs.familyDashboardAccessLost.collectAsState(initial = false)
+    if (familyDashboardAccessLost) {
+        OnboardingScreen(
+            prefs = prefs,
+            startAtDashboard = true,
+            familyAccessLost = true,
+            onComplete = { viewModel.completeInitialDashboardSetup() },
+        )
+        return
+    }
     
     val connectionStatus by viewModel.status.collectAsState()
     val connectionError by viewModel.connectionError.collectAsState()
@@ -467,6 +652,20 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
     // Refresh this user's policy from the hki7 component whenever we're authenticated.
     LaunchedEffect(Unit) {
         runCatching { HaParentalControls.refreshForCurrentUser(appCtx, prefs) }
+        runCatching { HaParentalControls.refreshRoomFollowRoster(appCtx, prefs) }
+        // Idempotent — WorkManager keeps one daily job whatever the launch count.
+        if (prefs.updateChecksEnabled.first()) {
+            runCatching { com.jimz011apps.hki7.data.UpdateCheckWorker.schedule(appCtx) }
+        }
+        // A release that adds a sensor bumps SENSOR_SET_REVISION, and the marker stored against
+        // the webhook then no longer matches. Kicking one telemetry run here means the new entity
+        // appears in Home Assistant on the next launch rather than up to fifteen minutes later,
+        // and without anyone having to re-register the device by hand.
+        runCatching {
+            if (com.jimz011apps.hki7.data.sensorRegistrationStale(prefs)) {
+                com.jimz011apps.hki7.data.LocationWork.syncNow(appCtx)
+            }
+        }
     }
     val isEditMode by viewModel.isEditMode.collectAsState()
     val canUndo by viewModel.canUndo.collectAsState()
@@ -475,97 +674,235 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val currentRoute = currentDestination?.route
-    val currentAreaId = navBackStackEntry?.arguments?.getString("areaId")
-    var swipeNavigationDirection by remember { mutableIntStateOf(0) }
-    LaunchedEffect(navBackStackEntry) {
-        if (swipeNavigationDirection != 0) {
-            delay(280.milliseconds)
-            swipeNavigationDirection = 0
+
+    // ── Room following ──────────────────────────────────────────────────
+    val roomFollow by viewModel.roomFollow.collectAsState()
+    val followedAreaId by viewModel.followedAreaId.collectAsState()
+    val pendingRoomMove by viewModel.pendingRoomMove.collectAsState()
+    val parentalHiddenRooms by prefs.parentalHiddenRooms.collectAsState(initial = emptyList())
+    val hiddenRoomIds = remember(parentalHiddenRooms) { parentalHiddenRooms.toSet() }
+    // The rooms a swipe can actually reach. Rooms an admin hid for this person are excluded here
+    // rather than only at the point of opening one, so paging can never land on a hidden room —
+    // the old index-stepping swipe walked the unfiltered list and could.
+    val visibleRooms = remember(areas, hiddenRoomIds) { areas.filter { it.area_id !in hiddenRoomIds } }
+    val roomPagerState = rememberPagerState(pageCount = { visibleRooms.size })
+    val onRoomDetail = currentRoute == Screen.RoomDetail.route
+    // Read both by the bottom stack (to draw it) and by the page inset (to reserve space for it),
+    // so the two can never disagree about whether it is on screen.
+    val showRoomPagerIndicator = onRoomDetail && !isEditMode && visibleRooms.size > 1
+    // Which room is on screen is now the pager's answer, not the route argument's: paging changes
+    // the room without changing the route, and room following compares against this to decide
+    // whether a move is worth acting on.
+    val currentAreaId = if (onRoomDetail) {
+        visibleRooms.getOrNull(roomPagerState.currentPage)?.area_id
+    } else null
+    // A room the admin hid from this person must never be opened for them, however they got there.
+    fun canOpenRoom(areaId: String?): Boolean =
+        areaId != null && areaId !in hiddenRoomIds && areas.any { it.area_id == areaId }
+
+    var openedFollowedRoom by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(roomFollow, followedAreaId, areas) {
+        // Once per app start: a later move is the move prompt's job, not a silent jump.
+        if (openedFollowedRoom || !roomFollow.isActive || !roomFollow.openOnLaunch) return@LaunchedEffect
+        if (areas.isEmpty()) return@LaunchedEffect
+        val target = followedAreaId
+        if (!canOpenRoom(target)) return@LaunchedEffect
+        openedFollowedRoom = true
+        navController.navigate(Screen.RoomDetail.createRoute(target!!))
+    }
+
+    // Confirming a move is about elapsed time, not about the sensor repeating itself, so this
+    // ticks rather than reacting to state changes. The room on screen must be read through
+    // rememberUpdatedState: navigating between rooms changes none of the effect's keys, so a
+    // captured value would stay stuck on whatever was open when the loop started and the
+    // "already in that room" check below would never match.
+    val latestAreaId by rememberUpdatedState(currentAreaId)
+    LaunchedEffect(roomFollow.isActive, roomFollow.continueAfterLaunch, roomFollow.promptOnMove, isEditMode) {
+        // Turning following off, entering edit mode, or turning off continued tracking must also
+        // retire a prompt already on screen — otherwise it sits there waiting for an answer to a
+        // question no longer asked. Turning *prompting* off is not a reason to stop: the tracker
+        // keeps running and the move is opened silently instead (see observeRoomPresence).
+        if (!roomFollow.isActive || !roomFollow.continueAfterLaunch || isEditMode) {
+            viewModel.cancelRoomMovePrompt()
+            return@LaunchedEffect
+        }
+        if (!roomFollow.promptOnMove) viewModel.cancelRoomMovePrompt()
+        while (true) {
+            viewModel.observeRoomPresence(latestAreaId)
+            delay(2.seconds)
         }
     }
-    val currentTopLevelIndex = screens.indexOfFirst { screen ->
-        if (screen is Screen.Custom) {
-            currentRoute == Screen.CUSTOM_PAGE_ROUTE &&
-                navBackStackEntry?.arguments?.getString("pageId") == screen.page.id
+
+    // Prompting off: a confirmed move opens straight away, with the same guards the prompt path
+    // applies — never into a room the admin hid, and never into the room already on screen.
+    val autoRoomMove by viewModel.autoRoomMove.collectAsState()
+    LaunchedEffect(autoRoomMove, isEditMode, roomFollow.isActive) {
+        val target = autoRoomMove ?: return@LaunchedEffect
+        // Re-checked here and not just where the move was confirmed: following can be switched off
+        // between confirming a move and this effect running, and navigating then would look exactly
+        // like the toggle being ignored.
+        if (isEditMode || !roomFollow.isActive) return@LaunchedEffect
+        if (canOpenRoom(target) && target != latestAreaId) {
+            navController.navigate(Screen.RoomDetail.createRoute(target))
+        }
+        viewModel.consumeAutoRoomMove(target)
+    }
+
+    pendingRoomMove?.let { targetAreaId ->
+        val roomName = areas.firstOrNull { it.area_id == targetAreaId }?.name
+        if (roomName == null || !canOpenRoom(targetAreaId)) {
+            LaunchedEffect(targetAreaId) { viewModel.resolveRoomMove(accepted = false) }
         } else {
-            currentDestination?.hierarchy?.any { it.route == screen.route } == true
+            RoomMovePrompt(
+                roomName = roomName,
+                onSwitch = {
+                    viewModel.resolveRoomMove(accepted = true)
+                    navController.navigate(Screen.RoomDetail.createRoute(targetAreaId))
+                },
+                onStay = { viewModel.resolveRoomMove(accepted = false) },
+                onSilenceUntilRestart = { viewModel.silenceRoomMovePromptUntilRestart() }
+            )
+        }
+    }
+    // Sits between either pager and its pages, so a horizontal row that runs out of room stops
+    // there instead of turning the rest of the drag into a page change.
+    val pagerHandoffBlocker = rememberPagerHandoffBlocker()
+    // The pager owns which tab is showing; the bottom bar and the nav graph both defer to it.
+    val pagerState = rememberPagerState(pageCount = { screens.size })
+    val pagerScope = rememberCoroutineScope()
+    val onTabsDestination = currentRoute == TABS_ROUTE
+    // Which top-level views currently have a sub-page open (Energy > Solar and friends).
+    val openSubPages = remember { mutableStateMapOf<String, Boolean>() }
+    val subPageReporter: (String, Boolean) -> Unit = remember(openSubPages) {
+        { route, open -> if (open) openSubPages[route] = true else openSubPages.remove(route) }
+    }
+    // Tabs the user has actually visited, oldest first. Back walks this rather than jumping
+    // straight home, so it undoes where you have been instead of discarding it.
+    // Re-tapping the tab you are already on returns that view to the top.
+    val scrollToTopSignals = remember { mutableStateMapOf<String, Int>() }
+    // One history for everywhere the user has been, oldest first, holding tabs and rooms together.
+    // Tabs are pages of a pager rather than back-stack entries, so the platform back stack only
+    // ever knew part of it.
+    //
+    // A real stack, not a most-recently-used list. Moving a revisited place to the end instead of
+    // pushing it again collapses exactly the history worth keeping: Rooms → a room → Rooms → a
+    // room has four steps to walk back through, and deduplication left two. Only an immediately
+    // repeated place is skipped, since that is a recomposition rather than a navigation. Capped so
+    // a long session cannot grow it without bound; dropping the oldest entry costs nothing, as
+    // back reaches Home and stops long before it.
+    val history = remember { NavigationHistory() }
+    // NavigationHistory is a plain class so it can be unit-tested; this is what tells composition
+    // it changed.
+    var historyRevision by remember { mutableIntStateOf(0) }
+    // Where the user is now, in the same terms as the history. Keyed on the room actually showing
+    // rather than on the room pager's page: leaving a room and opening the same one again does not
+    // move that pager, so a page-based signal never fired the second time.
+    //
+    // Only tabs and rooms. Other pushed screens — the battery widget's — are ordinary back-stack
+    // entries that the nav graph pops correctly on its own; recording them here would leave an
+    // entry behind after that pop, and back from the tab underneath would walk straight into the
+    // screen the user had just left.
+    val currentPlace: VisitedPlace? = when {
+        onRoomDetail -> currentAreaId?.let(VisitedPlace::Room)
+        onTabsDestination -> VisitedPlace.Tab(pagerState.settledPage)
+        else -> null
+    }
+    // Simply reports wherever the screen says it is. NavigationHistory decides what that means —
+    // in particular it ignores the straggling report of the page back has just left, which is the
+    // one thing that made this loop. Earlier attempts tried to suppress that report by timing
+    // instead: a flag held across the navigation, then a wait for composition to catch up. Both
+    // depended on guessing when the screen would agree with the nav graph, and both were wrong.
+    LaunchedEffect(currentPlace) {
+        val place = currentPlace ?: return@LaunchedEffect
+        history.visit(place)
+        historyRevision++
+    }
+    // Recomputed whenever the history changes, so the back handler's enabled state follows it.
+    val previousPlace = remember(historyRevision) { history.previous() }
+    val roomsIndex = screens.indexOfFirst { it.route == Screen.Rooms.route }
+    val rememberedRoom = remember(historyRevision, roomsIndex) { history.roomToReopen(roomsIndex) }
+    var pageSwipeInProgress by remember { mutableStateOf(false) }
+    LaunchedEffect(pagerState, roomPagerState) {
+        snapshotFlow { pagerState.isScrollInProgress || roomPagerState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { pageSwipeInProgress = it }
+    }
+    val currentTopLevelIndex = if (onTabsDestination) pagerState.currentPage else -1
+    // A pager holds several pages composed at once, so a state update landing mid-swipe recomposes
+    // every one of them. Room pages are heavy enough that this costs frames — which is why room
+    // swiping stuttered while tab swiping (lighter pages) did not. Updates wait for the swipe.
+    LaunchedEffect(pagerState, roomPagerState, viewModel) {
+        snapshotFlow { pagerState.isScrollInProgress || roomPagerState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { scrolling -> viewModel.setUiUpdatesPaused(scrolling) }
+    }
+    // Hiding a tab (or an admin revoking one) can leave the pager past the end of a now-shorter list.
+    LaunchedEffect(screens.size) {
+        if (pagerState.currentPage > screens.lastIndex && screens.isNotEmpty()) {
+            pagerState.scrollToPage(screens.lastIndex)
         }
     }
     val navigateToTopLevel: (Screen) -> Unit = { screen ->
-        when (screen) {
-            Screen.Climate, Screen.Energy -> {
-                // These screens keep detail pages as local UI state, so entering a tab recreates its root.
-                navController.navigate(screen.route) {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = false }
-                    launchSingleTop = false
-                    restoreState = false
-                }
-            }
-            Screen.Home, Screen.Rooms, Screen.Security -> {
-                navController.navigate(screen.route) {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = false
-                }
-            }
-            else -> {
-                navController.navigate(screen.route) {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            }
-        }
-    }
-    // Reads the *current* route/areas/screens at fire time, so the gesture detector below can key
-    // only on edit mode and never restarts (or misses) mid-navigation.
-    val handlePageSwipe by rememberUpdatedState<(Boolean) -> Unit> { forward ->
-        when (currentRoute) {
-            Screen.RoomDetail.route -> {
-                if (areas.size > 1) {
-                    val currentIndex = areas.indexOfFirst { it.area_id == currentAreaId }
-                    if (currentIndex >= 0) {
-                        val step = if (forward) 1 else -1
-                        val targetIndex = (currentIndex + step + areas.size) % areas.size
-                        val currentDestinationId = navController.currentDestination?.id
-                        swipeNavigationDirection = if (forward) 1 else -1
-                        navController.navigate(Screen.RoomDetail.createRoute(areas[targetIndex].area_id)) {
-                            currentDestinationId?.let { destinationId ->
-                                popUpTo(destinationId) { inclusive = true }
-                            }
-                        }
-                    }
-                }
-            }
-            else -> {
-                if (currentTopLevelIndex >= 0) {
-                    val targetIndex = currentTopLevelIndex + if (forward) 1 else -1
-                    screens.getOrNull(targetIndex)?.let { target ->
-                        swipeNavigationDirection = if (forward) 1 else -1
-                        navigateToTopLevel(target)
-                    }
+        val index = screens.indexOfFirst { it.route == screen.route }
+        if (index >= 0 && onTabsDestination && pagerState.currentPage == index) {
+            // Already here: the tap means "take me back to the top", not "go to this tab".
+            scrollToTopSignals[screen.route] = (scrollToTopSignals[screen.route] ?: 0) + 1
+        } else if (index >= 0) {
+            // Rooms remembers the room that was open. Coming back to the tab from another view
+            // reopens it, the same way back from that view does — landing on the list instead
+            // would throw away the room the user was working in. Only when leaving a room, or
+            // after backing out of one, does the tab mean the list itself.
+            val reopenRoom = rememberedRoom
+                ?.takeIf { screen.route == Screen.Rooms.route && !onRoomDetail }
+                ?.takeIf { areaId -> visibleRooms.any { it.area_id == areaId } }
+            // Read before the pop, because after it there is no detail screen left to ask. The
+            // room pager owns which room is showing, so the areaId the route was opened with may
+            // be several swipes stale — take the room actually on screen.
+            // Tapping Rooms while in a room is going *up* to the list, not away to another view.
+            // Forgetting the room here is what keeps that meaning: without it the next visit to
+            // the tab would reopen the room the user had just asked to leave.
+            // Tapping Rooms from inside a room shows the list, and that list becomes the top of
+            // the history like anywhere else. The room is deliberately left in it: back still
+            // returns to it, and coming back to the tab later still reopens it, which is what
+            // "remember the state I left the page in" means.
+            // A tap is a navigation in its own right, so the page it lands on must count even if
+            // that is the page just backed out of.
+            history.forgetLastLeft()
+            pagerScope.launch {
+                if (reopenRoom != null) {
+                    // Put the room pager on the right page and push the room *before* the tab
+                    // pager moves. Animating first showed the room list for the length of that
+                    // animation, which read as the app forgetting and then remembering.
+                    visibleRooms.indexOfFirst { it.area_id == reopenRoom }
+                        .takeIf { it >= 0 }
+                        ?.let { roomPagerState.scrollToPage(it) }
+                    if (!onTabsDestination) navController.popBackStack(TABS_ROUTE, inclusive = false)
+                    navController.navigate(Screen.RoomDetail.createRoute(reopenRoom))
+                    // Moved underneath the room, so backing out lands on the list rather than on
+                    // the tab this tap came from.
+                    pagerState.scrollToPage(index)
+                } else if (!onTabsDestination) {
+                    // Leaving a room or the battery screen. The pager is moved *before* the pop,
+                    // while that screen still covers it: popping first leaves the pager settled on
+                    // whatever tab was underneath, and that tab gets recorded as somewhere the
+                    // user visited — putting a phantom step into the back history between the
+                    // room and the tab actually asked for.
+                    pagerState.scrollToPage(index)
+                    navController.popBackStack(TABS_ROUTE, inclusive = false)
+                } else {
+                    pagerState.animateScrollToPage(index)
                 }
             }
         }
     }
+    // Tab paging is the pager's job and room paging is the room pager's, so nothing drives a
+    // route-level swipe any more. What is left is the ordinary push/pop into a room or the battery
+    // widget, which slides in from the trailing edge like any detail screen.
     val context = LocalContext.current
     val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         if (permissions.values.any { it }) viewModel.startLocationReporting(context)
-    }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> viewModel.setAppVisible(true)
-                Lifecycle.Event.ON_STOP -> viewModel.setAppVisible(false)
-                else -> {}
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -598,7 +935,10 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
             ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
         if (hasLocation) viewModel.startLocationReporting(context) else showLocationDisclosure = true
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        // Only API 33+ has a notification permission to ask for; below that they're already on.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         // No battery-optimization exemption prompt: presence is event-driven (geofences) and the
@@ -611,41 +951,166 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
     // is driven by our edge detector below, which works alongside the system back gesture: the
     // upper-left edge strip is excluded from the back gesture (Android honors up to 200dp of
     // exclusion per edge), so a swipe starting there opens the panel instead of navigating back.
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    // Both panels are dragged rather than toggled: their progress is what the edge gesture writes
+    // to, so the sheet is wherever the finger has taken it and settles when the finger lifts.
+    val notificationPanel = remember { EdgePanelState() }
+    val instancePanel = remember { EdgePanelState() }
     val drawerScope = rememberCoroutineScope()
-    androidx.activity.compose.BackHandler(enabled = drawerState.isOpen) {
-        drawerScope.launch { drawerState.close() }
+    // One action for back, everywhere inside the app: go to the previous place, and keep going
+    // until Home. Only from Home does back leave the app. It is registered here for the tab pager
+    // and again inside the room NavHost destination below. Navigation Compose installs its own
+    // back callback after this root one, so without the inner registration it wins in a room and
+    // pops to the Rooms list before this history ever sees the gesture.
+    //
+    // This used to be two handlers with two histories, which is why it behaved differently
+    // depending on where you were: a tab with nothing recorded behind it fell through to the
+    // system and closed the app from the middle of the app, and a room walked a separate list that
+    // knew nothing about the tabs.
+    val homeIndex = screens.indexOfFirst { it.route == Screen.Home.route }
+    val onHome = onTabsDestination && homeIndex >= 0 && pagerState.currentPage == homeIndex
+    val navigateBackThroughHistory: () -> Unit = {
+        pagerScope.launch {
+            val previous = history.back()
+            historyRevision++
+            if (previous == null) {
+                // Nothing recorded behind this. Home is the floor, not the exit: the next back
+                // from there is the one that closes the app.
+                if (homeIndex < 0) return@launch
+                if (onTabsDestination) {
+                    pagerState.animateScrollToPage(homeIndex)
+                } else {
+                    pagerState.scrollToPage(homeIndex)
+                    navController.popBackStack(TABS_ROUTE, inclusive = false)
+                }
+                // back() emptied the history, so Home has to go back on it: without this the
+                // handler would still be enabled with nothing behind it.
+                history.forgetLastLeft()
+                history.visit(VisitedPlace.Tab(homeIndex))
+                historyRevision++
+                return@launch
+            }
+            when (previous) {
+                is VisitedPlace.Tab -> {
+                    if (previous.index !in screens.indices) return@launch
+                    if (onTabsDestination) {
+                        pagerState.animateScrollToPage(previous.index)
+                    } else {
+                        // Same ordering as a tab tap: position the pager while the room still
+                        // covers it, so the tab underneath is never briefly the current place.
+                        pagerState.scrollToPage(previous.index)
+                        navController.popBackStack(TABS_ROUTE, inclusive = false)
+                    }
+                }
+                is VisitedPlace.Room -> {
+                    val page = visibleRooms.indexOfFirst { it.area_id == previous.areaId }
+                    if (page < 0) return@launch
+                    if (onRoomDetail) {
+                        // Already in the room pager: this is a page change, not a navigation.
+                        roomPagerState.animateScrollToPage(page)
+                    } else {
+                        // Position the pager before pushing, so the room arrives showing itself
+                        // rather than sliding across from whichever room was last open.
+                        roomPagerState.scrollToPage(page)
+                        navController.navigate(Screen.RoomDetail.createRoute(previous.areaId))
+                    }
+                }
+            }
+        }
     }
-    androidx.activity.compose.BackHandler(enabled = instancePanelOpen) {
-        instancePanelOpen = false
+    androidx.activity.compose.BackHandler(
+        enabled = (onTabsDestination || onRoomDetail) && !isEditMode && (previousPlace != null || !onHome),
+        onBack = navigateBackThroughHistory
+    )
+    // isOpen reads the settle *target*, so back works from the instant a drag commits rather than
+    // only once the sheet has finished arriving. Keyed on the target and not the settled value, this
+    // also closes the window where back used to fall through to the NavHost mid-animation and — from
+    // the first tab — close the app instead of the panel that had just been opened.
+    androidx.activity.compose.BackHandler(enabled = notificationPanel.isOpen) {
+        drawerScope.launch { notificationPanel.close() }
+    }
+    androidx.activity.compose.BackHandler(enabled = instancePanel.isOpen) {
+        drawerScope.launch { instancePanel.close() }
     }
     val density = LocalDensity.current
     val windowInfo = LocalWindowInfo.current
+    // Arabic mirrors the whole app, and the edge panels are defined by reading direction rather
+    // than by pixels — so the strips they open from, and the way they slide, follow this.
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // Height the three-button navigation bar occupies (0 under gesture navigation): pages add it to
     // their bottom scroll reserve so content still clears the floating bar once that bar moves up.
     val systemButtonBarInset = WindowInsets.tappableElement.asPaddingValues().calculateBottomPadding()
     val edgeStripWidthPx = with(density) { 28.dp.toPx() }
     val edgeStripTopPx = with(density) { 56.dp.toPx() }
-    val edgeStripHeightPx = with(density) { 200.dp.toPx() }
-    val instanceStripHeightPx = with(density) { (if (headerVisible) 200.dp else 72.dp).toPx() }
+    // Was 200dp. Every pixel of this strip is a pixel where the system back gesture does not work,
+    // and it sat exactly where the on-screen back arrow is — so back appeared broken on the edge
+    // people reach for first. Trimmed to a short band beside the header, with the panel also
+    // reachable from the pull-down header menu (a swipe is no longer the only way in).
+    val edgeStripHeightPx = with(density) { 88.dp.toPx() }
+    val instanceStripHeightPx = with(density) { (if (headerVisible) 88.dp else 72.dp).toPx() }
     val screenWidthPx = windowInfo.containerSize.width.toFloat()
+    // Hosted here rather than on the page, because the drawer sheet is a sibling of the page and
+    // cannot see anything the page provides — and the drawer is where the deep link comes from.
+    var settingsRoute by remember { mutableStateOf<String?>(null) }
+    // One of Home Assistant's own pages (path, title), hosted here rather than inside the settings
+    // dialog. A WebView inside a Dialog nested in another Dialog gets its own window, and the
+    // frontend rendered nothing there; in the main composition it is an ordinary view, like the
+    // onboarding login.
+    var haPage by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // The settings Dialog must be dismissed before its WebView replacement opens, otherwise the
+    // separate dialog window remains above the page. Remember that origin so closing HA recreates
+    // the settings menu instead of dropping the user on the dashboard underneath.
+    var reopenSettingsAfterHaPage by remember { mutableStateOf(false) }
+    // Settings itself is destroyed while the WebView is showing, so its internal ScrollState is
+    // destroyed with it. Keep the menu offset beside the HA return flag, in the parent that stays
+    // composed, and feed it into the replacement dialog when HA closes.
+    var settingsMenuScrollOffset by remember { mutableIntStateOf(0) }
+    val openHaPageFromSettings: (String, String, Int) -> Unit = { path, title, menuScrollOffset ->
+        reopenSettingsAfterHaPage = true
+        settingsMenuScrollOffset = menuScrollOffset
+        haPage = path to title
+    }
+    settingsRoute?.let { route ->
+        // Provided again here: this dialog is a sibling of the page, so it sits outside the
+        // provider below and would otherwise see no opener and hide the Home Assistant links.
+        CompositionLocalProvider(
+            com.jimz011apps.hki7.ui.components.LocalOpenHaPage provides openHaPageFromSettings
+        ) {
+            SettingsDialog(
+                prefs = prefs,
+                viewModel = viewModel,
+                onDismiss = { settingsRoute = null },
+                initialRoute = route,
+                initialMenuScrollOffset = if (route == "menu") settingsMenuScrollOffset else 0,
+            )
+        }
+    }
     CompositionLocalProvider(
-        LocalOpenNotifications provides { drawerScope.launch { drawerState.open() } },
-        LocalCameraFullscreenLauncher provides launchFullscreenCamera
-    ) {
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = drawerState.isOpen && !isEditMode,
-        drawerContent = {
-            // Keep the default sheet width: this Material3 version slides the closed drawer out
-            // by a fixed 360dp, so a wider sheet would leave its right edge permanently visible
-            // on screen (and swallow touches on the left edge).
-            ModalDrawerSheet(
-                drawerContainerColor = appColors.background,
-                drawerContentColor = appColors.onSurface
-            ) {
-                NotificationPanel(viewModel)
+        LocalOpenNotifications provides { drawerScope.launch { notificationPanel.open() } },
+        LocalOpenSettingsRoute provides { route: String ->
+            drawerScope.launch { notificationPanel.close() }
+            // A normal Settings opening is a fresh visit. Only the special return from an embedded
+            // HA page bypasses this opener and therefore retains its captured menu position.
+            settingsMenuScrollOffset = 0
+            settingsRoute = route
+        },
+        LocalCameraFullscreenLauncher provides launchFullscreenCamera,
+        // Reaches every settings entry point, not just the one MainApp opens itself: the page
+        // header has its own, and a callback threaded through only the first left the other doing
+        // nothing when its Home Assistant links were tapped.
+        com.jimz011apps.hki7.ui.components.LocalOpenHaPage provides openHaPageFromSettings,
+        // Covers the room pager too: rooms are their own navigation destination, so a provider
+        // scoped to the tab pager never reached them and their header stayed open on swipe.
+        com.jimz011apps.hki7.ui.components.LocalPageSwipeInProgress provides pageSwipeInProgress,
+        com.jimz011apps.hki7.ui.components.LocalOpenTopLevelRoute provides { route: String ->
+            val target = screens.firstOrNull { it.route == route }
+            if (target != null) {
+                navigateToTopLevel(target)
+            } else if (route == Screen.Battery.route) {
+                // Hidden from the bar: there is no tab to land on, so the pushed view is all that
+                // is left — with its own back arrow, which is the behaviour being avoided above.
+                navController.navigate(Screen.Battery.WIDGET_ROUTE)
             }
+            true
         }
     ) {
     Box(
@@ -654,49 +1119,33 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
             // Match the page background so the mini-player inset never shows as a gray strip.
             .background(appColors.background)
             .systemGestureExclusion {
-                // Carve the upper-left edge out of the system back gesture (Pixel-style gesture
-                // nav) so swipes starting there reach the app and open the notification panel.
-                Rect(0f, edgeStripTopPx, edgeStripWidthPx, edgeStripTopPx + edgeStripHeightPx)
+                // Carve the notification panel's edge out of the system back gesture (Pixel-style
+                // gesture nav) so swipes starting there reach the app. It follows reading direction
+                // with the panel itself: the leading edge is the left in English, the right in
+                // Arabic, and the exclusion has to be on whichever side the panel actually opens
+                // from or the gesture is blocked on one side and dead on the other.
+                val leading = if (isRtl) screenWidthPx - edgeStripWidthPx else 0f
+                Rect(leading, edgeStripTopPx, leading + edgeStripWidthPx, edgeStripTopPx + edgeStripHeightPx)
             }
             .systemGestureExclusion {
-                // Mirror the notification gesture on the right side for the instance switcher.
-                Rect(screenWidthPx - edgeStripWidthPx, edgeStripTopPx, screenWidthPx, edgeStripTopPx + instanceStripHeightPx)
+                // The instance switcher mirrors it on the trailing edge.
+                val trailing = if (isRtl) 0f else screenWidthPx - edgeStripWidthPx
+                Rect(trailing, edgeStripTopPx, trailing + edgeStripWidthPx, edgeStripTopPx + instanceStripHeightPx)
             }
-            .pointerInput(isEditMode) {
-                if (isEditMode) return@pointerInput
-                // Runs on the content root AFTER children (Final pass) and never consumes pointer
-                // movement itself, so taps, scrolling, and sliders are unaffected. Axis locking,
-                // mid-gesture commits, and tracked fling velocity live in awaitHorizontalTabSwipes.
-                val drawerThresholdPx = 24.dp.toPx()
-                var opensDrawer = false
-                var drawerOpened = false
-                var opensInstances = false
-                var instancesOpened = false
-                awaitHorizontalTabSwipes(
-                    respectChildGestures = true,
-                    pass = PointerEventPass.Final,
-                    commitDistancePx = 48.dp.toPx(),
-                    flingDistancePx = 18.dp.toPx(),
-                    flingVelocityPxPerSecond = 550.dp.toPx(),
-                    onDown = { position ->
-                        opensDrawer = position.x <= edgeStripWidthPx && position.y < size.height * 0.55f
-                        drawerOpened = false
-                        opensInstances = position.x >= size.width - edgeStripWidthPx &&
-                            position.y in edgeStripTopPx..(edgeStripTopPx + instanceStripHeightPx)
-                        instancesOpened = false
-                    },
-                    onMove = { totalX, totalY ->
-                        if (opensDrawer && !drawerOpened && totalX >= drawerThresholdPx && abs(totalX) > abs(totalY)) {
-                            drawerOpened = true
-                            drawerScope.launch { drawerState.open() }
-                        }
-                        if (opensInstances && !instancesOpened && totalX <= -drawerThresholdPx && abs(totalX) > abs(totalY)) {
-                            instancesOpened = true
-                            instancePanelOpen = true
-                        }
-                        opensDrawer || opensInstances
-                    },
-                    onSwipe = { forward -> handlePageSwipe(forward) }
+            .pointerInput(isEditMode, haPage) {
+                if (isEditMode || haPage != null) return@pointerInput
+                // Paging belongs to the HorizontalPager below; this only watches the two edge
+                // strips, and drags the matching panel open under the finger rather than firing it
+                // open once a threshold is passed. It consumes movement once the drag is committed,
+                // which is what stops the pager acting on the same gesture.
+                awaitEdgePanelDrags(
+                    scope = drawerScope,
+                    stripWidthPx = edgeStripWidthPx,
+                    startStrip = edgeStripTopPx..(edgeStripTopPx + edgeStripHeightPx),
+                    endStrip = edgeStripTopPx..(edgeStripTopPx + instanceStripHeightPx),
+                    start = notificationPanel,
+                    end = instancePanel,
+                    rtl = isRtl
                 )
             }
     ) {
@@ -707,75 +1156,161 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
         ) { contentPadding ->
             CompositionLocalProvider(
                 LocalMediaPlayerBarInset provides systemButtonBarInset + if (!isEditMode) {
-                    (if (activeMediaPlayers.isNotEmpty() && !mediaBarDismissed) 86.dp else 0.dp) + (if (showConnectionBar) 62.dp else 0.dp)
+                    (if (activeMediaPlayers.isNotEmpty() && !mediaBarDismissed) 86.dp else 0.dp) +
+                        (if (showConnectionBar) 62.dp else 0.dp) +
+                        // The room indicator is one more floating thing in the bottom stack, so the
+                        // page has to reserve room for it too — otherwise a room's last row of
+                        // content scrolls to a stop underneath the pill.
+                        (if (showRoomPagerIndicator) PagerIndicatorHeight else 0.dp)
                 } else 0.dp
             ) {
                 NavHost(
                     navController,
-                    startDestination = Screen.Home.route,
+                    startDestination = TABS_ROUTE,
                     // Pages add this overlay height to their scroll content, not their background.
                     modifier = Modifier.fillMaxSize().padding(contentPadding),
-                    enterTransition = {
-                        when (swipeNavigationDirection) {
-                            1 -> slideInHorizontally(tween(230)) { it } + fadeIn(tween(150))
-                            -1 -> slideInHorizontally(tween(230)) { -it } + fadeIn(tween(150))
-                            else -> EnterTransition.None
-                        }
-                    },
-                    exitTransition = {
-                        when (swipeNavigationDirection) {
-                            1 -> slideOutHorizontally(tween(230)) { -it } + fadeOut(tween(150))
-                            -1 -> slideOutHorizontally(tween(230)) { it } + fadeOut(tween(150))
-                            else -> ExitTransition.None
-                        }
-                    },
-                    popEnterTransition = {
-                        when (swipeNavigationDirection) {
-                            1 -> slideInHorizontally(tween(230)) { it } + fadeIn(tween(150))
-                            -1 -> slideInHorizontally(tween(230)) { -it } + fadeIn(tween(150))
-                            else -> EnterTransition.None
-                        }
-                    },
-                    popExitTransition = {
-                        when (swipeNavigationDirection) {
-                            1 -> slideOutHorizontally(tween(230)) { -it } + fadeOut(tween(150))
-                            -1 -> slideOutHorizontally(tween(230)) { it } + fadeOut(tween(150))
-                            else -> ExitTransition.None
+                    // Detail screens push in from the trailing edge and pop back out the same way.
+                    // The redirect destinations below never render anything, so giving them the
+                    // same transition costs nothing.
+                    enterTransition = { slideInHorizontally(tween(230)) { it } + fadeIn(tween(150)) },
+                    exitTransition = { slideOutHorizontally(tween(230)) { -it / 4 } + fadeOut(tween(150)) },
+                    popEnterTransition = { slideInHorizontally(tween(230)) { -it / 4 } + fadeIn(tween(150)) },
+                    popExitTransition = { slideOutHorizontally(tween(230)) { it } + fadeOut(tween(150)) }
+                ) {
+                // Every bottom-bar tab lives inside one pager destination now, so a horizontal drag
+                // moves the pages under the finger and can be reversed mid-gesture — the previous
+                // detector committed at a fixed distance and then ignored the rest of the drag.
+                composable(TABS_ROUTE) {
+                    CompositionLocalProvider(
+                        com.jimz011apps.hki7.ui.components.LocalSubPageReporter provides subPageReporter,
+                        com.jimz011apps.hki7.ui.components.LocalScrollToTopSignals provides scrollToTopSignals
+                    ) {
+                    HorizontalPager(
+                        state = pagerState,
+                        // Same as the room pager: composing the neighbour while idle rather than in
+                        // the first frames of the drag is what makes paging feel fluid. This was 0
+                        // only because Energy used to start fetching as soon as it was composed —
+                        // its root effects now wait for `isActive` below, so the cost is gone.
+                        beyondViewportPageCount = 1,
+                        // Only the page on screen decides: a neighbour parked in a sub-page must
+                        // not lock the one being looked at.
+                        userScrollEnabled = !isEditMode &&
+                            openSubPages[screens.getOrNull(pagerState.currentPage)?.route] != true,
+                        modifier = Modifier.fillMaxSize()
+                    ) { page ->
+                        // settledPage, not currentPage: currentPage flips at the halfway point of a
+                        // drag, which would start a page's loads for a swipe the user reverses.
+                        val isSettled = pagerState.settledPage == page
+                        Box(Modifier.fillMaxSize().nestedScroll(pagerHandoffBlocker)) {
+                            when (val screen = screens.getOrNull(page)) {
+                                Screen.Home -> HAHomeScreen(viewModel, navController)
+                                Screen.Rooms -> RoomsScreen(viewModel, navController)
+                                Screen.Security -> SecurityScreen(viewModel)
+                                Screen.Energy -> EnergyScreen(viewModel, isActive = isSettled)
+                                Screen.Climate -> ClimateScreen(viewModel)
+                                Screen.Battery -> BatteryScreen(viewModel, navController, showBackButton = false)
+                                is Screen.Custom -> HAHomeScreen(
+                                    viewModel,
+                                    navController,
+                                    widgetAreaId = "__custom_page_${screen.page.id}__",
+                                    customPage = screen.page
+                                )
+                                else -> Unit
+                            }
                         }
                     }
-                ) {
-                composable(Screen.Home.route)     { HAHomeScreen(viewModel, navController) }
-                composable(Screen.Rooms.route)    { RoomsScreen(viewModel, navController) }
-                composable(Screen.Security.route) { SecurityScreen(viewModel) }
-                composable(Screen.Energy.route)   { EnergyScreen(viewModel) }
-                composable(Screen.Climate.route)  { ClimateScreen(viewModel) }
-                composable(Screen.Battery.route)  { BatteryScreen(viewModel, navController, showBackButton = false) }
+                }
+                // The tab routes stay registered as redirects. Dashboard buttons, badges, and popups
+                // all navigate by route through handleActionOutcome/navRouteForTarget, and keeping
+                // them resolvable means none of those call sites had to learn about the pager.
+                topLevelRedirectRoutes.forEach { route ->
+                    composable(route) {
+                        LaunchedEffect(Unit) {
+                            navController.popBackStack()
+                            screens.indexOfFirst { it.route == route }
+                                .takeIf { it >= 0 }
+                                ?.let { pagerState.animateScrollToPage(it) }
+                        }
+                    }
+                    }
+                }
                 composable(Screen.Battery.WIDGET_ROUTE) { BatteryScreen(viewModel, navController, showBackButton = true) }
                 composable(
                     route = Screen.CUSTOM_PAGE_ROUTE,
                     arguments = listOf(navArgument("pageId") { type = NavType.StringType })
                 ) { backStackEntry ->
                     val pageId = backStackEntry.arguments?.getString("pageId").orEmpty()
-                    val customPage = customPages.firstOrNull { it.id == pageId }
-                    HAHomeScreen(
-                        viewModel,
-                        navController,
-                        widgetAreaId = "__custom_page_${pageId}__",
-                        customPage = customPage
-                    )
+                    LaunchedEffect(pageId) {
+                        navController.popBackStack()
+                        screens.indexOfFirst { it is Screen.Custom && it.page.id == pageId }
+                            .takeIf { it >= 0 }
+                            ?.let { pagerState.animateScrollToPage(it) }
+                    }
                 }
                 composable(
                     route = Screen.RoomDetail.route,
                     arguments = listOf(navArgument("areaId") { type = NavType.StringType })
                 ) { backStackEntry ->
                     val areaId = backStackEntry.arguments?.getString("areaId") ?: ""
-                    RoomDetailScreen(areaId, viewModel, navController)
+                    // This must live inside the destination, after NavHost has installed its own
+                    // callback. BackHandler dispatches to the last enabled callback, so this one
+                    // gets the room gesture and walks the shared room/tab history instead of the
+                    // nav controller first popping the whole room pager to the Rooms list. Dialog
+                    // and sub-page handlers are composed later inside RoomDetailScreen and still
+                    // correctly take precedence over it. The edge panels are composed outside the
+                    // NavHost, so handle them here as well or this later callback would outrank
+                    // their own close handlers while a room is showing.
+                    androidx.activity.compose.BackHandler(
+                        enabled = visibleRooms.isNotEmpty() && !isEditMode,
+                    ) {
+                        when {
+                            instancePanel.isOpen -> drawerScope.launch { instancePanel.close() }
+                            notificationPanel.isOpen -> drawerScope.launch { notificationPanel.close() }
+                            else -> navigateBackThroughHistory()
+                        }
+                    }
+                    // The route argument only picks the starting room; from there the pager owns
+                    // which one is showing. Every entry point (room list, room following, dashboard
+                    // actions) therefore lands on the right page without knowing about the pager.
+                    LaunchedEffect(areaId, visibleRooms) {
+                        visibleRooms.indexOfFirst { it.area_id == areaId }
+                            .takeIf { it >= 0 && it != roomPagerState.currentPage }
+                            ?.let { roomPagerState.scrollToPage(it) }
+                    }
+                    if (visibleRooms.isEmpty()) {
+                        LaunchedEffect(Unit) { navController.popBackStack() }
+                    } else {
+                        HorizontalPager(
+                            state = roomPagerState,
+                            // A room screen is by far the heaviest page in the app. At 0 the pager
+                            // composes the neighbour during the first frames of the drag, which is
+                            // exactly when there is no budget for it and is what made room paging
+                            // feel choppy next to the tabs. Composing it one page ahead moves that
+                            // work into the idle time after the previous swipe settles.
+                            beyondViewportPageCount = 1,
+                            // Identity follows the room, not the slot, so reordering or hiding a
+                            // room re-associates pages instead of rebuilding the neighbours.
+                            key = { page -> visibleRooms.getOrNull(page)?.area_id ?: page.toString() },
+                            userScrollEnabled = !isEditMode,
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            visibleRooms.getOrNull(page)?.let { room ->
+                                Box(Modifier.fillMaxSize().nestedScroll(pagerHandoffBlocker)) {
+                                    RoomDetailScreen(room.area_id, viewModel, navController)
+                                }
+                            }
+                        }
+                    }
                 }
                 }
             }
         }
 
         NotificationBannerHost(viewModel, Modifier.align(Alignment.TopCenter))
+
+        // Popup actions can fire from any surface (buttons, badges, dialog nav bars), so their
+        // dialog is hosted here once instead of being threaded through every screen.
+        CustomPopupHost(viewModel, navController)
 
         // Opaque strip behind three-button navigation, painted over the page but under the floating
         // bar, so scrolling content no longer shows through the system buttons. Collapses to nothing
@@ -793,7 +1328,9 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
         // When the bar is too narrow for every tab (small screens / many tabs), fall back to
         // fixed-width tabs in a horizontally scrollable row instead of squeezing weight()-tabs.
         val screenWidth = with(density) { windowInfo.containerSize.width.toDp() }
-        val navBarScrollable = !isEditMode && (screenWidth - 64.dp) < 64.dp * screens.size
+        // 64.dp is the bar's own horizontal padding (32.dp a side); the tabs themselves are measured
+        // at the width the scrollable row actually gives them.
+        val navBarScrollable = !isEditMode && (screenWidth - 64.dp) < HKIBottomBarTabWidth * screens.size
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -803,6 +1340,19 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
                 // tappableElement reports no inset and the bar keeps its usual position.
                 .padding(bottom = (systemButtonBarInset - 8.dp).coerceAtLeast(0.dp))
         ) {
+        // How many rooms there are and where you are among them — the one thing the room swipe
+        // never told anyone. A sibling of the media and nav bars rather than an overlay on them, so
+        // the bottom stack lays out in order and the Column's own inset keeps the whole lot clear
+        // of three-button navigation.
+        if (showRoomPagerIndicator) {
+            PagerIndicator(
+                pageCount = visibleRooms.size,
+                currentPage = roomPagerState.currentPage,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 10.dp)
+            )
+        }
         if (!isEditMode) {
             when {
                 showConnectionBar -> HomeAssistantConnectionBar(
@@ -852,6 +1402,9 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
         HKIBottomBar(
             horizontalPadding = 32.dp,
             scrollable = navBarScrollable,
+            // Keeps the active tab centred once the bar overflows, so paging to the last tab no
+            // longer leaves the indicator off-screen. Edit mode shows undo/redo/done, not tabs.
+            selectedIndex = if (isEditMode) null else currentTopLevelIndex.takeIf { it >= 0 },
             // While the media bar is tucked away, a swipe up on the nav bar brings it back.
             modifier = if (canRestoreMediaBar) Modifier.pointerInput(Unit) {
                 var drag = 0f
@@ -870,29 +1423,38 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
             } else Modifier
         ) {
             if (isEditMode) {
-                EditNavButton(Icons.AutoMirrored.Filled.Undo, "Undo", enabled = canUndo) { viewModel.undo() }
-                EditNavButton(Icons.AutoMirrored.Filled.Redo, "Redo", enabled = canRedo) { viewModel.redo() }
-                EditNavButton(Icons.Default.CheckCircle, "Done") { viewModel.toggleEditMode() }
+                EditNavButton(
+                    Icons.AutoMirrored.Filled.Undo,
+                    stringResource(R.string.action_undo),
+                    enabled = canUndo
+                ) { viewModel.undo() }
+                EditNavButton(
+                    Icons.AutoMirrored.Filled.Redo,
+                    stringResource(R.string.action_redo),
+                    enabled = canRedo
+                ) { viewModel.redo() }
+                EditNavButton(
+                    Icons.Default.CheckCircle,
+                    stringResource(R.string.ui_done_e9b450d)
+                ) { viewModel.toggleEditMode() }
             } else {
-                screens.forEach { screen ->
-                        val isSelected = when (screen) {
-                            is Screen.Custom ->
-                                currentDestination?.route == Screen.CUSTOM_PAGE_ROUTE &&
-                                    navBackStackEntry?.arguments?.getString("pageId") == screen.page.id
-                            Screen.Rooms ->
-                                currentDestination?.route == Screen.RoomDetail.route ||
-                                    currentDestination?.hierarchy?.any { it.route == screen.route } == true
-                            Screen.Battery ->
-                                currentDestination?.route == Screen.Battery.WIDGET_ROUTE ||
-                                    currentDestination?.hierarchy?.any { it.route == screen.route } == true
-                            else -> currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                screens.forEachIndexed { index, screen ->
+                        // Selection follows the pager while the tabs are showing. A detail screen
+                        // pushed on top keeps its originating tab lit — a room belongs to Rooms, the
+                        // battery widget to Battery — so the bar never reads as "nothing selected".
+                        val isSelected = when {
+                            currentRoute == Screen.RoomDetail.route -> screen == Screen.Rooms
+                            currentRoute == Screen.Battery.WIDGET_ROUTE -> screen == Screen.Battery
+                            else -> onTabsDestination && pagerState.currentPage == index
                         }
 
                         Column(
                             modifier = Modifier
                                 .then(
                                     // weight() needs a bounded row; scrollable rows use fixed-width tabs.
-                                    if (navBarScrollable) Modifier.width(68.dp) else Modifier.weight(1f)
+                                    // The width must stay HKIBottomBarTabWidth — the bar computes its
+                                    // scroll-into-view offset from it.
+                                    if (navBarScrollable) Modifier.width(HKIBottomBarTabWidth) else Modifier.weight(1f)
                                 )
                                 .fillMaxHeight()
                                 .clickable { navigateToTopLevel(screen) },
@@ -923,7 +1485,7 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
                                 }
                             }
                             Text(
-                                text = screen.title,
+                                text = screen.localizedTitle(),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (isSelected) appColors.onSurface else appColors.onMuted,
                                 fontSize = 10.sp
@@ -963,21 +1525,43 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
             ConnectionErrorOverlay(viewModel)
         }
 
-        InstanceSwitcherPanel(
-            visible = instancePanelOpen,
-            instances = homeAssistantInstances,
-            activeInstanceId = activeHomeAssistantInstanceId,
-            onDismiss = { instancePanelOpen = false },
-            onSelect = { instanceId ->
-                instancePanelOpen = false
-                viewModel.switchHomeAssistantInstance(instanceId)
-                navigateToTopLevel(Screen.Home)
-            },
-            onAdd = {
-                instancePanelOpen = false
-                showAddHomeAssistantInstance = true
-            }
-        )
+        // Both edge panels are drawn here, above the page and below the dialogs, so their scrim
+        // covers the content while the sheet itself stays clear of anything modal.
+        EdgePanel(
+            state = notificationPanel,
+            edge = PanelEdge.Start,
+            scope = drawerScope,
+            containerColor = appColors.background,
+            contentColor = appColors.onSurface
+        ) {
+            // The panel is composed only while it is at least partly on screen, but the Events
+            // tab's logbook subscription should not start for a drag that gets abandoned — so it
+            // waits until the panel is actually being looked at rather than merely peeking.
+            NotificationPanel(viewModel, isVisible = notificationPanel.isOpen)
+        }
+
+        EdgePanel(
+            state = instancePanel,
+            edge = PanelEdge.End,
+            scope = drawerScope,
+            containerColor = appColors.background,
+            contentColor = appColors.onSurface
+        ) {
+            InstanceSwitcherContent(
+                instances = homeAssistantInstances,
+                activeInstanceId = activeHomeAssistantInstanceId,
+                onDismiss = { drawerScope.launch { instancePanel.close() } },
+                onSelect = { instanceId ->
+                    drawerScope.launch { instancePanel.close() }
+                    viewModel.switchHomeAssistantInstance(instanceId)
+                    navigateToTopLevel(Screen.Home)
+                },
+                onAdd = {
+                    drawerScope.launch { instancePanel.close() }
+                    showAddHomeAssistantInstance = true
+                }
+            )
+        }
 
         if (showAddHomeAssistantInstance) {
             AddHomeAssistantInstanceDialog(
@@ -995,14 +1579,42 @@ fun MainApp(prefs: PreferencesManager, sharedViewModel: MainViewModel? = null) {
             request = fullscreenCamera,
             onDismiss = { fullscreenCamera = null }
         )
-    }
+
+        // Deliberately the final child in this Box. Compose paints later siblings on top; hosting
+        // this before the floating bottom stack left HKI's navigation bar visible over the native
+        // WebView even though none of those buttons could be used. Being last also gives this
+        // page's BackHandler priority over the NavHost while it is open.
+        haPage?.let { (path, pageTitle) ->
+            val haAccessToken by prefs.accessToken.collectAsState(initial = null)
+            val haTokenExpiry by prefs.accessTokenExpiry.collectAsState(initial = null)
+            val haServerUrl by prefs.serverUrl.collectAsState(initial = null)
+            com.jimz011apps.hki7.ui.components.HaWebPage(
+                title = pageTitle,
+                // Follow the same internal/external route the live HA connection selected. The
+                // saved primary URL can be unreachable on the current network, and the auth
+                // bridge deliberately accepts requests only from the exact origin loaded here.
+                baseUrl = currentUrl.ifBlank { haServerUrl.orEmpty() },
+                path = path,
+                accessToken = haAccessToken,
+                accessTokenExpiry = haTokenExpiry,
+                onClose = {
+                    haPage = null
+                    if (reopenSettingsAfterHaPage) {
+                        reopenSettingsAfterHaPage = false
+                        settingsRoute = "menu"
+                    }
+                }
+            )
+        }
     }
     }
 }
 
+/** Contents of the home switcher. The sheet, scrim and drag behaviour belong to [EdgePanel], which
+ *  the notification panel shares — the two used to slide in differently for no reason anyone could
+ *  have named. */
 @Composable
-private fun InstanceSwitcherPanel(
-    visible: Boolean,
+private fun InstanceSwitcherContent(
     instances: List<HomeAssistantInstance>,
     activeInstanceId: String?,
     onDismiss: () -> Unit,
@@ -1010,114 +1622,96 @@ private fun InstanceSwitcherPanel(
     onAdd: () -> Unit
 ) {
     val appColors = LocalHKIAppColors.current
-    AnimatedVisibility(
-        visible = visible,
-        modifier = Modifier.fillMaxSize(),
-        enter = fadeIn(tween(160)) + slideInHorizontally(tween(230)) { it / 3 },
-        exit = fadeOut(tween(140)) + slideOutHorizontally(tween(210)) { it / 3 }
-    ) {
-        Box(
-            Modifier
+        Column(
+            modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.38f))
-                .clickable(onClick = onDismiss)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .fillMaxWidth(0.86f)
-                    .widthIn(max = 380.dp)
-                    .clickable { },
-                color = appColors.background,
-                contentColor = appColors.onSurface,
-                shadowElevation = 22.dp
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.safeDrawing)
-                        .padding(horizontal = 20.dp, vertical = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    modifier = Modifier.size(46.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            modifier = Modifier.size(46.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Home, null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Switch home", style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                            Text("Choose the Home Assistant shown in HKI 7", style = MaterialTheme.typography.bodySmall, color = appColors.onMuted)
-                        }
-                        IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Close") }
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Home, null, tint = MaterialTheme.colorScheme.primary)
                     }
-                    HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.20f))
-                    Column(
-                        modifier = Modifier.weight(1f).verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        instances.forEach { instance ->
-                            val selected = instance.id == activeInstanceId
-                            Surface(
-                                modifier = Modifier.fillMaxWidth().clickable { if (!selected) onSelect(instance.id) },
-                                shape = RoundedCornerShape(20.dp),
-                                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else appColors.elevated,
-                                border = if (selected) androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)
-                                ) else null
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(15.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Home,
-                                        null,
-                                        tint = if (selected) MaterialTheme.colorScheme.primary else appColors.onMuted
-                                    )
-                                    Spacer(Modifier.width(12.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(instance.name, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                                        Text(
-                                            instance.primaryUrl.orEmpty(),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = appColors.onMuted,
-                                            maxLines = 1,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                        )
-                                    }
-                                    if (selected) Icon(Icons.Default.CheckCircle, "Active", tint = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
-                    }
-                    Button(
-                        onClick = onAdd,
-                        modifier = Modifier.fillMaxWidth().height(54.dp),
-                        shape = RoundedCornerShape(18.dp)
-                    ) {
-                        Icon(Icons.Default.Add, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Add Home Assistant")
-                    }
-                    Text(
-                        "Open this panel by swiping left from the upper-right edge of any page header.",
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = appColors.onMuted,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.ui_switch_home_e6ceda2), style = MaterialTheme.typography.titleLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    Text(stringResource(R.string.ui_choose_the_home_assistant_shown_in_hki_7_b29bc26), style = MaterialTheme.typography.bodySmall, color = appColors.onMuted)
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, stringResource(R.string.ui_close_bbfa773))
                 }
             }
+            HorizontalDivider(color = appColors.onMuted.copy(alpha = 0.20f))
+            Column(
+                modifier = Modifier.weight(1f).verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                instances.forEach { instance ->
+                    val selected = instance.id == activeInstanceId
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().clickable { if (!selected) onSelect(instance.id) },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else appColors.elevated,
+                        border = if (selected) androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.42f)
+                        ) else null
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(15.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Home,
+                                null,
+                                tint = if (selected) MaterialTheme.colorScheme.primary else appColors.onMuted
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(instance.name, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                Text(
+                                    instance.primaryUrl.orEmpty(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = appColors.onMuted,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                            if (selected) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    stringResource(R.string.ui_active_a733b80),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Button(
+                onClick = onAdd,
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RoundedCornerShape(18.dp)
+            ) {
+                Icon(Icons.Default.Add, null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.ui_add_home_assistant_a6ccea8))
+            }
+            Text(
+                stringResource(R.string.ui_open_this_panel_by_swiping_left_from_the_upper_671e63c),
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.labelSmall,
+                color = appColors.onMuted,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
-    }
 }
 
 @Composable
@@ -1137,11 +1731,11 @@ private fun ConnectionErrorOverlay(viewModel: MainViewModel) {
         ) {
             Icon(Icons.Default.CloudOff, null, tint = appColors.onMuted, modifier = Modifier.size(56.dp))
             Spacer(Modifier.height(18.dp))
-            Text("Unable to connect", style = MaterialTheme.typography.headlineSmall, color = appColors.onSurface)
+            Text(stringResource(R.string.ui_unable_to_connect_8207f1b), style = MaterialTheme.typography.headlineSmall, color = appColors.onSurface)
             Spacer(Modifier.height(8.dp))
             Text(
-                if (currentUrl.isBlank()) "Couldn't reach your Home Assistant server."
-                else "Couldn't reach $currentUrl",
+                if (currentUrl.isBlank()) stringResource(R.string.ui_couldn_t_reach_your_home_assistant_server_2a17c09)
+                else stringResource(R.string.ui_couldn_t_reach_a30cc1b, currentUrl),
                 style = MaterialTheme.typography.bodyMedium,
                 color = appColors.onMuted,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1149,7 +1743,7 @@ private fun ConnectionErrorOverlay(viewModel: MainViewModel) {
             connectionError?.takeIf { it.isNotBlank() }?.let { error ->
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    error,
+                    localizedConnectionError(error),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -1175,11 +1769,11 @@ private fun ConnectionErrorOverlay(viewModel: MainViewModel) {
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(Modifier.width(10.dp))
-                    Text("Connecting…")
+                    Text(stringResource(R.string.ui_connecting_fd3e796))
                 } else {
                     Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Refresh")
+                    Text(stringResource(R.string.ui_refresh_56e3bad))
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -1191,16 +1785,52 @@ private fun ConnectionErrorOverlay(viewModel: MainViewModel) {
             ) {
                 Icon(Icons.AutoMirrored.Filled.Login, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Log in again")
+                Text(stringResource(R.string.ui_log_in_again_1ee6e18))
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                "Logging in again keeps your dashboard and settings.",
+                stringResource(R.string.ui_logging_in_again_keeps_your_dashboard_and_settings_9a8ed6f),
                 style = MaterialTheme.typography.labelSmall,
                 color = appColors.onMuted
             )
         }
     }
+}
+
+@Composable
+private fun localizedConnectionError(error: String): String = when (error) {
+    "Server address could not be found" -> stringResource(R.string.connection_server_not_found)
+    "Connection timed out" -> stringResource(R.string.connection_timed_out)
+    "No network route to Home Assistant" -> stringResource(R.string.connection_no_route)
+    "Could not connect to Home Assistant" -> stringResource(R.string.connection_could_not_connect)
+    "Secure connection failed" -> stringResource(R.string.connection_secure_failed)
+    "Session expired · Refreshing login…" -> stringResource(R.string.connection_session_expired_refreshing)
+    "Connection was interrupted" -> stringResource(R.string.connection_interrupted)
+    else -> error
+}
+
+@Composable
+private fun localizedConnectionStatusLabel(
+    status: ConnectionStatus,
+    restartPhase: HomeAssistantRestartPhase,
+    isAutoGenerating: Boolean,
+    connectionError: String?
+): String = when {
+    restartPhase == HomeAssistantRestartPhase.STOPPING ->
+        stringResource(R.string.connection_stopping_for_restart)
+    restartPhase == HomeAssistantRestartPhase.STARTING ->
+        stringResource(R.string.connection_starting)
+    restartPhase == HomeAssistantRestartPhase.RESTORING ->
+        stringResource(R.string.connection_restoring_dashboard)
+    restartPhase == HomeAssistantRestartPhase.RESTARTING ->
+        stringResource(R.string.connection_restarting)
+    status != ConnectionStatus.CONNECTED && !connectionError.isNullOrBlank() ->
+        localizedConnectionError(connectionError)
+    isAutoGenerating -> stringResource(R.string.connection_auto_generating)
+    status == ConnectionStatus.CONNECTING -> stringResource(R.string.connection_reconnecting)
+    status == ConnectionStatus.ERROR -> stringResource(R.string.connection_unavailable_retrying)
+    status == ConnectionStatus.IDLE -> stringResource(R.string.connection_paused)
+    else -> stringResource(R.string.connection_connected)
 }
 
 @Composable
@@ -1212,13 +1842,13 @@ private fun HomeAssistantConnectionBar(
     modifier: Modifier = Modifier
 ) {
     val appColors = LocalHKIAppColors.current
-    val label = homeAssistantConnectionStatusLabel(
+    val label = localizedConnectionStatusLabel(
         status,
         restartPhase,
         isAutoGenerating,
         connectionError
     )
-    val title = if (isAutoGenerating) "Building your dashboard" else "Home Assistant"
+    val title = if (isAutoGenerating) stringResource(R.string.ui_building_your_dashboard_2943961) else stringResource(R.string.ui_home_assistant_c8fd3bb)
     val showingError = restartPhase == HomeAssistantRestartPhase.NONE &&
         status != ConnectionStatus.CONNECTED &&
         !connectionError.isNullOrBlank()
@@ -1286,9 +1916,9 @@ private fun HomeAssistantConnectionSwitchBar(
                 modifier = Modifier.size(24.dp)
             )
             Column {
-                Text("Home Assistant", color = appColors.onSurface, style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_home_assistant_c8fd3bb), color = appColors.onSurface, style = MaterialTheme.typography.labelLarge)
                 Text(
-                    "Connection switched to ${route.displayName}",
+                    stringResource(R.string.ui_connection_switched_to_8f04753, route.localizedName()),
                     color = Color(0xFF6AC36A),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1

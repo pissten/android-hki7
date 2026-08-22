@@ -58,6 +58,19 @@ class RoomStatusStateTest {
     }
 
     @Test
+    fun `empty and action buttons never reach the room control counters`() {
+        val spacer = com.jimz011apps.hki7.data.newSpacerEntityId()
+        val action = com.jimz011apps.hki7.data.newActionItemId()
+        val widgets = listOf(
+            HKIButtonStack("lights", entityIds = listOf("light.visible", spacer, action)),
+            HKISingleEntityWidget("gap", entityId = com.jimz011apps.hki7.data.newSpacerEntityId()),
+            HKISingleEntityWidget("shortcut", entityId = com.jimz011apps.hki7.data.newActionItemId())
+        )
+
+        assertEquals(setOf("light.visible"), displayedRoomControlEntityIds(widgets))
+    }
+
+    @Test
     fun `discovery classifies only exact supported device classes in display order`() {
         val door = entity("binary_sensor.patio", deviceClass = "door")
         val garageDoor = entity("binary_sensor.garage", deviceClass = "garage_door")

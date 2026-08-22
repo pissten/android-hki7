@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -158,19 +162,24 @@ fun WithIconEffect(
         IconEffect.NONE -> content(Modifier)
 
         IconEffect.SPIN -> {
-            val t = rememberInfiniteTransition(label = "spin")
-            val rotation by t.animateFloat(
+            val t = rememberInfiniteTransition(label = stringResource(R.string.ui_spin_a801301))
+            // Deliberately not delegated (`by`): reading the animated value here in the composable
+            // body would recompose this icon — and the content it wraps — on every animation frame.
+            // Read inside the graphicsLayer lambda instead so each frame only re-runs the layer,
+            // never composition. Same pixels, a fraction of the main-thread work.
+            val rotation = t.animateFloat(
                 0f, 360f,
                 infiniteRepeatable(tween(spinPeriodMillis(entity), easing = LinearEasing), RepeatMode.Restart),
-                label = "rotation",
+                label = stringResource(R.string.ui_rotation_acaf322),
             )
-            content(Modifier.graphicsLayer { rotationZ = rotation })
+            content(Modifier.graphicsLayer { rotationZ = rotation.value })
         }
 
         IconEffect.PULSE -> {
             // A "heartbeat": two quick beats then a rest, so it reads as alive rather than a dull throb.
-            val t = rememberInfiniteTransition(label = "pulse")
-            val scale by t.animateFloat(
+            val t = rememberInfiniteTransition(label = stringResource(R.string.ui_pulse_8439fc4))
+            // Undelegated for the same reason as SPIN above: read in the layer, not in composition.
+            val scale = t.animateFloat(
                 1f, 1f,
                 infiniteRepeatable(
                     keyframes {
@@ -184,25 +193,27 @@ fun WithIconEffect(
                     },
                     RepeatMode.Restart,
                 ),
-                label = "pulseScale",
+                label = stringResource(R.string.ui_pulsescale_939f5c2),
             )
-            content(Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
+            content(Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value })
         }
 
         IconEffect.GLOW -> {
             // A breathing light halo: a soft, wide bloom that swells and fades, with the glyph itself
             // subtly brightening — not a hard pulsing disc.
-            val t = rememberInfiniteTransition(label = "glow")
-            val phase by t.animateFloat(
+            val t = rememberInfiniteTransition(label = stringResource(R.string.ui_glow_6ae5a62))
+            // Undelegated, and every value derived from it is computed inside the draw/layer
+            // lambdas — so the halo animates without recomposing the icon on each frame.
+            val phase = t.animateFloat(
                 0f, 1f,
                 infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-                label = "glowPhase",
+                label = stringResource(R.string.ui_glowphase_748e6d6),
             )
-            val glowAlpha = 0.12f + 0.5f * phase
-            val scale = 1f + 0.06f * phase
             content(
                 Modifier
                     .drawBehind {
+                        val p = phase.value
+                        val glowAlpha = 0.12f + 0.5f * p
                         drawCircle(
                             brush = Brush.radialGradient(
                                 colors = listOf(
@@ -211,11 +222,15 @@ fun WithIconEffect(
                                     Color.Transparent,
                                 ),
                                 center = center,
-                                radius = size.maxDimension * (0.85f + 0.35f * phase),
+                                radius = size.maxDimension * (0.85f + 0.35f * p),
                             ),
                         )
                     }
-                    .graphicsLayer { scaleX = scale; scaleY = scale },
+                    .graphicsLayer {
+                        val scale = 1f + 0.06f * phase.value
+                        scaleX = scale
+                        scaleY = scale
+                    },
             )
         }
     }

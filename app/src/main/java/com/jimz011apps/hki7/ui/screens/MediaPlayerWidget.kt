@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.screens
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.jimz011apps.hki7.ui.components.toVisibilitySpec
 import com.jimz011apps.hki7.ui.components.ModernAlertDialog as AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -39,6 +44,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.jimz011apps.hki7.data.HAEntity
+import com.jimz011apps.hki7.data.isWidgetVisibleNow
 import com.jimz011apps.hki7.data.HKIMediaPlayerWidget
 import com.jimz011apps.hki7.ui.MainViewModel
 import com.jimz011apps.hki7.ui.components.AdvancedEntitySearchDialog
@@ -47,6 +53,7 @@ import com.jimz011apps.hki7.ui.components.EditSettingsButton
 import com.jimz011apps.hki7.ui.components.WidgetWidthSelector
 import com.jimz011apps.hki7.ui.components.WidgetBackground
 import com.jimz011apps.hki7.ui.components.WidgetBackgroundSelector
+import com.jimz011apps.hki7.ui.components.mediaPlayerContentLine
 import com.jimz011apps.hki7.ui.components.mediaPlayerStatus
 import com.jimz011apps.hki7.ui.components.surfaceGradient
 import com.jimz011apps.hki7.ui.components.itemCornerShape
@@ -64,7 +71,7 @@ fun MediaPlayerWidgetItem(
     onDelete: () -> Unit,
     onSettings: () -> Unit
 ) {
-    if (widget.isHidden && !isEditMode) return
+    if (!isWidgetVisibleNow(widget) && !isEditMode) return
     val appColors = LocalHKIAppColors.current
     val entityFlow = remember(viewModel, widget.entityId) {
         viewModel.entitiesMatching("id:${widget.entityId}") { it.entity_id == widget.entityId }
@@ -76,7 +83,7 @@ fun MediaPlayerWidgetItem(
         if (it.startsWith("http")) it else "${currentUrl.removeSuffix("/")}$it"
     }
     val name = widget.title ?: entity?.friendlyName ?: widget.entityId
-    val status = mediaPlayerStatus(entity) ?: "Unavailable"
+    val status = mediaPlayerStatus(entity) ?: stringResource(R.string.widgets_unavailable)
 
     Box {
         Surface(
@@ -123,6 +130,15 @@ fun MediaPlayerWidgetItem(
                             fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(status, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        // Which app it is coming from, but only once the line above is already
+                        // saying what is playing — otherwise `status` has fallen back to the app
+                        // name itself and this would print it twice.
+                        val app = entity?.appName?.takeIf { it.isNotBlank() }
+                        if (app != null && mediaPlayerContentLine(entity) != null) {
+                            Text(app, color = Color.White.copy(alpha = 0.5f),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
@@ -149,10 +165,15 @@ fun MediaPlayerWidgetSettingsDialog(
     var backgroundUrl by remember(widget) { mutableStateOf(widget.backgroundUrl) }
     var picking by remember { mutableStateOf(false) }
     var settingsPage by remember(widget) { mutableStateOf("content") }
+    var visSpec by remember(widget) {
+        mutableStateOf(
+            widget.toVisibilitySpec()
+        )
+    }
     if (picking) {
         AdvancedEntitySearchDialog(
             allEntities = allEntities.filter { it.entity_id.startsWith("media_player.") },
-            title = "Select Media Player",
+            title = stringResource(R.string.ui_select_media_player_73f4f5b),
             singleSelect = true,
             preselectedIds = setOf(entityId),
             onDismiss = { picking = false },
@@ -164,19 +185,28 @@ fun MediaPlayerWidgetSettingsDialog(
     AlertDialog(
         stableHeight = true,
         onDismissRequest = onDismiss,
-        title = { com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle("Media player", "Source, layout, and artwork") },
+        title = {
+            com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle(
+                stringResource(R.string.widgets_media_player_title),
+                stringResource(R.string.widgets_media_player_subtitle)
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 com.jimz011apps.hki7.ui.components.SettingsTabRow(
-                    tabs = listOf("content" to "Content", "appearance" to "Appearance"),
+                    tabs = listOf(
+                        "content" to stringResource(R.string.widgets_tab_content),
+                        "appearance" to stringResource(R.string.widgets_tab_appearance),
+                        "visibility" to stringResource(R.string.ui_visibility_7d9ff4f)
+                    ),
                     selected = settingsPage,
                     onSelect = { settingsPage = it }
                 )
                 if (settingsPage == "content") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Content", "Choose the player and dashboard label")
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_content_4f9be05), stringResource(R.string.ui_choose_the_player_and_dashboard_label_7fa88ba))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
-                        Text("Player", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_player_e53407c), style = MaterialTheme.typography.labelLarge)
                         Text(
                             allEntities.find { it.entity_id == entityId }?.friendlyName ?: entityId,
                             style = MaterialTheme.typography.bodySmall,
@@ -184,28 +214,41 @@ fun MediaPlayerWidgetSettingsDialog(
                             maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
                     }
-                    TextButton(onClick = { picking = true }) { Text("Change") }
+                    TextButton(onClick = { picking = true }) { Text(stringResource(R.string.ui_change_64fbd99)) }
                 }
                 OutlinedTextField(value = title, onValueChange = { title = it },
-                    label = { Text("Title (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = { Text(stringResource(R.string.ui_title_optional_932fc13)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 if (settingsPage == "appearance") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Appearance", "Size, shape, and artwork")
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_appearance_41def7a), stringResource(R.string.ui_size_shape_and_artwork_4bb38bb))
                 WidgetWidthSelector(width = width, onWidthChange = { width = it })
-                Text("Shape", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_shape_ea5c1a2), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = !square, onClick = { square = false }, label = { Text("Standard") })
-                    FilterChip(selected = square, onClick = { square = true }, label = { Text("Square") })
+                    FilterChip(selected = !square, onClick = { square = false }, label = { Text(stringResource(R.string.ui_standard_2dfa660)) })
+                    FilterChip(selected = square, onClick = { square = true }, label = { Text(stringResource(R.string.ui_square_82810cb)) })
                 }
                 WidgetBackgroundSelector(backgroundUrl) { backgroundUrl = it }
+                }
+                if (settingsPage == "visibility") {
+                    com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_visibility_7d9ff4f), stringResource(R.string.ui_hide_this_button_or_schedule_when_it_appears_a28bf66))
+                    com.jimz011apps.hki7.ui.components.VisibilityEditor(visSpec) { visSpec = it }
                 }
             }
         },
         confirmButton = {
             Button(onClick = {
-                onSave(widget.copy(entityId = entityId, title = title.ifBlank { null }, width = width, isSquare = square, cornerRadius = radius, backgroundUrl = backgroundUrl))
-            }) { Text("Save") }
+                onSave(widget.copy(
+                    entityId = entityId, title = title.ifBlank { null }, width = width, isSquare = square, cornerRadius = radius, backgroundUrl = backgroundUrl,
+                    isHidden = visSpec.hidden, visibilityStart = visSpec.start, visibilityEnd = visSpec.end,
+                    visibilityRangeMode = visSpec.rangeMode, visibilityRecurrence = visSpec.recurrence,
+ visibilityConditionEntityId = visSpec.conditionEntityId,
+ visibilityConditionState = visSpec.conditionState,
+ visibilityConditionNegate = visSpec.conditionNegate,
+ visibilityConditions = visSpec.conditions,
+ visibilityMatch = visSpec.match
+                ))
+            }) { Text(stringResource(R.string.ui_save_efc007a)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
     )
 }

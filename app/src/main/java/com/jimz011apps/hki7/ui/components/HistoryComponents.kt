@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -49,6 +53,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -56,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import com.jimz011apps.hki7.data.HAEntity
 import com.jimz011apps.hki7.data.HAHistoryEntry
 import com.jimz011apps.hki7.ui.MainViewModel
+import com.jimz011apps.hki7.ui.localizedCommonStateLabel
 import com.jimz011apps.hki7.ui.theme.LocalHKIAppColors
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -65,12 +71,13 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Selectable history windows, in hours, shared by graphs and history dialogs. */
-val HistoryRangeOptions = listOf(6, 12, 24, 48, 72)
+val HistoryRangeOptions = listOf(3, 6, 12, 24, 48, 72)
 
 /** A single point on a timeline: an absolute time plus a numeric value and the raw state label. */
 data class HistoryPoint(val timeMillis: Long, val value: Float, val label: String)
@@ -130,26 +137,40 @@ fun parseHistoryMillis(value: String?): Long? {
         .getOrNull()
 }
 
-private val clockFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
-private val clockDateFormatter = DateTimeFormatter.ofPattern("MMM d, HH:mm")
-
 fun formatHistoryClock(millis: Long, withDate: Boolean = false): String {
     val zoned = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())
-    return zoned.format(if (withDate) clockDateFormatter else clockFormatter)
+    val formatter = if (withDate) {
+        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+    } else {
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.MEDIUM)
+    }
+    return zoned.format(formatter.withLocale(Locale.getDefault()))
 }
 
 /** "Last seen just now" / "Last seen 36m ago" from an entity's `last_changed` timestamp. */
+@Composable
 fun formatLastSeen(lastChanged: String?): String? {
     val millis = parseHistoryMillis(lastChanged) ?: return null
     val diffSeconds = ((System.currentTimeMillis() - millis) / 1000).coerceAtLeast(0)
-    val relative = when {
-        diffSeconds < 60 -> "just now"
-        diffSeconds < 3_600 -> "${diffSeconds / 60}m ago"
-        diffSeconds < 86_400 -> "${diffSeconds / 3_600}h ago"
-        diffSeconds < 604_800 -> "${diffSeconds / 86_400}d ago"
-        else -> "${diffSeconds / 604_800}w ago"
+    return when {
+        diffSeconds < 60 -> stringResource(R.string.core_last_seen_just_now)
+        diffSeconds < 3_600 -> {
+            val count = (diffSeconds / 60).toInt()
+            pluralStringResource(R.plurals.core_last_seen_minutes, count, count)
+        }
+        diffSeconds < 86_400 -> {
+            val count = (diffSeconds / 3_600).toInt()
+            pluralStringResource(R.plurals.core_last_seen_hours, count, count)
+        }
+        diffSeconds < 604_800 -> {
+            val count = (diffSeconds / 86_400).toInt()
+            pluralStringResource(R.plurals.core_last_seen_days, count, count)
+        }
+        else -> {
+            val count = (diffSeconds / 604_800).toInt()
+            pluralStringResource(R.plurals.core_last_seen_weeks, count, count)
+        }
     }
-    return "Last seen $relative"
 }
 
 private fun trimSensorGraphValue(value: Float): String =
@@ -172,7 +193,12 @@ fun EntitySensorGraphCard(
     attributeKey: String? = null,
     /** Unit shown alongside the value; falls back to the entity's own `unit_of_measurement` attribute
      *  when graphing state, since attribute-graphed entities (e.g. weather) don't carry one. */
-    unitOverride: String? = null
+    unitOverride: String? = null,
+    /** Device class used to pick the value-hue gradient. Defaults to the entity's own, but
+     *  attribute-graphed entities (e.g. weather.*) carry no device class of their own, so the caller
+     *  passes the attribute's equivalent ("temperature"/"humidity"/"pressure") to get the same
+     *  gradient a dedicated sensor of that class would draw. */
+    gradientDeviceClass: String? = null
 ) {
     val appColors = LocalHKIAppColors.current
     val historyMapping by viewModel.historyMapping.collectAsState()
@@ -224,7 +250,7 @@ fun EntitySensorGraphCard(
         ) {
             if (graphPoints.size < 2) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Not enough data", color = appColors.onMuted, style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.ui_not_enough_data_cdb9d58), color = appColors.onMuted, style = MaterialTheme.typography.bodySmall)
                 }
             } else {
                 InteractiveLineGraph(
@@ -232,16 +258,16 @@ fun EntitySensorGraphCard(
                     lineColor = lineColor,
                     stepped = false,
                     modifier = Modifier.fillMaxSize(),
-                    gradientColors = sensorGradientColors(sensorEntity.deviceClass)
+                    gradientColors = sensorGradientColors(gradientDeviceClass ?: sensorEntity.deviceClass)
                 )
             }
         }
         if (minValue != null && maxValue != null) {
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                SensorGraphStat("Min", trimSensorGraphValue(minValue), unit)
-                avgValue?.let { SensorGraphStat("Avg", trimSensorGraphValue(it), unit) }
-                SensorGraphStat("Max", trimSensorGraphValue(maxValue), unit)
+                SensorGraphStat(stringResource(R.string.cr_min), trimSensorGraphValue(minValue), unit)
+                avgValue?.let { SensorGraphStat(stringResource(R.string.cr_avg), trimSensorGraphValue(it), unit) }
+                SensorGraphStat(stringResource(R.string.cr_max), trimSensorGraphValue(maxValue), unit)
             }
         }
     }
@@ -255,7 +281,7 @@ private fun SensorGraphStat(label: String, value: String, unit: String) {
         Text(label, color = appColors.onMuted, style = MaterialTheme.typography.labelSmall)
         Spacer(Modifier.height(2.dp))
         Text(
-            text = if (unit.isNotBlank()) "$value $unit" else value,
+            text = if (unit.isNotBlank()) stringResource(R.string.ui_text_78c505f, value, unit) else value,
             color = appColors.onSurface,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold
@@ -272,32 +298,38 @@ fun HistoryRangeChips(
 ) {
     val appColors = LocalHKIAppColors.current
     val accent = MaterialTheme.colorScheme.primary
-    Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        HistoryRangeOptions.forEach { hours ->
-            val isSelected = hours == selectedHours
-            val chipShape = itemCornerShape()
-            Box(
-                modifier = Modifier
-                    .clip(chipShape)
-                    .background(if (isSelected) accent.copy(alpha = 0.22f) else appColors.subtleSurface)
-                    .border(
-                        width = 1.dp,
-                        color = if (isSelected) accent else appColors.onMuted.copy(alpha = 0.18f),
-                        shape = chipShape
+    // The Box is what fills the width and does the centring; the scrolling Row inside sizes itself
+    // to its chips. Setting an arrangement on the scrolling Row instead would do nothing — a
+    // scrollable Row measures to its content, so it has no spare width to distribute. When the
+    // chips do overflow, the Row grows to the Box's width and scrolls exactly as before.
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            HistoryRangeOptions.forEach { hours ->
+                val isSelected = hours == selectedHours
+                val chipShape = itemCornerShape()
+                Box(
+                    modifier = Modifier
+                        .clip(chipShape)
+                        .background(if (isSelected) accent.copy(alpha = 0.22f) else appColors.subtleSurface)
+                        .border(
+                            width = 1.dp,
+                            color = if (isSelected) accent else appColors.onMuted.copy(alpha = 0.18f),
+                            shape = chipShape
+                        )
+                        .clickable { onSelect(hours) }
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.ui_h_0be1674, hours),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isSelected) appColors.onSurface else appColors.onMuted
                     )
-                    .clickable { onSelect(hours) }
-                    .padding(horizontal = 14.dp, vertical = 7.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "${hours}h",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isSelected) appColors.onSurface else appColors.onMuted
-                )
+                }
             }
         }
     }
@@ -401,7 +433,11 @@ fun StateTimelineBar(
         Box(modifier = Modifier.fillMaxWidth().height(22.dp)) {
             if (selected != null && cursorTime != null) {
                 Text(
-                    text = "${selected.state.replaceFirstChar { it.uppercase() }} · ${formatHistoryClock(cursorTime)}",
+                    text = stringResource(
+                        R.string.ui_text_c1aacd9,
+                        localizedCommonStateLabel(selected.state),
+                        formatHistoryClock(cursorTime)
+                    ),
                     color = appColors.onSurface,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold
@@ -455,7 +491,7 @@ fun StateTimelineBar(
                 style = MaterialTheme.typography.labelSmall
             )
             Text(
-                text = "Now",
+                text = stringResource(R.string.ui_now_e3b8204),
                 color = appColors.onMuted,
                 style = MaterialTheme.typography.labelSmall
             )

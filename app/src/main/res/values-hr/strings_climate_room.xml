@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="cr_whats_new_1_1_0">
+        <item>Još osamnaest jezika, uzdižući HKI 7 do 36. Poljski, ruski, češki, slovački, mađarski, rumunjski, bugarski, hrvatski, grčki, litvanski, latvijski, estonski, danski, tajlandski i hebrejski pridružuju se popisu, zajedno s austrijskim njemačkim, švicarskim njemačkim i meksičkim španjolskim. Hebrejski postavlja sučelje zdesna nalijevo, kao što to čini arapski.</item>
+        <item>HKI 7 sada radi na Androidu 12 i novijim verzijama. Prethodno je trebao Android 14, što je isključivalo mnoge savršeno sposobne telefone i tablete.</item>
+        <item>Troškovi energije prikazani su u vlastitoj valuti umjesto uvijek u eurima. HKI 7 prati ono što izvješćuju vaši senzori troškova, a postoji i postavka valute u postavkama energije ako biste je radije sami odabrali.</item>
+        <item>Birač jezika ima okvir za pretraživanje i sortiran je, što mu je bilo potrebno za 36 unosa. Ako ikad sletite na jezik koji ne znate čitati, put natrag je još uvijek prva stvar na ekranu.</item>
+        <item>Prikazi pamte gdje ste se pomaknuli, a dodirom kartice na kojoj se već nalazite vraćate se na vrh.</item>
+        <item>Klizanje u stranu više vas ne nosi sa stranice koju ste otvorili, kao što je Solar inside Energy. Back now vraća vas na prikaz iz kojeg ste došli umjesto da skačete na početnu stranicu.</item>
+        <item>Redovi koji se mogu pomicati to govore. Padajući izbornik, navigacijska traka i kartice s postavkama pokazuju strelicu na rubu kada postoji više za dosegnuti.</item>
+        <item>Dijalozi izgledaju i ponašaju se jednako cijelo vrijeme. Šest od njih bili su obični Android dijalozi bez gumba za zatvaranje u kutu, a gumbi diljem aplikacije sada se slažu oko toga što znače Zatvori, Spremi i Gotovo.</item>
+        <item>Stvaranje nadzorne ploče prvo postavlja pitanje, a zatim nudi iste izbore kao i prvo postavljanje — tako da nova nadzorna ploča može započeti od sigurnosne kopije ili od one koju je vaša obitelj podijelila, kao i biti generirana ili ostavljena prazna. Vaša trenutna nadzorna ploča nikada se ne briše, a dijeljene nadzorne ploče sada su označene kao dijeljene na popisu.</item>
+        <item>Widget baterije otvara popis na mjestu umjesto da vas odvede na zasebnu stranicu, grupiranu prema tome koliko je svaka hitna i prikazuje vrstu baterije tamo gdje Home Assistant to zna. Postoji okvir za pretraživanje i gumb za otvaranje punog prikaza baterije ako ga želite.</item>
+        <item>Dodirom brojača osoba u sobi prikazuje se tko je tamo, sa slikom svake osobe. Zaglavlje Sobe sada ima i brojač kućanstva, koji pokazuje gdje se tko nalazi bez otvaranja svake sobe.</item>
+        <item>Gumb se može izostaviti iz brojača svjetla i uređaja u sobi, za one koji su u sobi, ali zapravo nisu njezin dio.</item>
+        <item>Widgeti kojima je potrebna integracija koju vi nemate — Formula 1, Parcele, Odvoz otpada — zasivljeni su i govore što nedostaje, umjesto da se dodaju i ostanu prazni.</item>
+        <item>Praćenje paketa pokriva još petnaest prijevoznika, uključujući PostNord, InPost, Swiss Post, An Post, Budbee, Sameday i Novu poštu, svaki sa svojim logotipom.</item>
+        <item>Valetudo robotski usisivač automatski preuzima svoju mapu uživo kada se uvezu vaše sobe, umjesto da je potrebna kamera koju ručno odaberete.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_1">
+        <item>Novi widget za sat. Analogni ili digitalni, svaki sa sedam dizajna, 12 ili 24-satno vrijeme, i dan, datum i godina ako ih želite. Dodirnite ga da vidite svoj sljedeći alarm.</item>
+        <item>Dođite do samog Home Assistant iz postavki. Administratori dobivaju njegove postavke, alate za razvojne programere i HACS preko cijelog zaslona unutar HKI 7, već prijavljeni.</item>
+        <item>HKI 7 vam govori kada nova verzija izađe — korisno ako ste je instalirali s GitHuba, a ne iz Trgovine Play. Isključite ga u Postavkama › O uređaju.</item>
+        <item>Home Assistant sada može vidjeti sljedeći alarm vašeg telefona, isti senzor koji pruža službena aplikacija.</item>
+        <item>Media playeri pokazuju što se reproducira, a ne samo koja je aplikacija otvorena. Android TV koji struji seriju prikazuje program, sezonu i epizodu.</item>
+        <item>Natrag vraća na stranicu na kojoj ste bili prije, svaki put, dok ne dođete do početne stranice. Više ne preskače stranice niti rano napušta aplikaciju.</item>
+        <item>Fiksna očitanja temperature i energije na češkom, slovačkom, grčkom, norveškom, švedskom i danskom, gdje su se brojke pokazivale pogrešno ili su mogle srušiti zaslon.</item>
+        <item>Nešto loše napisano na vašem jeziku? Svaki je jezik sada jedna datoteka koju možete ispraviti na GitHubu, bez potrebe za kodom.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_2">
+        <item>Povratak iz Home Assistant postavki, alata za razvojne programere ili HACS sada vraća istu poziciju u HKI 7 postavkama umjesto ponovnog otvaranja na vrhu.</item>
+        <item>Android 17 sada traži pristup lokalnoj mreži prije nego što pronađe ili se izravno poveže s Home Assistant, tako da lokalni poslužitelji nastavljaju raditi s API-jem 37. Postavke › Veza pokazuje je li dopuštena i može ponovo pitati kada nadogradnja za Android 17 stigne dugo nakon postavljanja.</item>
+        <item>Obavijesti o ažuriranju sada se pojavljuju i na vlastitoj ploči s obavijestima HKI 7, s vezom “Pogledajte što se promijenilo” na napomene o izdanju. Obavijest sustava nestaje nakon što je prijeđete; ovaj ostaje, a provjera ažuriranja pod Postavke › O vraća ga.</item>
+        <item>Pločice dopuštenja u Postavkama sada se ažuriraju čim se vratite nakon davanja dopuštenja. Lokacija, optimizacija baterije i upotreba u pozadini prikazivali su staro stanje sve dok Postavke nisu zatvorene i ponovno otvorene.</item>
+    </string-array>
+</resources>

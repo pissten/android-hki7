@@ -1,5 +1,10 @@
 package com.jimz011apps.hki7.ui.screens
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -30,6 +35,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import com.jimz011apps.hki7.ui.components.toVisibilitySpec
 import com.jimz011apps.hki7.ui.components.ModernAlertDialog as AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -67,6 +75,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Switch
 import com.jimz011apps.hki7.data.HAEntity
+import com.jimz011apps.hki7.data.HKIButtonConfig
+import com.jimz011apps.hki7.data.isButtonVisibleNow
+import com.jimz011apps.hki7.data.isWidgetVisibleNow
 import com.jimz011apps.hki7.data.HKISensorGraphStack
 import com.jimz011apps.hki7.data.HKISensorGraphWidget
 import com.jimz011apps.hki7.ui.MainViewModel
@@ -123,7 +134,7 @@ fun SensorGraphWidgetItem(
     onDelete: () -> Unit,
     onSettings: () -> Unit
 ) {
-    if (widget.isHidden && !isEditMode) return
+    if (!isWidgetVisibleNow(widget) && !isEditMode) return
     Box(modifier = Modifier.fillMaxWidth()) {
         SensorGraphCardView(widget, viewModel)
         if (isEditMode) {
@@ -143,7 +154,7 @@ fun SensorGraphStackWidgetItem(
     onDelete: () -> Unit,
     onSettings: () -> Unit
 ) {
-    if (stack.isHidden && !isEditMode) return
+    if (!isWidgetVisibleNow(stack) && !isEditMode) return
     val appColors = LocalHKIAppColors.current
     val collapsed = stack.collapsible && (stack.isCollapsed ?: stack.defaultCollapsed)
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -151,7 +162,7 @@ fun SensorGraphStackWidgetItem(
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 MdiIcon(stack.icon ?: "chart-line", tint = Color.Gray, size = 16.dp)
                 Spacer(Modifier.width(8.dp))
-                Text(stack.title ?: "Sensor Graphs", color = Color.Gray,
+                Text(stack.title ?: stringResource(R.string.ui_sensor_graphs_5eb3573), color = Color.Gray,
                     style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                 if (stack.collapsible) {
                     IconButton(onClick = onToggleCollapsed, modifier = Modifier.size(24.dp)) {
@@ -165,7 +176,7 @@ fun SensorGraphStackWidgetItem(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (stack.graphs.isEmpty()) {
                         Surface(shape = RoundedCornerShape(stack.cornerRadius.dp), color = appColors.elevated) {
-                            Text("No graphs yet — open the stack settings to add sensor graphs.",
+                            Text(stringResource(R.string.ui_no_graphs_yet_open_the_stack_settings_to_add_87f742f),
                                 style = MaterialTheme.typography.bodySmall, color = appColors.onMuted,
                                 modifier = Modifier.padding(16.dp))
                         }
@@ -194,7 +205,9 @@ private fun SensorGraphCardView(
     modifier: Modifier = Modifier
 ) {
     val appColors = LocalHKIAppColors.current
-    val ids = widget.entityIds
+    val ids = remember(widget.entityIds, widget.itemConfigs) {
+        widget.entityIds.filter { isButtonVisibleNow(widget.itemConfigs[it] ?: HKIButtonConfig()) }
+    }
     val entityFlow = remember(viewModel, ids) {
         viewModel.entitiesMatching("sensor_graph:${ids.joinToString(",")}") { it.entity_id in ids }
     }
@@ -260,7 +273,7 @@ private fun SensorGraphCardView(
             }
                     if (series.isEmpty()) {
                         Text(
-                            "No sensors selected — open the widget settings in edit mode.",
+                            stringResource(R.string.ui_no_sensors_selected_open_the_widget_settings_in_edit_cd87a2e),
                             style = MaterialTheme.typography.bodySmall, color = appColors.onMuted
                         )
                         return@Column
@@ -293,7 +306,7 @@ private fun SensorGraphCardView(
                     ) {
                         if (series.all { it.points.size < 2 }) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("Not enough data", color = appColors.onMuted, style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(R.string.ui_not_enough_data_cdb9d58), color = appColors.onMuted, style = MaterialTheme.typography.bodySmall)
                             }
                         } else if (widget.style == "bar") {
                             MultiSensorBarGraph(series, startMs, endMs, widget.hours, Modifier.fillMaxSize())
@@ -304,7 +317,7 @@ private fun SensorGraphCardView(
                     Spacer(Modifier.height(4.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(formatHistoryClock(startMs, withDate = true), color = appColors.onMuted, style = MaterialTheme.typography.labelSmall)
-                        Text("Now", color = appColors.onMuted, style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.ui_now_e3b8204), color = appColors.onMuted, style = MaterialTheme.typography.labelSmall)
                     }
                     // Min/Avg/Max like the climate sensor cards, but only for a single sensor.
                     if (series.size == 1) {
@@ -312,9 +325,9 @@ private fun SensorGraphCardView(
                         if (values.isNotEmpty()) {
                             Spacer(Modifier.height(6.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                SensorGraphWidgetStat("Min", labelWithUnit(values.min(), series[0].unit))
-                                SensorGraphWidgetStat("Avg", labelWithUnit(values.average().toFloat(), series[0].unit))
-                                SensorGraphWidgetStat("Max", labelWithUnit(values.max(), series[0].unit))
+                                SensorGraphWidgetStat(stringResource(R.string.widgets_stat_min), labelWithUnit(values.min(), series[0].unit))
+                                SensorGraphWidgetStat(stringResource(R.string.widgets_stat_average), labelWithUnit(values.average().toFloat(), series[0].unit))
+                                SensorGraphWidgetStat(stringResource(R.string.widgets_stat_max), labelWithUnit(values.max(), series[0].unit))
                             }
                         }
                     }
@@ -622,6 +635,8 @@ fun SensorGraphWidgetSettingsDialog(
     onSave: (HKISensorGraphWidget) -> Unit
 ) {
     var entityIds by remember(widget) { mutableStateOf(widget.entityIds) }
+    var itemConfigs by remember(widget) { mutableStateOf(widget.itemConfigs) }
+    var editingItemVisibility by remember { mutableStateOf<String?>(null) }
     var title by remember(widget) { mutableStateOf(widget.title.orEmpty()) }
     var style by remember(widget) { mutableStateOf(widget.style) }
     var hours by remember(widget) { mutableIntStateOf(widget.hours) }
@@ -630,11 +645,16 @@ fun SensorGraphWidgetSettingsDialog(
     var radius by remember(widget) { mutableIntStateOf(widget.cornerRadius) }
     var picking by remember { mutableStateOf(false) }
     var settingsPage by remember(widget) { mutableStateOf("data") }
+    var visSpec by remember(widget) {
+        mutableStateOf(
+            widget.toVisibilitySpec()
+        )
+    }
     if (picking) {
         val sensors = allEntities.filter { it.entity_id.startsWith("sensor.") || it.entity_id.startsWith("number.") || it.entity_id.startsWith("input_number.") }
         AdvancedEntitySearchDialog(
             allEntities = sensors.ifEmpty { allEntities },
-            title = "Select Sensors",
+            title = stringResource(R.string.ui_select_sensors_5141d75),
             singleSelect = false,
             preselectedIds = entityIds.toSet(),
             onDismiss = { picking = false },
@@ -646,7 +666,12 @@ fun SensorGraphWidgetSettingsDialog(
     AlertDialog(
         stableHeight = true,
         onDismissRequest = onDismiss,
-        title = { com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle("Sensor graph", "Entities, chart style, and appearance") },
+        title = {
+            com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle(
+                stringResource(R.string.widgets_sensor_graph_title),
+                stringResource(R.string.widgets_sensor_graph_subtitle)
+            )
+        },
         text = {
             val scroll = rememberScrollState()
             Column(
@@ -655,16 +680,17 @@ fun SensorGraphWidgetSettingsDialog(
             ) {
                 com.jimz011apps.hki7.ui.components.SettingsTabRow(
                     tabs = buildList {
-                        add("data" to "Data")
-                        add("chart" to "Chart")
-                        if (showLayoutOptions) add("appearance" to "Appearance")
+                        add("data" to stringResource(R.string.widgets_tab_data))
+                        add("chart" to stringResource(R.string.widgets_tab_chart))
+                        if (showLayoutOptions) add("appearance" to stringResource(R.string.widgets_tab_appearance))
+                        add("visibility" to stringResource(R.string.ui_visibility_7d9ff4f))
                     },
                     selected = settingsPage,
                     onSelect = { settingsPage = it }
                 )
                 if (settingsPage == "data") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Data series", "Choose the sensors plotted together")
-                Text("Sensors", style = MaterialTheme.typography.labelLarge)
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_data_series_e5977fb), stringResource(R.string.ui_choose_the_sensors_plotted_together_3bc1663))
+                Text(stringResource(R.string.ui_sensors_711bf35), style = MaterialTheme.typography.labelLarge)
                 entityIds.forEach { id ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -672,44 +698,56 @@ fun SensorGraphWidgetSettingsDialog(
                             modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.bodySmall
                         )
-                        IconButton(onClick = { entityIds = entityIds - id }) { Icon(Icons.Default.Close, "Remove") }
+                        IconButton(onClick = { editingItemVisibility = id }) {
+                            Icon(
+                                if (com.jimz011apps.hki7.data.isButtonVisibleNow(itemConfigs[id] ?: HKIButtonConfig())) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = stringResource(R.string.ui_visibility_7d9ff4f)
+                            )
+                        }
+                        IconButton(onClick = { entityIds = entityIds - id; itemConfigs = itemConfigs - id }) {
+                            Icon(Icons.Default.Close, stringResource(R.string.widgets_remove))
+                        }
                     }
                 }
                 TextButton(onClick = { picking = true }) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(if (entityIds.isEmpty()) "Add sensors" else "Edit sensors")
+                    Text(if (entityIds.isEmpty()) stringResource(R.string.ui_add_sensors_d6df16f) else stringResource(R.string.ui_edit_sensors_6c38d51))
                 }
                 OutlinedTextField(value = title, onValueChange = { title = it },
-                    label = { Text("Title (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = { Text(stringResource(R.string.ui_title_optional_932fc13)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 if (settingsPage == "chart") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Chart", "Rendering style and history range")
-                Text("Graph Style", style = MaterialTheme.typography.labelLarge)
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_chart_66c7734), stringResource(R.string.ui_rendering_style_and_history_range_be872e9))
+                Text(stringResource(R.string.ui_graph_style_6acd980), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = style == "line", onClick = { style = "line" }, label = { Text("Lines") })
-                    FilterChip(selected = style == "bar", onClick = { style = "bar" }, label = { Text("Bars") })
+                    FilterChip(selected = style == "line", onClick = { style = "line" }, label = { Text(stringResource(R.string.ui_lines_c6fd387)) })
+                    FilterChip(selected = style == "bar", onClick = { style = "bar" }, label = { Text(stringResource(R.string.ui_bars_ad5fb3b)) })
                 }
-                Text("Time Range", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_time_range_9257117), style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     HistoryRangeOptions.forEach { option ->
                         FilterChip(
                             selected = hours == option,
                             onClick = { hours = option },
-                            label = { Text("${option}h") },
+                            label = { Text(stringResource(R.string.ui_h_0be1674, option)) },
                             shape = itemCornerShape()
                         )
                     }
                 }
                 }
                 if (showLayoutOptions && settingsPage == "appearance") {
-                    com.jimz011apps.hki7.ui.components.SettingsSubcategory("Appearance", "Dashboard width and card shape")
+                    com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_appearance_41def7a), stringResource(R.string.ui_dashboard_width_and_card_shape_3fcad11))
                     WidgetWidthSelector(width = width, onWidthChange = { width = it })
-                    Text("Shape", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ui_shape_ea5c1a2), style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = !square, onClick = { square = false }, label = { Text("Standard") })
-                        FilterChip(selected = square, onClick = { square = true }, label = { Text("Square") })
+                        FilterChip(selected = !square, onClick = { square = false }, label = { Text(stringResource(R.string.ui_standard_2dfa660)) })
+                        FilterChip(selected = square, onClick = { square = true }, label = { Text(stringResource(R.string.ui_square_82810cb)) })
                     }
+                }
+                if (settingsPage == "visibility") {
+                    com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_visibility_7d9ff4f), stringResource(R.string.ui_hide_this_button_or_schedule_when_it_appears_a28bf66))
+                    com.jimz011apps.hki7.ui.components.VisibilityEditor(visSpec) { visSpec = it }
                 }
             }
         },
@@ -717,12 +755,28 @@ fun SensorGraphWidgetSettingsDialog(
             Button(onClick = {
                 onSave(widget.copy(
                     entityIds = entityIds, title = title.ifBlank { null }, style = style,
-                    hours = hours, width = width, isSquare = square, cornerRadius = radius
+                    hours = hours, width = width, isSquare = square, cornerRadius = radius,
+                    isHidden = visSpec.hidden, visibilityStart = visSpec.start, visibilityEnd = visSpec.end,
+                    visibilityRangeMode = visSpec.rangeMode, visibilityRecurrence = visSpec.recurrence,
+                    visibilityConditionEntityId = visSpec.conditionEntityId,
+                    visibilityConditionState = visSpec.conditionState,
+                    visibilityConditionNegate = visSpec.conditionNegate,
+                    visibilityConditions = visSpec.conditions,
+                    visibilityMatch = visSpec.match,
+                    itemConfigs = itemConfigs
                 ))
-            }) { Text("Save") }
+            }) { Text(stringResource(R.string.ui_save_efc007a)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
     )
+    editingItemVisibility?.let { id ->
+        com.jimz011apps.hki7.ui.components.ItemVisibilityDialog(
+            label = allEntities.find { it.entity_id == id }?.friendlyName ?: id,
+            config = itemConfigs[id] ?: HKIButtonConfig(),
+            onDismiss = { editingItemVisibility = null },
+            onSave = { itemConfigs = itemConfigs + (id to it) }
+        )
+    }
 }
 
 @Composable
@@ -740,6 +794,11 @@ fun SensorGraphStackSettingsDialog(
     var editingGraph by remember { mutableStateOf<HKISensorGraphWidget?>(null) }
     var addingGraph by remember { mutableStateOf(false) }
     var settingsPage by remember(stack) { mutableStateOf("graphs") }
+    var visSpec by remember(stack) {
+        mutableStateOf(
+            stack.toVisibilitySpec()
+        )
+    }
 
     if (addingGraph) {
         val sensors = allEntities.filter {
@@ -747,7 +806,7 @@ fun SensorGraphStackSettingsDialog(
         }
         AdvancedEntitySearchDialog(
             allEntities = sensors.ifEmpty { allEntities },
-            title = "Select Sensors",
+            title = stringResource(R.string.ui_select_sensors_5141d75),
             singleSelect = false,
             preselectedIds = emptySet(),
             onDismiss = { addingGraph = false },
@@ -777,7 +836,12 @@ fun SensorGraphStackSettingsDialog(
     AlertDialog(
         stableHeight = true,
         onDismissRequest = onDismiss,
-        title = { com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle("Sensor graph stack", "Grouped charts and stack layout") },
+        title = {
+            com.jimz011apps.hki7.ui.components.ModernSettingsDialogTitle(
+                stringResource(R.string.widgets_sensor_graph_stack_title),
+                stringResource(R.string.widgets_sensor_graph_stack_subtitle)
+            )
+        },
         text = {
             val scroll = rememberScrollState()
             Column(
@@ -785,43 +849,56 @@ fun SensorGraphStackSettingsDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 com.jimz011apps.hki7.ui.components.SettingsTabRow(
-                    tabs = listOf("graphs" to "Graphs", "layout" to "Layout"),
+                    tabs = listOf(
+                        "graphs" to stringResource(R.string.widgets_tab_graphs),
+                        "layout" to stringResource(R.string.widgets_tab_layout),
+                        "visibility" to stringResource(R.string.ui_visibility_7d9ff4f)
+                    ),
                     selected = settingsPage,
                     onSelect = { settingsPage = it }
                 )
                 if (settingsPage == "graphs") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Graphs", "Add and edit each chart in this stack")
-                Text("Graphs", style = MaterialTheme.typography.labelLarge)
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_graphs_7839947), stringResource(R.string.ui_add_and_edit_each_chart_in_this_stack_0c0cb11))
+                Text(stringResource(R.string.ui_graphs_7839947), style = MaterialTheme.typography.labelLarge)
                 graphs.forEachIndexed { index, graph ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             graph.title ?: allEntities.find { it.entity_id == graph.entityIds.firstOrNull() }?.friendlyName
-                                ?.let { first -> if (graph.entityIds.size > 1) "$first +${graph.entityIds.size - 1}" else first }
-                                ?: "Graph ${index + 1} · ${graph.entityIds.size} sensor${if (graph.entityIds.size == 1) "" else "s"}",
+                                ?.let { first -> if (graph.entityIds.size > 1) stringResource(R.string.ui_text_054812c, first, graph.entityIds.size - 1) else first }
+                                ?: pluralStringResource(
+                                    R.plurals.widgets_graph_sensor_count,
+                                    graph.entityIds.size,
+                                    index + 1,
+                                    graph.entityIds.size
+                                ),
                             modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.bodySmall
                         )
-                        TextButton(onClick = { editingGraph = graph }) { Text("Edit") }
+                        TextButton(onClick = { editingGraph = graph }) { Text(stringResource(R.string.ui_edit_5301648)) }
                         IconButton(onClick = { graphs = graphs.filterNot { it.id == graph.id } }) {
-                            Icon(Icons.Default.Close, "Remove")
+                            Icon(Icons.Default.Close, stringResource(R.string.widgets_remove))
                         }
                     }
                 }
                 TextButton(onClick = { addingGraph = true }) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Add graph")
+                    Text(stringResource(R.string.ui_add_graph_079e4ca))
                 }
                 }
                 if (settingsPage == "layout") {
-                com.jimz011apps.hki7.ui.components.SettingsSubcategory("Stack layout", "Title, collapse behavior, and width")
+                com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_stack_layout_1623679), stringResource(R.string.ui_title_collapse_behavior_and_width_dd2b475))
                 OutlinedTextField(value = title, onValueChange = { title = it },
-                    label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    label = { Text(stringResource(R.string.ui_title_768e0c1)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text("Collapsible", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.ui_collapsible_c932fac), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
                     Switch(checked = collapsible, onCheckedChange = { collapsible = it })
                 }
-                WidgetWidthSelector(width = width, onWidthChange = { width = it }, includeThird = false)
+                WidgetWidthSelector(width = width, onWidthChange = { width = it })
+                }
+                if (settingsPage == "visibility") {
+                    com.jimz011apps.hki7.ui.components.SettingsSubcategory(stringResource(R.string.ui_visibility_7d9ff4f), stringResource(R.string.ui_hide_this_button_or_schedule_when_it_appears_a28bf66))
+                    com.jimz011apps.hki7.ui.components.VisibilityEditor(visSpec) { visSpec = it }
                 }
             }
         },
@@ -829,10 +906,17 @@ fun SensorGraphStackSettingsDialog(
             Button(onClick = {
                 onSave(stack.copy(
                     title = title.ifBlank { null }, width = width, cornerRadius = radius,
-                    collapsible = collapsible, graphs = graphs
+                    collapsible = collapsible, graphs = graphs,
+                    isHidden = visSpec.hidden, visibilityStart = visSpec.start, visibilityEnd = visSpec.end,
+                    visibilityRangeMode = visSpec.rangeMode, visibilityRecurrence = visSpec.recurrence,
+ visibilityConditionEntityId = visSpec.conditionEntityId,
+ visibilityConditionState = visSpec.conditionState,
+ visibilityConditionNegate = visSpec.conditionNegate,
+ visibilityConditions = visSpec.conditions,
+ visibilityMatch = visSpec.match
                 ))
-            }) { Text("Save") }
+            }) { Text(stringResource(R.string.ui_save_efc007a)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel_77dfd21)) } }
     )
 }

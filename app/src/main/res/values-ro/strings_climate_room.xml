@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="cr_whats_new_1_1_0">
+        <item>Încă optsprezece limbi, ducând HKI 7 la 36. Poloneză, rusă, cehă, slovacă, maghiară, română, bulgară, croată, greacă, lituaniană, letonă, estonă, daneză, thailandeză și ebraică se alătură listei, alături de germană austriacă, germană elvețiană și spaniolă mexicană. Ebraica stabilește interfața de la dreapta la stânga, așa cum face arabă.</item>
+        <item>HKI 7 rulează acum pe Android 12 și versiuni ulterioare. Anterior, avea nevoie de Android 14, care excludea o mulțime de telefoane și tablete perfect capabile.</item>
+        <item>Costurile energiei sunt afișate în propria dvs. monedă, nu întotdeauna în euro. HKI 7 urmărește ceea ce raportează senzorii dvs. de cost și există o setare Monedă în setările Energie dacă preferați să alegeți una singur.</item>
+        <item>Selectorul de limbi are o casetă de căutare și este sortat, de care avea nevoie la 36 de intrări. Dacă ajungeți vreodată într-o limbă pe care nu o puteți citi, drumul de întoarcere este încă primul lucru pe ecran.</item>
+        <item>Vizualizările își amintesc unde ați derulat, iar atingerea filei în care vă aflați deja vă duce înapoi în partea de sus.</item>
+        <item>Glisarea lateral nu vă mai scoate din pagina pe care ați deschis-o, cum ar fi Solar in interior Energy. Înapoi acum vă întoarce la vizualizarea din care ați venit, mai degrabă decât să săriți la pagina de pornire.</item>
+        <item>Rândurile care se pot derula spun așa. Meniul derulant, bara de navigare și filele de setări arată toate o săgeată la margine atunci când este mai mult de ajuns.</item>
+        <item>Dialogurile arată și se comportă la fel pe tot parcursul. Șase dintre ele erau dialoguri Android simple, fără buton de închidere în colț, iar butoanele din aplicație sunt acum de acord asupra a ceea ce înseamnă Închidere, Salvare și Terminat.</item>
+        <item>Crearea unui tablou de bord solicită mai întâi și apoi oferă aceleași opțiuni ca și configurarea pentru prima dată – astfel încât un nou tablou de bord poate începe dintr-o copie de rezervă sau dintr-unul pe care familia ta l-a partajat, precum și să fie generat sau lăsat gol. Tabloul de bord actual nu este niciodată suprascris, iar tablourile de bord partajate sunt acum marcate ca partajate în listă.</item>
+        <item>Widgetul baterie deschide o listă în loc să vă ducă pe o pagină separată, grupată în funcție de cât de urgent este fiecare și afișând tipul de baterie unde Home Assistant îl cunoaște. Există o casetă de căutare și un buton pentru a deschide vizualizarea completă a bateriei, dacă doriți.</item>
+        <item>Atingerea contorului de persoane dintr-o cameră arată cine este acolo, cu poza fiecărei persoane. Antetul Camere are acum și un contor de uz casnic, care arată unde se află toată lumea fără a deschide fiecare cameră.</item>
+        <item>Un buton poate fi lăsat în afara contoarelor de lumini și dispozitive ale unei camere, pentru cele care se află în cameră, dar nu fac parte din aceasta.</item>
+        <item>Widgeturile care au nevoie de o integrare pe care nu o aveți — Formula 1, Colete, Colectarea deșeurilor — sunt incolore și spun ceea ce lipsește, în loc să fie adăugate și apoi să rămână goale.</item>
+        <item>Urmărirea coletelor acoperă încă cincisprezece operatori de transport, inclusiv PostNord, InPost, Swiss Post, An Post, Budbee, Sameday și Nova Post, fiecare având propriul logo.</item>
+        <item>Un aspirator robot Valetudo își preia automat harta live atunci când camerele dvs. sunt importate, în loc să aibă nevoie de camera aleasă manual.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_1">
+        <item>Nou widget Ceas. Analogic sau digital, șapte modele fiecare, 12 sau 24 de ore și ziua, data și anul dacă le doriți. Atingeți-l pentru a vedea următoarea alarmă.</item>
+        <item>Ajungeți la Home Assistant din Setări. Administratorii primesc Setările, instrumentele pentru dezvoltatori și ecranul complet HACS în HKI 7, deja conectați.</item>
+        <item>HKI 7 vă anunță când apare o nouă versiune - util dacă ați instalat-o din GitHub și nu din Magazin Play. Dezactivați-l în Setări › Despre.</item>
+        <item>Home Assistant poate vedea acum următoarea alarmă a telefonului dvs., același senzor pe care îl oferă aplicația oficială.</item>
+        <item>Playerele media arată ce se redă, nu doar ce aplicație este deschisă. Un televizor Android care transmite în flux un serial arată programul, sezonul și episodul.</item>
+        <item>Înapoi merge la pagina pe care ați fost înainte, de fiecare dată, până când ajungeți la Acasă. Nu mai omite pagini și nu părăsește mai devreme aplicația.</item>
+        <item>S-au remediat citirile de temperatură și energie în cehă, slovacă, greacă, norvegiană, suedeză și daneză, unde numerele erau afișate greșit sau puteau bloca ecranul.</item>
+        <item>Ceva scris prost în limba ta? Fiecare limbă este acum un singur fișier pe care îl puteți corecta pe GitHub, fără a fi nevoie de cod.</item>
+    </string-array>
+    <string-array name="cr_whats_new_1_1_2">
+        <item>Revenind de la Setări Home Assistant, Instrumentele pentru dezvoltatori sau HACS restabilește acum aceeași poziție în Setări HKI 7 în loc să se redeschidă în partea de sus.</item>
+        <item>Android 17 solicită acum acces la rețeaua locală înainte de a găsi sau de a se conecta direct la Home Assistant, astfel încât serverele locale continuă să lucreze cu API 37. Setări › Conexiune arată dacă este permisă și poate cere din nou, pentru când upgrade-ul Android 17 sosește mult după configurare.</item>
+        <item>Notificările de actualizare apar acum și în panoul de notificări al lui HKI 7, cu un link „Vezi ce s-a schimbat” către notele de lansare. Notificarea de sistem dispare odată ce o glisați; acesta rămâne, iar verificarea actualizărilor în Setări › Despre îl aduce înapoi.</item>
+        <item>Dale de permisiuni din Setări se actualizează acum imediat ce revii de la acordarea uneia. Locația, optimizarea bateriei și utilizarea în fundal au continuat să arate starea veche până când Setările au fost închise și redeschise.</item>
+    </string-array>
+</resources>

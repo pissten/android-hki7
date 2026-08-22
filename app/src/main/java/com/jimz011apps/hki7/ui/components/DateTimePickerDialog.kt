@@ -1,5 +1,9 @@
 package com.jimz011apps.hki7.ui.components
 
+import com.jimz011apps.hki7.R
+
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,16 +16,41 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.staticCompositionLocalOf
+import com.jimz011apps.hki7.data.HAEntity
+import com.jimz011apps.hki7.data.HKIBadge
+import com.jimz011apps.hki7.data.HKIButtonConfig
+import com.jimz011apps.hki7.data.HKIRoomWidget
+import com.jimz011apps.hki7.data.HKIVisibilityCondition
+import com.jimz011apps.hki7.data.Hki7User
+import com.jimz011apps.hki7.data.VISIBILITY_CONNECTOR_AND
+import com.jimz011apps.hki7.data.VISIBILITY_CONNECTOR_OR
+import com.jimz011apps.hki7.data.VISIBILITY_MATCH_ALL
+import com.jimz011apps.hki7.data.VISIBILITY_MATCH_ANY
+import com.jimz011apps.hki7.data.VISIBILITY_TYPE_ENTITY
+import com.jimz011apps.hki7.data.VISIBILITY_TYPE_PERSON
+import com.jimz011apps.hki7.data.VISIBILITY_TYPE_TIME
+import com.jimz011apps.hki7.data.normalizedVisibilityConditions
+import com.jimz011apps.hki7.data.suggestedAutomationStates
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
@@ -41,6 +70,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * A Material 3 date-and-time picker in the same style as the Energy view's date picker: the standard
@@ -70,12 +100,12 @@ fun DateTimePickerDialog(
                 val millis = dateState.selectedDateMillis ?: return@TextButton
                 val date: LocalDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
                 onConfirm(LocalDateTime.of(date, LocalTime.of(timeState.hour, timeState.minute)))
-            }) { Text("Done") }
+            }) { Text(stringResource(R.string.dlg_done)) }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (onClear != null) TextButton(onClick = onClear) { Text("Clear") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                if (onClear != null) TextButton(onClick = onClear) { Text(stringResource(R.string.dlg_clear)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dlg_cancel)) }
             }
         }
     ) {
@@ -84,8 +114,8 @@ fun DateTimePickerDialog(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(selected = tab == "date", onClick = { tab = "date" }, label = { Text("Date") })
-                FilterChip(selected = tab == "time", onClick = { tab = "time" }, label = { Text("Time") })
+                FilterChip(selected = tab == "date", onClick = { tab = "date" }, label = { Text(stringResource(R.string.dlg_date)) })
+                FilterChip(selected = tab == "time", onClick = { tab = "time" }, label = { Text(stringResource(R.string.dlg_time)) })
             }
             if (tab == "date") {
                 DatePicker(state = dateState)
@@ -98,100 +128,419 @@ fun DateTimePickerDialog(
     }
 }
 
-/** Portable hide/schedule rule for a button or badge (see `isVisibleAt`). */
+/**
+ * Portable visibility rule for a button, badge, or widget (see `isVisibleAt`).
+ *
+ * [conditions] and [match] are the live representation. The remaining fields mirror the superseded
+ * flat layout and are always left at their defaults by the editor, so the existing save sites write
+ * those defaults back and the flat fields are cleared as items are edited — a rule now lives in
+ * exactly one place. Reading still understands the old layout via [toVisibilitySpec].
+ */
 data class VisibilitySpec(
     val hidden: Boolean = false,
+    val conditions: List<HKIVisibilityCondition> = emptyList(),
+    val match: String = VISIBILITY_MATCH_ALL,
     val start: String? = null,
     val end: String? = null,
     val rangeMode: String = "show",
     val recurrence: String = "none",
+    val conditionEntityId: String? = null,
+    val conditionState: String? = null,
+    val conditionNegate: Boolean = false,
 )
 
-/** Human-readable label for a scheduled bound stored as an ISO local date-time, or "Any" if blank. */
+fun HKIRoomWidget.toVisibilitySpec(): VisibilitySpec = VisibilitySpec(
+    hidden = isHidden,
+    conditions = normalizedVisibilityConditions(
+        visibilityConditions, visibilityStart, visibilityEnd, visibilityRangeMode, visibilityRecurrence,
+        visibilityConditionEntityId, visibilityConditionState, visibilityConditionNegate,
+    ),
+    match = visibilityMatch.ifBlank { VISIBILITY_MATCH_ALL },
+)
+
+fun HKIBadge.toVisibilitySpec(): VisibilitySpec = VisibilitySpec(
+    hidden = hidden,
+    conditions = normalizedVisibilityConditions(
+        visibilityConditions, visibilityStart, visibilityEnd, visibilityRangeMode, visibilityRecurrence,
+        visibilityConditionEntityId, visibilityConditionState, visibilityConditionNegate,
+    ),
+    match = visibilityMatch.ifBlank { VISIBILITY_MATCH_ALL },
+)
+
+/** Human-readable label for a scheduled bound stored as an ISO local date-time. */
+@Composable
 fun formatVisibilityBound(iso: String?): String {
-    if (iso.isNullOrBlank()) return "Any"
+    if (iso.isNullOrBlank()) return stringResource(R.string.dlg_any)
     return runCatching {
-        LocalDateTime.parse(iso).format(DateTimeFormatter.ofPattern("d MMM, HH:mm"))
+        LocalDateTime.parse(iso).format(
+            DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+        )
     }.getOrDefault(iso)
 }
 
 /**
- * Inline hide/schedule editor embedded in a button's or badge's Appearance settings. Mode chips
- * (Always / Hidden / Scheduled); the scheduled mode exposes a visible/hidden window with optional
- * daily/weekly/monthly/yearly recurrence via the graphical [DateTimePickerDialog].
+ * Supplies the full entity catalog on demand to shared editors that embed an entity picker (see
+ * [VisibilityEditor]). Deliberately a lambda rather than the list itself: the value is read only
+ * when a picker actually opens, so providing it never recomposes the tree as entity states change.
+ */
+val LocalEntityCatalogProvider = staticCompositionLocalOf<() -> List<HAEntity>> { { emptyList() } }
+
+/** Family-sharing identity used to evaluate and author per-person visibility rules. */
+data class VisibilityFamilyContext(
+    val currentUserId: String? = null,
+    val isAdmin: Boolean = false,
+    val users: List<Hki7User> = emptyList(),
+    val componentChecked: Boolean = false,
+    val componentAvailable: Boolean = false,
+)
+
+val LocalVisibilityFamilyContext = staticCompositionLocalOf { VisibilityFamilyContext() }
+
+/**
+ * Inline visibility editor embedded in a button's, badge's, or widget's settings.
+ *
+ * Three modes: Always, Hidden, or Conditional. Conditional holds a list of rule blocks — each either
+ * a time window or an entity-state check — combined with match-all (AND) or match-any (OR). Blocks
+ * can be added and removed freely, so an item can depend on several entities and/or windows at once.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VisibilityEditor(spec: VisibilitySpec, onChange: (VisibilitySpec) -> Unit) {
     val appColors = LocalHKIAppColors.current
+    var emptyConditional by remember { mutableStateOf(false) }
     val mode = when {
-        !spec.start.isNullOrBlank() || !spec.end.isNullOrBlank() -> "scheduled"
         spec.hidden -> "hidden"
+        spec.conditions.isNotEmpty() -> "conditional"
+        emptyConditional -> "conditional"
         else -> "always"
     }
-    var pickingStart by remember { mutableStateOf(false) }
-    var pickingEnd by remember { mutableStateOf(false) }
+    // Index of the block whose picker/date dialog is currently open.
+    var pickingStartFor by remember { mutableStateOf<Int?>(null) }
+    var pickingEndFor by remember { mutableStateOf<Int?>(null) }
+    var pickingEntityFor by remember { mutableStateOf<Int?>(null) }
+    var pickingPersonFor by remember { mutableStateOf<Int?>(null) }
+
+    val catalogProvider = LocalEntityCatalogProvider.current
+    val familyContext = LocalVisibilityFamilyContext.current
+    val selectableUsers = remember(familyContext) {
+        familyContext.users
+            .filter { it.id != familyContext.currentUserId }
+            .sortedBy { it.name.lowercase() }
+    }
+    // Snapshotted when a picker opens rather than observed, so the editor doesn't recompose on every
+    // unrelated Home Assistant state change while it is on screen.
+    var catalog by remember { mutableStateOf<List<HAEntity>>(emptyList()) }
+
+    fun updateBlock(index: Int, transform: (HKIVisibilityCondition) -> HKIVisibilityCondition) {
+        onChange(spec.copy(conditions = spec.conditions.mapIndexed { i, c -> if (i == index) transform(c) else c }))
+    }
+    fun addBlock(block: HKIVisibilityCondition) {
+        onChange(spec.copy(hidden = false, conditions = spec.conditions + block))
+    }
+    fun updateConnector(index: Int, connector: String) {
+        val legacyConnector = if (spec.match == VISIBILITY_MATCH_ANY) VISIBILITY_CONNECTOR_OR else VISIBILITY_CONNECTOR_AND
+        onChange(spec.copy(conditions = spec.conditions.mapIndexed { i, condition ->
+            when {
+                i == 0 -> condition.copy(connector = null)
+                i == index -> condition.copy(connector = connector)
+                else -> condition.copy(connector = condition.connector ?: legacyConnector)
+            }
+        }))
+    }
+    fun newTimeBlock() = HKIVisibilityCondition(type = VISIBILITY_TYPE_TIME)
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = mode == "always", onClick = { onChange(VisibilitySpec()) }, label = { Text("Always") })
-            FilterChip(selected = mode == "hidden", onClick = { onChange(VisibilitySpec(hidden = true)) }, label = { Text("Hidden") })
+            FilterChip(selected = mode == "always", onClick = { emptyConditional = false; onChange(VisibilitySpec()) }, label = { Text(stringResource(R.string.dlg_always)) })
+            FilterChip(selected = mode == "hidden", onClick = { emptyConditional = false; onChange(VisibilitySpec(hidden = true)) }, label = { Text(stringResource(R.string.dlg_hidden)) })
             FilterChip(
-                selected = mode == "scheduled",
-                onClick = { onChange(spec.copy(hidden = false, start = spec.start ?: LocalDateTime.now().withSecond(0).withNano(0).toString())) },
-                label = { Text("Scheduled") }
+                selected = mode == "conditional",
+                // Conditional starts empty; the user explicitly chooses a time, entity, or person rule.
+                onClick = { emptyConditional = true; onChange(spec.copy(hidden = false)) },
+                label = { Text(stringResource(R.string.dlg_vis_conditional)) }
             )
         }
-        if (mode == "scheduled") {
-            Text("When", style = MaterialTheme.typography.labelLarge, color = appColors.onSurface)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = spec.rangeMode == "show", onClick = { onChange(spec.copy(rangeMode = "show")) }, label = { Text("Visible during") })
-                FilterChip(selected = spec.rangeMode == "hide", onClick = { onChange(spec.copy(rangeMode = "hide")) }, label = { Text("Hidden during") })
-            }
-            Text("Repeat", style = MaterialTheme.typography.labelLarge, color = appColors.onSurface)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf("none" to "Once", "daily" to "Daily", "weekly" to "Weekly", "monthly" to "Monthly", "yearly" to "Yearly").forEach { (value, txt) ->
-                    FilterChip(selected = spec.recurrence == value, onClick = { onChange(spec.copy(recurrence = value)) }, label = { Text(txt) })
+
+        if (mode == "conditional") {
+            spec.conditions.forEachIndexed { index, block ->
+                if (index > 0) {
+                    val connector = block.connector ?: if (spec.match == VISIBILITY_MATCH_ANY) VISIBILITY_CONNECTOR_OR else VISIBILITY_CONNECTOR_AND
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = connector == VISIBILITY_CONNECTOR_AND,
+                            onClick = { updateConnector(index, VISIBILITY_CONNECTOR_AND) },
+                            label = { Text(stringResource(R.string.dlg_vis_and)) }
+                        )
+                        FilterChip(
+                            selected = connector == VISIBILITY_CONNECTOR_OR,
+                            onClick = { updateConnector(index, VISIBILITY_CONNECTOR_OR) },
+                            label = { Text(stringResource(R.string.dlg_vis_or)) }
+                        )
+                    }
+                }
+                Surface(shape = itemCornerShape(), color = appColors.subtleSurface, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                stringResource(
+                                    when (block.type) {
+                                        VISIBILITY_TYPE_TIME -> R.string.dlg_vis_time_schedule
+                                        VISIBILITY_TYPE_PERSON -> R.string.dlg_vis_person
+                                        else -> R.string.dlg_vis_entity_state
+                                    }
+                                ),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = appColors.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = {
+                                onChange(spec.copy(conditions = spec.conditions.filterIndexed { i, _ -> i != index }))
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.dlg_remove))
+                            }
+                        }
+
+                        if (block.type == VISIBILITY_TYPE_TIME) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = block.rangeMode == "show", onClick = { updateBlock(index) { it.copy(rangeMode = "show") } }, label = { Text(stringResource(R.string.dlg_visible_during)) })
+                                FilterChip(selected = block.rangeMode == "hide", onClick = { updateBlock(index) { it.copy(rangeMode = "hide") } }, label = { Text(stringResource(R.string.dlg_hidden_during)) })
+                            }
+                            Text(stringResource(R.string.dlg_repeat), style = MaterialTheme.typography.labelMedium, color = appColors.onSurface)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                listOf(
+                                    "none" to stringResource(R.string.dlg_once),
+                                    "daily" to stringResource(R.string.dlg_daily),
+                                    "weekly" to stringResource(R.string.dlg_weekly),
+                                    "monthly" to stringResource(R.string.dlg_monthly),
+                                    "yearly" to stringResource(R.string.dlg_yearly),
+                                ).forEach { (value, txt) ->
+                                    FilterChip(selected = block.recurrence == value, onClick = { updateBlock(index) { it.copy(recurrence = value) } }, label = { Text(txt) })
+                                }
+                            }
+                            OutlinedButton(onClick = { pickingStartFor = index }, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Default.Schedule, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.dlg_start, formatVisibilityBound(block.start)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            OutlinedButton(onClick = { pickingEndFor = index }, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Default.Schedule, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.dlg_end, formatVisibilityBound(block.end)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            Text(
+                                when (block.recurrence) {
+                                    "daily" -> stringResource(R.string.dlg_repeats_every_day_only_the_time_of_day_is)
+                                    "weekly" -> stringResource(R.string.dlg_repeats_every_week_only_the_weekday_and_time_are)
+                                    "monthly" -> stringResource(R.string.dlg_repeats_every_month_only_the_day_of_the_month)
+                                    "yearly" -> stringResource(R.string.dlg_repeats_every_year_the_year_is_ignored_so_e)
+                                    else -> stringResource(R.string.dlg_the_exact_dates_you_pick_leave_a_bound_as)
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = appColors.onMuted
+                            )
+                        } else if (block.type == VISIBILITY_TYPE_PERSON) {
+                            val selectedUser = selectableUsers.firstOrNull { it.id == block.userId }
+                            OutlinedButton(
+                                onClick = { pickingPersonFor = index },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Person, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    selectedUser?.name
+                                        ?: block.userId?.takeIf { it.isNotBlank() }
+                                        ?: stringResource(R.string.dlg_choose_person),
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Icon(Icons.Default.KeyboardArrowDown, null)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = !block.negate, onClick = { updateBlock(index) { it.copy(negate = false) } }, label = { Text(stringResource(R.string.dlg_visible)) })
+                                FilterChip(selected = block.negate, onClick = { updateBlock(index) { it.copy(negate = true) } }, label = { Text(stringResource(R.string.dlg_hidden)) })
+                            }
+                            Text(
+                                stringResource(R.string.dlg_person_condition_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = appColors.onMuted
+                            )
+                        } else {
+                            val blockEntity = catalog.firstOrNull { it.entity_id == block.entityId }
+                            OutlinedButton(
+                                onClick = { catalog = catalogProvider(); pickingEntityFor = index },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    blockEntity?.friendlyName
+                                        ?: block.entityId?.takeIf { it.isNotBlank() }
+                                        ?: stringResource(R.string.uif_choose_entity),
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Icon(Icons.Default.KeyboardArrowDown, null)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(selected = !block.negate, onClick = { updateBlock(index) { it.copy(negate = false) } }, label = { Text(stringResource(R.string.dlg_condition_is)) })
+                                FilterChip(selected = block.negate, onClick = { updateBlock(index) { it.copy(negate = true) } }, label = { Text(stringResource(R.string.dlg_condition_is_not)) })
+                            }
+                            // Known states for the picked entity, with a "Custom state" escape hatch
+                            // for values that can't be enumerated (numbers, integration-specific text).
+                            StateSelectorField(
+                                label = stringResource(R.string.dlg_condition_state),
+                                selected = block.state.orEmpty(),
+                                options = suggestedAutomationStates(blockEntity),
+                                enabled = !block.entityId.isNullOrBlank(),
+                                onSelected = { value -> updateBlock(index) { it.copy(state = value.ifBlank { null }) } }
+                            )
+                        }
+                    }
                 }
             }
-            OutlinedButton(onClick = { pickingStart = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Schedule, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Start: ${formatVisibilityBound(spec.start)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                OutlinedButton(onClick = { addBlock(newTimeBlock()) }) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.dlg_vis_time_schedule))
+                }
+                OutlinedButton(onClick = {
+                    catalog = catalogProvider()
+                    pickingEntityFor = spec.conditions.size
+                    addBlock(HKIVisibilityCondition(type = VISIBILITY_TYPE_ENTITY))
+                }) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.dlg_vis_entity_state))
+                }
+                if (familyContext.isAdmin && selectableUsers.isNotEmpty()) {
+                    OutlinedButton(onClick = {
+                        pickingPersonFor = spec.conditions.size
+                        addBlock(HKIVisibilityCondition(type = VISIBILITY_TYPE_PERSON))
+                    }) {
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.dlg_vis_person))
+                    }
+                }
             }
-            OutlinedButton(onClick = { pickingEnd = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Schedule, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("End: ${formatVisibilityBound(spec.end)}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (familyContext.componentChecked && !familyContext.componentAvailable) {
+                Text(
+                    stringResource(R.string.dlg_person_requires_hki7_cloud),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = appColors.onMuted
+                )
+                Hki7CloudInstallCard()
             }
-            Text(
-                when (spec.recurrence) {
-                    "daily" -> "Repeats every day — only the time of day is used."
-                    "weekly" -> "Repeats every week — only the weekday and time are used."
-                    "monthly" -> "Repeats every month — only the day of the month and time are used."
-                    "yearly" -> "Repeats every year — the year is ignored, so e.g. 24–26 Dec recurs each Christmas."
-                    else -> "The exact dates you pick. Leave a bound as \"Any\" for an open-ended range."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = appColors.onMuted
-            )
         }
     }
 
-    if (pickingStart) {
-        DateTimePickerDialog(
-            initial = spec.start?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() },
-            onDismiss = { pickingStart = false },
-            onClear = { onChange(spec.copy(start = null)); pickingStart = false },
-            onConfirm = { onChange(spec.copy(start = it.toString())); pickingStart = false }
+    pickingEntityFor?.let { index ->
+        val current = spec.conditions.getOrNull(index)
+        AdvancedEntitySearchDialog(
+            allEntities = catalog,
+            title = stringResource(R.string.uif_choose_entity),
+            singleSelect = true,
+            preselectedIds = setOfNotNull(current?.entityId),
+            onDismiss = { pickingEntityFor = null },
+            onEntitiesSelected = { ids ->
+                val picked = ids.firstOrNull()
+                // Switching entity clears a state that likely doesn't apply to the new one.
+                if (picked != null && picked != current?.entityId) {
+                    updateBlock(index) { it.copy(entityId = picked, state = null) }
+                }
+                pickingEntityFor = null
+            }
         )
     }
-    if (pickingEnd) {
-        DateTimePickerDialog(
-            initial = spec.end?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() },
-            onDismiss = { pickingEnd = false },
-            onClear = { onChange(spec.copy(end = null)); pickingEnd = false },
-            onConfirm = { onChange(spec.copy(end = it.toString())); pickingEnd = false }
+    pickingPersonFor?.let { index ->
+        val current = spec.conditions.getOrNull(index)
+        ModernAlertDialog(
+            onDismissRequest = { pickingPersonFor = null },
+            title = { Text(stringResource(R.string.dlg_choose_person)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    selectableUsers.forEach { user ->
+                        TextButton(
+                            onClick = {
+                                if (user.id != current?.userId) {
+                                    updateBlock(index) { it.copy(userId = user.id) }
+                                }
+                                pickingPersonFor = null
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(user.name, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { pickingPersonFor = null }) {
+                    Text(stringResource(R.string.dlg_cancel))
+                }
+            }
         )
     }
+    pickingStartFor?.let { index ->
+        val current = spec.conditions.getOrNull(index)
+        DateTimePickerDialog(
+            initial = current?.start?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() },
+            onDismiss = { pickingStartFor = null },
+            onClear = { updateBlock(index) { it.copy(start = null) }; pickingStartFor = null },
+            onConfirm = { picked -> updateBlock(index) { it.copy(start = picked.toString()) }; pickingStartFor = null }
+        )
+    }
+    pickingEndFor?.let { index ->
+        val current = spec.conditions.getOrNull(index)
+        DateTimePickerDialog(
+            initial = current?.end?.takeIf { it.isNotBlank() }?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() },
+            onDismiss = { pickingEndFor = null },
+            onClear = { updateBlock(index) { it.copy(end = null) }; pickingEndFor = null },
+            onConfirm = { picked -> updateBlock(index) { it.copy(end = picked.toString()) }; pickingEndFor = null }
+        )
+    }
+}
+
+fun HKIButtonConfig.toVisibilitySpec(): VisibilitySpec = VisibilitySpec(
+    hidden = hidden,
+    conditions = normalizedVisibilityConditions(
+        visibilityConditions, visibilityStart, visibilityEnd, visibilityRangeMode, visibilityRecurrence,
+        visibilityConditionEntityId, visibilityConditionState, visibilityConditionNegate,
+    ),
+    match = visibilityMatch.ifBlank { VISIBILITY_MATCH_ALL },
+)
+
+fun HKIButtonConfig.withVisibilitySpec(spec: VisibilitySpec): HKIButtonConfig = copy(
+    hidden = spec.hidden,
+    visibilityConditions = spec.conditions,
+    visibilityMatch = spec.match,
+    // Clear the superseded flat fields so the rule lives only in the block list.
+    visibilityStart = null, visibilityEnd = null,
+    visibilityRangeMode = "show", visibilityRecurrence = "none",
+    visibilityConditionEntityId = null, visibilityConditionState = null, visibilityConditionNegate = false,
+)
+
+/** Small standalone dialog for editing one item's hide/schedule/condition rule inside a multi-item
+ * widget (e.g. one sensor line, one calendar, one carrier account) — reuses [VisibilityEditor]. */
+@Composable
+fun ItemVisibilityDialog(
+    label: String,
+    config: HKIButtonConfig,
+    onDismiss: () -> Unit,
+    onSave: (HKIButtonConfig) -> Unit,
+) {
+    var spec by remember(config) { mutableStateOf(config.toVisibilitySpec()) }
+    ModernAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(label) },
+        text = { VisibilityEditor(spec) { spec = it } },
+        confirmButton = { Button(onClick = { onSave(config.withVisibilitySpec(spec)); onDismiss() }) { Text(stringResource(R.string.ui_done_e9b450d)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dlg_cancel)) } }
+    )
 }

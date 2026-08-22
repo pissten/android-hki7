@@ -10,12 +10,12 @@ android {
 
     defaultConfig {
         applicationId = "com.jimz011apps.hki7"
-        minSdk = 34
+        minSdk = 31
         targetSdk = 37
         // 8 was consumed by an upload that was never released (Play reserves version codes
-        // permanently, even for bundles left inactive), so beta.2 ships as 9.
-        versionCode = 16
-        versionName = "1.0.0-beta.9"
+        // permanently, even for bundles left inactive).
+        versionCode = 31
+        versionName = "1.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -38,6 +38,13 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    bundle {
+        // Keep every supported translation in the installed app so switching languages from the
+        // in-app picker never depends on Play downloading a language split.
+        language {
+            enableSplit = false
+        }
     }
 }
 
@@ -75,6 +82,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.play.services.location)
     implementation(libs.play.services.auth)
+    implementation(libs.play.app.update.ktx)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
@@ -85,4 +93,10 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    // Compose UI tests, so gesture behaviour can be driven and asserted directly instead of being
+    // reasoned about — the tab-swipe rules are exactly the kind of thing that reads correct and
+    // behaves otherwise.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }

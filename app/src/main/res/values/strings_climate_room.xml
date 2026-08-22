@@ -1,0 +1,605 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared states and controls -->
+    <string name="cr_state_on">On</string>
+    <string name="cr_state_off">Off</string>
+    <string name="cr_open">Open</string>
+    <string name="cr_close">Close</string>
+    <string name="cr_stop">Stop</string>
+    <string name="cr_closed">Closed</string>
+    <string name="cr_opening">Opening</string>
+    <string name="cr_closing">Closing</string>
+    <string name="cr_locked">Locked</string>
+    <string name="cr_unlocked">Unlocked</string>
+    <string name="cr_unavailable">Unavailable</string>
+    <string name="cr_unknown">Unknown</string>
+    <string name="cr_idle">Idle</string>
+    <string name="cr_home">Home</string>
+    <string name="cr_away">Away</string>
+    <string name="cr_cleaning">Cleaning</string>
+    <string name="cr_returning">Returning</string>
+    <string name="cr_paused">Paused</string>
+    <string name="cr_error">Error</string>
+    <string name="cr_playing">Playing</string>
+    <string name="cr_buffering">Buffering</string>
+    <string name="cr_standby">Standby</string>
+    <string name="cr_humidifying">Humidifying</string>
+    <string name="cr_drying">Drying</string>
+    <string name="cr_detected">Detected</string>
+    <string name="cr_clear">Clear</string>
+    <string name="cr_problem">Problem</string>
+    <string name="cr_ok">OK</string>
+    <string name="cr_low">Low</string>
+    <string name="cr_normal">Normal</string>
+    <string name="cr_connected">Connected</string>
+    <string name="cr_disconnected">Disconnected</string>
+    <string name="cr_plugged_in">Plugged in</string>
+    <string name="cr_unplugged">Unplugged</string>
+    <string name="cr_wet">Wet</string>
+    <string name="cr_dry">Dry</string>
+    <string name="cr_none">None</string>
+    <string name="cr_any">Any</string>
+    <string name="cr_remove">Remove</string>
+    <string name="cr_restore">Restore</string>
+    <string name="cr_general">General</string>
+    <string name="cr_identity">Identity</string>
+    <string name="cr_appearance">Appearance</string>
+    <string name="cr_layout">Layout</string>
+    <string name="cr_behavior">Behavior</string>
+    <string name="cr_profiles">Profiles</string>
+    <string name="cr_playback">Playback</string>
+    <string name="cr_content">Content</string>
+    <string name="cr_actions">Actions</string>
+    <string name="cr_protection">Protection</string>
+    <string name="cr_power">Power</string>
+    <string name="cr_brightness">Brightness</string>
+    <string name="cr_temperature">Temperature</string>
+    <string name="cr_color">Color</string>
+    <string name="cr_min">Min</string>
+    <string name="cr_avg">Avg</string>
+    <string name="cr_max">Max</string>
+    <string name="cr_now">Now</string>
+    <string name="cr_lowest">Lowest</string>
+    <string name="cr_average">Average</string>
+    <string name="cr_highest">Highest</string>
+    <string name="cr_live">Live</string>
+    <string name="cr_once">Once</string>
+    <string name="cr_daily">Daily</string>
+    <string name="cr_weekly">Weekly</string>
+    <string name="cr_monthly">Monthly</string>
+    <string name="cr_yearly">Yearly</string>
+    <string name="cr_action_tap">Tap</string>
+    <string name="cr_action_double_tap">Double tap</string>
+    <string name="cr_action_hold">Hold</string>
+
+    <!-- Climate modes and controls -->
+    <string name="cr_mode">Mode</string>
+    <string name="cr_mode_auto">Auto</string>
+    <string name="cr_mode_heat">Heat</string>
+    <string name="cr_mode_cool">Cool</string>
+    <string name="cr_mode_heat_cool">Heat/cool</string>
+    <string name="cr_mode_dry">Dry</string>
+    <string name="cr_mode_fan_only">Fan only</string>
+    <string name="cr_mode_low">Low</string>
+    <string name="cr_mode_medium">Medium</string>
+    <string name="cr_mode_high">High</string>
+    <string name="cr_mode_quiet">Quiet</string>
+    <string name="cr_mode_boost">Boost</string>
+    <string name="cr_mode_eco">Eco</string>
+    <string name="cr_mode_sleep">Sleep</string>
+    <string name="cr_mode_manual">Manual</string>
+    <string name="cr_mode_vertical">Vertical</string>
+    <string name="cr_mode_horizontal">Horizontal</string>
+    <string name="cr_mode_both">Both</string>
+    <string name="cr_mode_up">Up</string>
+    <string name="cr_mode_down">Down</string>
+    <string name="cr_mode_center">Center</string>
+    <string name="cr_mode_left">Left</string>
+    <string name="cr_mode_right">Right</string>
+    <string name="cr_climate_fan">Fan</string>
+    <string name="cr_climate_vertical_airflow">Vertical airflow</string>
+    <string name="cr_climate_horizontal_airflow">Horizontal airflow</string>
+    <string name="cr_climate_preset">Preset</string>
+    <string name="cr_fan_speed">Fan speed</string>
+    <string name="cr_speed">Speed</string>
+    <string name="cr_lower_target">Lower target</string>
+    <string name="cr_raise_target">Raise target</string>
+
+    <!-- Climate page -->
+    <string name="cr_climate_temperature">Temperature</string>
+    <string name="cr_climate_all_temperature_sensors">All temperature sensors</string>
+    <string name="cr_climate_outside">Outside</string>
+    <string name="cr_climate_outside_summary">Outdoor temperature, humidity, and pressure</string>
+    <string name="cr_climate_humidity">Humidity</string>
+    <string name="cr_climate_all_humidity_sensors">All humidity sensors</string>
+    <string name="cr_climate_air_pressure">Air pressure</string>
+    <string name="cr_climate_all_pressure_sensors">All air-pressure sensors</string>
+    <string name="cr_climate_co2">CO₂</string>
+    <string name="cr_climate_carbon_dioxide_sensors">Carbon-dioxide sensors</string>
+    <string name="cr_climate_air_quality">Air quality</string>
+    <string name="cr_climate_air_quality_summary">Particulates, AQI, VOCs, and gases</string>
+    <string name="cr_climate_entities">Climate entities</string>
+    <string name="cr_climate_settings">Climate settings</string>
+    <string name="cr_empty_climate_view">No climate data is available yet.</string>
+    <string name="cr_climate_fans">Fans</string>
+    <string name="cr_climate_air_purifiers">Air purifiers</string>
+    <string name="cr_climate_humidifiers">Humidifiers</string>
+    <string name="cr_temperature_sensors">Temperature sensors</string>
+    <string name="cr_devices_active">Devices active</string>
+    <string name="cr_active_of_total">%1$d of %2$d active</string>
+    <string name="cr_no_search_active">No active search · %1$s</string>
+    <string name="cr_collapse_search">Collapse search</string>
+    <string name="cr_expand_search">Expand search</string>
+    <string name="cr_custom_order">Custom order</string>
+    <string name="cr_name_a_z">Name A–Z</string>
+    <string name="cr_name_z_a">Name Z–A</string>
+    <string name="cr_climate_device">Climate device</string>
+    <string name="cr_climate_device_subtitle">Name, icon, card style, and width</string>
+    <string name="cr_widget_requires_f1">Needs the F1 Sensor integration, which was not found on your Home Assistant</string>
+    <string name="cr_widget_requires_parcels">Needs a parcel integration, and none was found on your Home Assistant</string>
+    <string name="cr_widget_requires_waste">Needs a waste collection integration, and none was found on your Home Assistant</string>
+    <string name="cr_people_here_title">Who is here</string>
+    <string name="cr_people_here_empty">Nobody is being tracked in this room right now.</string>
+    <string name="cr_people_here_unknown_room">Room unknown</string>
+    <string name="cr_button_exclude_counters">Leave out of counters</string>
+    <string name="cr_button_exclude_counters_hint">Keep the button, but stop it counting towards this room’s Lights and Devices totals</string>
+    <string name="cr_count_with_average">%1$s · avg %2$s%3$s</string>
+    <string name="cr_outside_temperature">Outside temperature</string>
+    <string name="cr_outside_humidity">Outside humidity</string>
+    <string name="cr_outside_pressure">Outside pressure</string>
+    <string name="cr_outside_air_pressure">Outside air pressure</string>
+    <string name="cr_no_sensors_found_for">No %1$s sensors found.</string>
+    <string name="cr_climate_control">Climate control</string>
+    <string name="cr_thermostat_dial">Thermostat dial</string>
+    <string name="cr_width_third">Third</string>
+    <string name="cr_width_half">Half</string>
+    <string name="cr_width_full">Full</string>
+    <string name="cr_select_item">Select %1$s</string>
+    <string name="cr_set_outdoor_sensors">Set outdoor temperature, humidity, and pressure</string>
+    <string name="cr_auto_discovered_device_class">Discovered automatically by device class</string>
+    <string name="cr_auto_discovered_climate_devices">Climate devices discovered automatically</string>
+    <string name="cr_pick_fan_entities_as_purifiers">Choose fan entities to use as air purifiers</string>
+    <string name="cr_auto_discovered_humidifier_devices">Humidifier devices discovered automatically</string>
+    <string name="cr_removed_entities">Removed entities</string>
+    <string name="cr_entities_removed_edit_mode">Entities removed in edit mode</string>
+    <string name="cr_card_indoor_climate_overview">Indoor climate overview</string>
+    <string name="cr_card_sensor_device_tiles">Sensor and device tiles</string>
+    <string name="cr_card_thermostats_ac">Thermostats and AC</string>
+    <string name="cr_card_temperature_summary">Temperature summary</string>
+    <string name="cr_card_humidity_summary">Humidity summary</string>
+    <string name="cr_card_air_pressure_summary">Air-pressure summary</string>
+    <string name="cr_card_co2_summary">CO₂ summary</string>
+    <string name="cr_card_air_quality_summary">Air-quality summary</string>
+    <string name="cr_category_overview">Overview</string>
+    <string name="cr_category_devices">Devices</string>
+    <string name="cr_category_sensors">Sensors</string>
+    <string name="cr_no_climate_sensors_devices">No climate sensors or devices found.</string>
+    <string name="cr_no_climate_devices">No climate devices found. Thermostats and AC units from Home Assistant appear here automatically.</string>
+    <string name="cr_no_fans">No fans found. Fan entities from Home Assistant appear here automatically.</string>
+    <string name="cr_no_air_purifiers">No air purifiers configured. Choose fan entities under Climate settings → Climate entities → Air purifiers.</string>
+    <string name="cr_no_humidifiers">No humidifiers found. Humidifier entities from Home Assistant appear here automatically.</string>
+    <string name="cr_unknown_climate_card">Unknown climate card: %1$s</string>
+    <string name="cr_select_climate_cards">Select climate cards</string>
+    <string name="cr_entities_for">%1$s entities</string>
+    <string name="cr_climate_card">Climate card</string>
+    <string name="cr_climate_card_dialog_subtitle">Data sources and card appearance</string>
+    <string name="cr_card_and_data">Card and data</string>
+    <string name="cr_climate_stack">Climate stack</string>
+    <string name="cr_climate_stack_dialog_subtitle">Cards, data sources, and layout</string>
+    <string name="cr_cards_and_data">Cards and data</string>
+
+    <plurals name="cr_sensor_count">
+        <item quantity="one">%d sensor</item>
+        <item quantity="other">%d sensors</item>
+    </plurals>
+    <plurals name="cr_device_count_on">
+        <item quantity="one">%1$d device · %2$d on</item>
+        <item quantity="other">%1$d devices · %2$d on</item>
+    </plurals>
+    <plurals name="cr_outside_sensors_set">
+        <item quantity="one">%d outside sensor set</item>
+        <item quantity="other">%d outside sensors set</item>
+    </plurals>
+    <plurals name="cr_auto_plus_manual">
+        <item quantity="one">Automatic + %d manual</item>
+        <item quantity="other">Automatic + %d manual</item>
+    </plurals>
+    <plurals name="cr_selected_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="cr_removed_count">
+        <item quantity="one">%d removed</item>
+        <item quantity="other">%d removed</item>
+    </plurals>
+
+    <!-- Room and widget configuration -->
+    <string name="cr_room">Room</string>
+    <string name="cr_room_details">Room details</string>
+    <string name="cr_empty_room">This room is empty. Swipe down on the header, enable edit mode, and add widgets, buttons, or tiles.</string>
+    <string name="cr_default_markdown_content"># Markdown\nOpen this widget in **edit mode** to write your own content.</string>
+    <string name="cr_select_camera">Select camera</string>
+    <string name="cr_select_entity">Select entity</string>
+    <string name="cr_custom_camera">Custom camera</string>
+    <string name="cr_configure_widget">Configure widget</string>
+    <string name="cr_configure_widget_subtitle">Set the essentials before adding it</string>
+    <string name="cr_widget_options">Widget options</string>
+    <string name="cr_widget_options_subtitle">Choose what this widget should display</string>
+    <string name="cr_add_widget">Add widget</string>
+    <string name="cr_add_widget_subtitle">Browse by purpose or search every widget</string>
+    <string name="cr_category_with_options">%1$s · %2$s</string>
+    <string name="cr_widget_category_controls">Controls</string>
+    <string name="cr_widget_category_controls_description">Buttons, vacuums, and grouped controls</string>
+    <string name="cr_widget_category_cameras">Cameras</string>
+    <string name="cr_widget_category_cameras_description">Live camera tiles and multi-camera views</string>
+    <string name="cr_widget_category_climate">Climate and weather</string>
+    <string name="cr_widget_category_climate_description">Temperature, comfort, forecasts, and conditions</string>
+    <string name="cr_widget_category_energy">Energy and batteries</string>
+    <string name="cr_widget_category_energy_description">Consumption, production, and device health</string>
+    <string name="cr_widget_category_information">Information and media</string>
+    <string name="cr_widget_category_information_description">Calendars, deliveries, graphs, notes, and playback</string>
+    <string name="cr_widget_category_layout">Layout and structure</string>
+    <string name="cr_widget_category_layout_description">Headings and flexible widget containers</string>
+    <string name="cr_widget_adaptive_lighting">Adaptive Lighting</string>
+    <string name="cr_widget_adaptive_lighting_description">Control any installed Adaptive Lighting profile</string>
+    <string name="cr_widget_button">Button</string>
+    <string name="cr_widget_button_description">A single configurable entity control</string>
+    <string name="cr_widget_buttons">Buttons</string>
+    <string name="cr_widget_calendar">Calendar</string>
+    <string name="cr_widget_calendar_description">Agenda, week, and month views from Home Assistant calendars</string>
+    <string name="cr_widget_waste_collection">Waste collection</string>
+    <string name="cr_widget_waste_collection_description">Upcoming collections from waste sensors</string>
+    <string name="cr_widget_parcels">Parcels</string>
+    <string name="cr_widget_parcels_description">Incoming and outgoing parcels from supported carriers</string>
+    <string name="cr_widget_camera">Camera</string>
+    <string name="cr_widget_camera_description">A single live camera tile or stream URL</string>
+    <string name="cr_widget_cameras">Cameras</string>
+    <string name="cr_widget_climate_card">Climate card</string>
+    <string name="cr_widget_climate_card_description">Any card from the Climate view</string>
+    <string name="cr_widget_energy_card">Energy card</string>
+    <string name="cr_widget_energy_card_description">Any card from the Energy view</string>
+    <string name="cr_widget_battery_levels">Battery levels</string>
+    <string name="cr_widget_battery_levels_description">Low batteries, or Battery+ only with type details</string>
+    <string name="cr_widget_header_text">Header text</string>
+    <string name="cr_widget_header_text_description">Add a section heading</string>
+    <string name="cr_widget_markdown">Markdown</string>
+    <string name="cr_widget_markdown_description">A free-form card written in Markdown</string>
+    <string name="cr_widget_iframe">iFrame</string>
+    <string name="cr_widget_iframe_description">Embed any web page on your dashboard</string>
+    <string name="cr_widget_media_player">Media player</string>
+    <string name="cr_widget_media_player_description">Now-playing tile with album art as the background</string>
+    <string name="cr_widget_sensor_graph">Sensor graph</string>
+    <string name="cr_widget_sensor_graph_description">History graph for one or more sensors, as lines or bars</string>
+    <string name="cr_widget_vacuum">Vacuum</string>
+    <string name="cr_widget_vacuum_description">A single robot-vacuum control</string>
+    <string name="cr_widget_weather">Weather</string>
+    <string name="cr_widget_weather_description">A single weather card</string>
+    <string name="cr_widget_empty_stack">Empty stack</string>
+    <string name="cr_widget_empty_stack_description">Place widgets inside a configurable stack</string>
+    <string name="cr_widget_button_stack">Button stack</string>
+    <string name="cr_widget_button_stack_description">Group entities into configurable controls</string>
+    <string name="cr_widget_camera_stack">Camera stack</string>
+    <string name="cr_widget_camera_stack_description">Show live camera tiles or a custom stream URL</string>
+    <string name="cr_widget_climate_stack">Climate stack</string>
+    <string name="cr_widget_climate_stack_description">Group climate cards such as overview, thermostats, and sensors</string>
+    <string name="cr_widget_energy_stack">Energy stack</string>
+    <string name="cr_widget_energy_stack_description">Group energy cards such as usage, solar, gas, and water</string>
+    <string name="cr_widget_sensor_graph_stack">Sensor graph stack</string>
+    <string name="cr_widget_sensor_graph_stack_description">Group several sensor-history graphs</string>
+    <string name="cr_widget_swiping_stack">Swiping stack</string>
+    <string name="cr_widget_swiping_stack_description">Swipe horizontally through nested widgets</string>
+    <string name="cr_widget_vacuum_stack">Vacuum stack</string>
+    <string name="cr_widget_vacuum_stack_description">Control robot vacuums with a map and battery status</string>
+    <string name="cr_widget_weather_stack">Weather stack</string>
+    <string name="cr_widget_weather_stack_description">Group conditions, forecast, wind, or rain-map cards</string>
+    <string name="cr_camera_settings">Camera settings</string>
+    <string name="cr_vacuum_settings">Vacuum settings</string>
+    <string name="cr_button_settings">Button settings</string>
+    <string name="cr_robot_image">Robot image</string>
+    <string name="cr_map_camera">Map camera</string>
+    <string name="cr_external_url">External URL</string>
+    <string name="cr_valetudo_map">Valetudo map</string>
+    <string name="cr_valetudo_map_hint">Draws the map from a Valetudo robot and lets you tap a room to clean it. Pick the robot\'s map camera below.</string>
+    <string name="cr_valetudo_camera_mode_note">Using Map camera with a Valetudo map entity shows a blank tile. Valetudo does not render the map on the robot — its PNG is only a container for the map data. Choose Valetudo map instead to have HKI draw it.</string>
+    <string name="cr_animation_glow">Glow</string>
+    <string name="cr_animation_spin">Spin</string>
+    <string name="cr_animation_pulse">Pulse</string>
+    <string name="cr_adaptive_lighting_widget">Adaptive Lighting widget</string>
+    <string name="cr_adaptive_lighting_widget_subtitle">Profiles, size, and appearance</string>
+    <string name="cr_button_stack_dialog_subtitle">Layout, appearance, and entity order</string>
+    <string name="cr_expand_stack">Expand stack</string>
+    <string name="cr_collapse_stack">Collapse stack</string>
+    <string name="cr_hide_stack">Hide stack</string>
+    <string name="cr_unhide_stack">Unhide stack</string>
+    <string name="cr_swiping_stack_dialog_subtitle">Pages, height, and card appearance</string>
+    <string name="cr_empty_stack_dialog_subtitle">Container layout and appearance</string>
+    <string name="cr_header_text_dialog_subtitle">Heading content and visual style</string>
+    <string name="cr_animation_swipe">Swipe</string>
+    <string name="cr_animation_fade">Fade</string>
+    <string name="cr_animation_zoom">Zoom</string>
+    <string name="cr_animation_slide_fade">Slide + fade</string>
+    <string name="cr_animation_cube">Cube</string>
+    <string name="cr_animation_instant">Instant</string>
+    <string name="cr_paged_status">%1$d/%2$d · %3$s</string>
+    <string name="cr_cover_status">%1$d%% · %2$s</string>
+    <string name="cr_paged_cover_status">%1$d/%2$d · %3$d%% · %4$s</string>
+
+    <plurals name="cr_widget_option_count">
+        <item quantity="one">%d option</item>
+        <item quantity="other">%d options</item>
+    </plurals>
+    <plurals name="cr_configured_lights">
+        <item quantity="one">%d configured light</item>
+        <item quantity="other">%d configured lights</item>
+    </plurals>
+
+    <!-- Quick-start guide -->
+    <string name="cr_quick_notifications">Notifications</string>
+    <string name="cr_quick_notifications_instruction">Swipe right from the upper-left edge.</string>
+    <string name="cr_quick_switch_homes">Switch homes</string>
+    <string name="cr_quick_switch_homes_instruction">Swipe left from the upper-right edge of the header.</string>
+    <string name="cr_quick_actions">Quick actions</string>
+    <string name="cr_quick_actions_instruction">Pull down on any page header for Search, Flows, Edit, and Settings.</string>
+    <string name="cr_quick_media_player">Media player</string>
+    <string name="cr_quick_media_player_instruction">When the handle appears, swipe up on the bottom bar to restore the player.</string>
+    <string name="cr_quick_make_it_yours">Make it yours</string>
+    <string name="cr_quick_make_it_yours_instruction">In edit mode, add and reorder rooms, floors, and widgets. Tap an item to configure it.</string>
+
+    <!-- Current release -->
+    <string-array name="cr_whats_new_1_1_2">
+        <item>Returning from Home Assistant Settings, Developer tools or HACS now restores the same position in HKI 7 Settings instead of reopening at the top.</item>
+        <item>Android 17 now asks for Local network access before finding or connecting directly to Home Assistant, so local servers keep working with API 37. Settings › Connection shows whether it is allowed and can ask again, for when the Android 17 upgrade arrives long after setup.</item>
+        <item>Update notifications now also appear in HKI 7\'s own notification panel, with a “See what changed” link to the release notes. The system notification is gone once you swipe it away; this one stays, and checking for updates under Settings › About brings it back.</item>
+        <item>Permission tiles in Settings now update as soon as you come back from granting one. Location, battery optimization and background usage kept showing the old state until Settings was closed and reopened.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_1_1_1">
+        <item>New Clock widget. Analog or digital, seven designs each, 12 or 24-hour time, and the day, date and year if you want them. Tap it to see your next alarm.</item>
+        <item>Reach Home Assistant itself from Settings. Admins get its Settings, Developer tools and HACS full screen inside HKI 7, already signed in.</item>
+        <item>HKI 7 tells you when a new version is out — useful if you installed it from GitHub rather than the Play Store. Turn it off in Settings › About.</item>
+        <item>Home Assistant can now see your phone\'s next alarm, the same sensor the official app provides.</item>
+        <item>Media players show what is playing, not just which app is open. An Android TV streaming a series shows the programme, season and episode.</item>
+        <item>Back goes to the page you were on before, every time, until you reach Home. It no longer skips pages or leaves the app early.</item>
+        <item>Fixed temperature and energy readings in Czech, Slovak, Greek, Norwegian, Swedish and Danish, where numbers showed wrongly or could crash the screen.</item>
+        <item>Something worded badly in your language? Each language is now a single file you can correct on GitHub, no code needed.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_1_1_0">
+        <item>Eighteen more languages, taking HKI 7 to 36. Polish, Russian, Czech, Slovak, Hungarian, Romanian, Bulgarian, Croatian, Greek, Lithuanian, Latvian, Estonian, Danish, Thai and Hebrew join the list, along with Austrian German, Swiss German and Mexican Spanish. Hebrew lays the interface out right to left, as Arabic does.</item>
+        <item>HKI 7 now runs on Android 12 and later. It previously needed Android 14, which ruled out a lot of perfectly capable phones and tablets.</item>
+        <item>Energy costs are shown in your own currency instead of always in euros. HKI 7 follows what your cost sensors report, and there is a Currency setting in Energy settings if you would rather choose one yourself.</item>
+        <item>The language picker has a search box and is sorted, which it needed at 36 entries. If you ever land in a language you cannot read, the way back is still the first thing on screen.</item>
+        <item>Views remember where you had scrolled to, and tapping the tab you are already on takes you back to the top.</item>
+        <item>Swiping sideways no longer carries you out of a page you have opened, such as Solar inside Energy. Back now returns you to the view you came from rather than jumping to the home page.</item>
+        <item>Scrollable rows say so. The pull-down menu, the navigation bar and the settings tabs all show an arrow at the edge when there is more to reach.</item>
+        <item>Dialogs look and behave the same throughout. Six of them were plain Android dialogs with no close button in the corner, and buttons across the app now agree on what Close, Save and Done mean.</item>
+        <item>Creating a dashboard asks first and then offers the same choices as first-time setup — so a new dashboard can start from a backup or from one your family has shared, as well as being generated or left empty. Your current dashboard is never overwritten, and shared dashboards are now marked as shared in the list.</item>
+        <item>The battery widget opens a list in place instead of taking you to a separate page, grouped by how urgent each one is and showing the battery type where Home Assistant knows it. There is a search box, and a button to open the full Battery view if you want it.</item>
+        <item>Tapping the people counter in a room shows who is there, with each person\'s picture. The Rooms header now has a household counter too, showing where everyone is without opening every room.</item>
+        <item>A button can be left out of a room\'s Lights and Devices counters, for the ones that are in the room but not really part of it.</item>
+        <item>Widgets that need an integration you do not have — Formula 1, Parcels, Waste Collection — are greyed out and say what is missing, instead of being added and then sitting empty.</item>
+        <item>Parcel tracking covers fifteen more carriers, including PostNord, InPost, Swiss Post, An Post, Budbee, Sameday and Nova Post, each with its own logo.</item>
+        <item>A Valetudo robot vacuum picks up its live map automatically when your rooms are imported, rather than needing the camera chosen by hand.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_1_0_1">
+        <item>Swiping between tabs now follows your finger. The pages move as you drag, you can change your mind mid-swipe and pull them back, and they settle where you let go. Previously the change was decided the moment you had dragged far enough and could not be taken back, while the animation that played afterwards was on its own timer and unrelated to the gesture — so the app committed to a page before your finger had finished asking for one.</item>
+        <item>The bottom bar now keeps the selected tab in view. On a phone too narrow for every tab it scrolls the active one to the centre, so the tab you are on is always visible along with its neighbours — which is also the hint that there are more pages to swipe to. Reaching the last tab used to leave the indicator somewhere off the end of the bar.</item>
+        <item>Swiping between rooms shows how many rooms there are and which one you are on, as dots above the navigation bar — or as a count once there are more than eight. Room swiping also stops at the last room instead of wrapping around to the first, matching how the tabs behave. Rooms an admin has hidden are now skipped by the swipe rather than only blocked when opened.</item>
+        <item>The pull-down header menu animates to wherever you let it go, instead of jumping open or shut in a single frame. It settles by which half you released it in, a quick flick opens it without a full-length drag, and it can be caught and dragged again mid-animation. It also no longer stops dead partway when pulled a long way but not quite far enough.</item>
+        <item>Settings remembers where you were. Coming back from a sub-menu returns to the place in the list you left rather than to the top, which was most noticeable on the long way down to About and Licenses. The page settings dialog had the opposite problem — one scroll position carried across unrelated sub-menus — and that is fixed too.</item>
+        <item>The notification panel now has a button in the pull-down header menu, so the left-edge swipe is no longer the only way to reach it. That let the strip of screen edge reserved for the swipe shrink from 200dp to 88dp: the reserved strip is where Android\'s own back gesture stops working, and it had been covering the exact corner where the back arrow sits.</item>
+        <item>Fixed the app closing instead of the notification panel when back was pressed during the panel\'s opening animation. Back is also defined for the tabs now — it returns to the first tab before leaving the app, rather than exiting from wherever you happened to have swiped to.</item>
+        <item>The home switcher panel follows Android\'s predictive back gesture, sliding out with your finger and springing back if you change your mind.</item>
+        <item>Four more languages: Norwegian, Swedish, Finnish and Arabic. Arabic lays the whole app out right to left — the navigation bar, the panels that slide in from the screen edge, and the swipe that moves between tabs all mirror, rather than only the text changing direction. Product names such as Home Assistant stay in Latin script wherever they appear.</item>
+        <item>Swiping between rooms is much smoother. A room screen is by far the heaviest page in the app, and the next one was being built during the first frames of the swipe — precisely when there was no time for it. It is now prepared while nothing is moving, and live sensor updates wait for the swipe to finish instead of redrawing every open page mid-gesture.</item>
+        <item>The notification panel and the home switcher are dragged rather than flicked open, following your finger and settling where you let go. They close the same way: push them back towards the edge they came from. Tapping the panel itself no longer closes it, which it used to do anywhere you touched that was not a button.</item>
+        <item>A horizontal row inside a page — a mode selector, a swipe row, a swiping stack — no longer hands the rest of the gesture to the page once it reaches its end. Picking the first or last item in such a row used to flip the whole page instead.</item>
+        <item>Dialogs with tabs show how many there are and which one you are on, and a sideways swipe anywhere on the dialog changes tab. The swipe used to be written off as a scroll whenever it set off with the slight downward arc a thumb naturally makes, which made it feel like it worked only sometimes.</item>
+        <item>Demo mode no longer talks to the network. Twenty-six requests — the whole HKI 7 Cloud surface plus the event timeline, camera snapshots and vacuum maps — were still being attempted against a server that does not exist, and one of them retried every three seconds for the entire session, filling the connection log with failures. Restarting Home Assistant in the demo is now simulated in a few seconds rather than showing "restarting" for two minutes and giving up.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_1_0_0">
+        <item>New Events tab in the notification drawer: a timeline of what your home has actually been doing. The front door opening, a light going off, someone arriving home — each with the time and, where Home Assistant knows, who did it. An admin picks which entities appear under Settings › Family Sharing › Events, once for the whole family rather than on every phone. It reads Home Assistant\'s own logbook rather than recording anything on the device, so it still shows what happened overnight while the app was closed, and it opens on the last 3 hours — a timeline answers what just happened — with 6h to 72h a tap away. Events never touch the notification bell\'s unread count: a timeline of doors opening would leave that badge permanently lit and mean nothing. Requires HKI 7 Cloud 0.9.0.*</item>
+        <item>An admin can take parts of the timeline away from individual family members — a whole domain, or named entities — from the same Events tab. Everyone sees the full timeline unless something is taken out for them, so adding a person to the family does not mean building their timeline from scratch. The filtering happens in the HKI 7 Cloud component rather than in the app, so a restricted device is never even told which entities it is being kept away from. As with hidden views and rooms, this hides the timeline rather than the entities: Home Assistant has no per-entity read permission for non-admin accounts, so anyone signed in can still read those entities through Home Assistant itself.*</item>
+        <item>The event roster takes whole domains as well as named entities, so "every lock" is one choice rather than eleven. Domains are resolved fresh each time the timeline opens, so a lock added next month joins on its own instead of the roster meaning whatever existed the day it was set. The editor shows what each domain currently covers, since one domain can be hundreds of entities. Requires HKI 7 Cloud 0.10.0.*</item>
+        <item>Events are labelled and filterable by what kind of thing they happened to — Doors, Windows, Motion, Lights, Locks. The filter row is built from what your timeline actually contains, so you are never offered a filter that can only come back empty. Days stay as the list headings: a timeline that reorders itself by category stops being a timeline.</item>
+        <item>Weather artwork now animates in the daily forecast, the hourly strip and the header pill, not only on the hero card. Animation was previously switched off below a fixed size, which caught all three.</item>
+        <item>Where weather artwork animates is now four separate switches — header pill, weather dialog, forecast strips, weather widget — instead of riding on the entity icon animation setting. The forecast strips animate a dozen icons side by side and are the only ones that ever cost anything noticeable, so turning those off need not mean losing the single small icon in the header pill. All four are on by default, and appear both in Settings › Appearance › Icons and in the header pill\'s own settings.</item>
+        <item>The 6h/12h/24h/48h/72h range selector is centred rather than left-aligned everywhere it appears, and gains a 3h option.</item>
+        <item>New Connection log at the bottom of Settings › Connection: what the app\'s connection has actually been doing — connection attempts, reconnects, sync and subscriptions — with buttons to copy or clear it. All of this was already being recorded; nothing displayed it. It holds the last 300 lines and starts empty each launch.</item>
+        <item>A button stack\'s layout options are now named the same as a single button\'s. The same shape was called Tile on a button and Compact on a stack, which made them look like different features.</item>
+        <item>New Centered button layout beside Standard, Square and Tile: a square card whose icon sits in the middle of the space above the text, with the name and state centred beneath it. The icon is pushed upward rather than crowded as the text grows. A grid of these reads as a keypad, which is what makes a remote control possible.</item>
+        <item>A button\'s icon, name and state are each shown or hidden on their own, under a new Elements section in its settings. The old Icon only switch is gone — hiding both the name and state is what it did, and these also let you keep one of them. Existing icon-only buttons keep working.</item>
+        <item>A button stack carries the same three switches for all of its children, so a stack of twenty buttons need not be set twenty times. Turning one off on the stack hides it on every button; leaving it on lets each button decide.</item>
+        <item>Fixed the button stack settings dialog stopping about two thirds of the way down with empty space below it, leaving the rest unreachable on a tall phone or a tablet.</item>
+        <item>Navigation bar, media players and popups moved from Settings › Appearance to Settings › Dashboard, below the dashboards themselves. They are parts of what the dashboard is made of rather than how it is styled.</item>
+        <item>Settings › Connection ends with the connection log, and Restart Home Assistant now sits below it rather than above — it is the most disruptive thing on the screen and the least often wanted.</item>
+        <item>The Events tab gives an admin a button straight to Settings › Family Sharing › Events when nothing is being tracked yet, instead of only naming where to go.</item>
+        <item>Entity and domain pickers list what is already selected first, so undoing a choice does not mean hunting for it alphabetically. The order is fixed when the picker opens, so ticking something does not make it jump away from your finger.</item>
+        <item>A button stack\'s heading now has explicit Show name and Show icon switches, plus an option to centre them. Clearing the text field used to be the only way to get a stack with no heading, which hid that it was possible and meant losing the name to hide it.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_18">
+        <item>An admin can now change who a published family dashboard is shared with, instead of only being able to choose at the moment of publishing. Settings › Family Sharing › Dashboards lists who each published dashboard reaches, with a Manage access button to add or remove people. Until now the only way to take a dashboard away from one person was to delete it for everybody.*</item>
+        <item>Losing access to a family dashboard now clears what was layered on top of it. The dashboard itself was already removed, but the rooms, widgets, pages, nav bar, header pill and theme it left behind on the device stayed — so the next dashboard an admin shared arrived on top of the previous one\'s leftovers and looked like it had failed to import in full. Everything that belonged to the revoked dashboard is now removed with it. Home Assistant connections, profiles and notification settings are untouched: losing a dashboard is not being signed out.*</item>
+        <item>New Devices tab under Settings › Family Sharing, showing which HKI version each family device is running and flagging the ones older than yours, with the Home Assistant account, device name, Android version and when it last reported. Each install records this through the HKI 7 Cloud component over the connection the app already uses, so every signed-in device is covered — including one with Location and Notifications both switched off — and nothing is added to Home Assistant\'s entity list. A device can only ever report itself. An admin can forget a phone that has been replaced; one still in use reappears the next time its app opens. Requires HKI 7 Cloud 0.7.0.*</item>
+        <item>An admin can now require the family to update. "Require everyone to be on this version" in the Devices tab sets a household minimum; anyone below it gets a full-screen prompt on their next launch instead of the dashboard, with Google Play\'s in-app update doing the install. There is also a per-device "Ask to update" for when one phone is behind rather than everyone, which clears itself once that device updates. No app can install a newer version of itself, so Play does the actual work — which also means the prompt can only insist when Play genuinely has the update ready. When it does not, the prompt explains why and lets you past for that session, rather than locking someone out of their own locks and alarms over an update they cannot get. You can only require a version some family device already runs. Requires HKI 7 Cloud 0.8.0.*</item>
+        <item>Each Family Sharing tab now says for itself when it needs a newer HKI 7 Cloud than the one installed, instead of that only appearing in the summary at the top of the screen. Parental controls, Permissions, Presence and Devices each carry the version they need, so it is clear before you configure a tab whose settings the installed component cannot store yet.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_17">
+        <item>Fixed a crash that could take the whole app down during the very first connection attempt after opening it, which read as "the app won\'t even open". The setup that runs on every launch had no error handling of its own, so a failure there — usually an expired session being refreshed on a flaky network — escaped as an unhandled error instead of surfacing as a connection error you could retry. As a backstop, an unexpected error on a background task can no longer terminate the app at all.</item>
+        <item>The dashboard no longer rebuilds itself every time Home Assistant reports a state change. The home screen tracked the complete entity list, so a single motion sensor tripping or a power meter ticking — several times a second on a busy install — invalidated the whole screen and every widget on it, even when nothing visible had changed. It now watches only what it actually draws.</item>
+        <item>Entity icon animations no longer redo layout work on every frame they animate. The spin, pulse and glow effects re-ran the surrounding widget\'s composition on each animation frame instead of just redrawing the icon, so any dashboard with an active light, an open door or a recording camera paid that cost continuously. The animations look exactly the same.</item>
+        <item>Fixed the app becoming unresponsive — and eventually killed by Android — when opening the history of a busy entity, such as a motion sensor that logs thousands of state changes a day. Matching each history entry to its actor re-scanned and re-parsed the entire logbook\'s timestamps from scratch for every single entry, work that scaled with history size squared; a quiet entity never noticed, but a busy one could peg the CPU for ten seconds straight. The logbook is now parsed once instead of once per entry, and the whole fetch runs off the main thread.</item>
+        <item>Hardened how the app reads attributes Home Assistant sends for an entity: a value present but shaped unexpectedly (an object or array where a plain number or piece of text was expected) used to throw and crash whatever screen read it, instead of just being treated as missing.</item>
+        <item>Fixed "Push to family dashboard" reporting a dashboard as already up to date no matter what had changed. A dashboard re-imported after a reinstall is stored locally under a different id than the one the cloud copy is published under, and the push check was still looking up the local export by the cloud id, finding nothing, and silently skipping that dashboard on every push.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_15">
+        <item>The Formula 1 widget gains two new tabs and expands two existing ones. Calendar lists the season\'s races in order, with each circuit and the host country\'s flag. Grid shows the starting grid, with each driver\'s move up or down from where they qualified. Standings can now show a championship prediction alongside the points table — current and predicted final points, for drivers or constructors — when F1 Sensor\'s optional F1TV Auth is set up. Live gains a proper timing list: gap to the leader, interval to the car ahead, tyre compound and stint length, and pit/retired status for every driver, plus which lap the leader is on.</item>
+        <item>Fixed shared family dashboards failing to update at all once the owner added a widget type introduced in a newer app version, such as the To-Do List or Formula 1 widgets. A single unrecognized widget used to fail the whole dashboard, so a family member on an older build stopped receiving any of that dashboard\'s changes instead of just missing the new widget. Unrecognized widgets are now skipped individually, so the rest of a shared dashboard keeps working across app versions.</item>
+        <item>The To-Do widget\'s square card can now feature one whole list instead of items individually flagged high priority. A new Hero list picker in the widget\'s General tab — shown once it has at least one tab — chooses which list\'s open items appear on the card, labelled with that list\'s name, so what you see at a glance is a specific list like Chores rather than a scattered mix pulled from every tab. Deleting a tab that\'s currently the hero list clears the setting automatically.</item>
+        <item>Fixed the app crashing whenever it needed to reconnect to Home Assistant or the connection failed. The in-app push-notification channel ran its subscription in a way that let a dropped connection\'s error skip past the surrounding error handling entirely and crash the app outright. A separate mismatch also meant every single reconnect immediately tore the whole sync stack down and rebuilt it a second time, racing its own freshly made connection. Both are fixed.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_14">
+        <item>Settings › Family Sharing now shows which HKI 7 Cloud version is installed, and — if it\'s behind — exactly which family features that leaves unavailable, each labelled with the version that unlocks it. Previously the only way to find out a component was out of date was to hit a save that silently dropped part of what you configured.*</item>
+        <item>New To-Do List widget: a shared checklist or shopping list the whole family can add to. Items support an optional quantity, category, priority (low, normal or high, shown as a flag) and due date, with Added by and Checked by attribution when more than one person edits the list. Choose Manual, A–Z, Priority, or Newest-first ordering, and filter between To do, All, and Done from the dialog. Editing can be limited to everyone, specific family members picked from the real Home Assistant user list, or admins only, enforced the same way the rest of the app\'s family permissions are. It follows the same design as every other widget, with the usual General, Permissions, Appearance and Visibility settings tabs.</item>
+        <item>Room following can now be set to only place someone in the right room when the app starts, without tracking them for the rest of the session. The existing Ask before switching rooms switch only chose between asking and switching silently; there was no way to get the one-time placement without the app continuing to follow every move afterward. A new Keep following while the app is open switch under each person\'s room-following settings turns that continued tracking off on its own, leaving Open their room when the app starts to do the one placement it always did.*</item>
+        <item>New Formula 1 widget, for the F1 Sensor integration. The card shows the next race with a countdown and the circuit outline; opening it gives four tabs — Next race with the full session schedule and trackside weather, Standings for drivers and constructors, Results for the last grand prix with places gained or lost, and a Live tab that appears only while a session is running, showing the flag and race control messages. It finds its sensors on its own: F1 Sensor lets you rename its entities and pick a language, so the widget matches on the integration\'s stable internal keys rather than entity ids.</item>
+        <item>New Find my devices widget: a map of your phones, watches, tags and trackers. Add any device_tracker or person entity; the ones reporting GPS appear as pins on the map, the rest are still listed with their state. Tick as many as you like to show them together, or leave nothing ticked to see everything. Three filters narrow the list: All, Devices, and People. The card follows the same design as the other widgets, so background image, icon, width, shape and corner radius all work as you would expect.</item>
+        <item>The maps in the app no longer look like a printed atlas. HKI now uses the same muted CARTO basemap that Home Assistant\'s own map card uses, instead of the standard OpenStreetMap rendering, which was designed as a mapper\'s reference render rather than a background for an app. It also has a proper dark variant, so the map finally follows your theme instead of glowing white inside a dark dialog.</item>
+        <item>Fixed room following doing nothing at all once Ask before switching rooms was turned off. That switch was being treated as a master off-switch for the whole feature, so with prompting disabled the app neither asked nor moved. It now does what it says: with prompting on you get the prompt, with it off the room simply opens. Don\'t ask again until I restart still stops both, since trading a prompt for a surprise jump would be worse.</item>
+        <item>Fixed the waste widget\'s settings dialog being cut off around two thirds of the way down while empty space sat below it. The dialog reserves a tall card but its contents were capped at a fixed height, so the scroll area stopped short of the space available. Both the settings dialog and the waste dialog itself now use the full height.</item>
+        <item>The waste dialog\'s calendar can now look 7, 14 or 28 days ahead, and is drawn as a week grid like the calendar widget rather than a flat list: weekday columns, one row per week, and a coloured dot per collection in its fraction\'s colour. Tap a day to see what is collected then; it opens on the next day with a collection.</item>
+        <item>Parcel dialogs now say Today or Tomorrow instead of naming the weekday. The whole question a delivery date answers is how soon, and “Wednesday” on a Wednesday made you work that out yourself.</item>
+        <item>The +2 bubble in the header, shown when there are more people than fit, now opens. Tapping it lists everyone with their name and state, and picking someone opens their detail dialog as usual. Previously those people were simply unreachable on a narrow header.</item>
+        <item>Fixed the map in the person dialog overflowing the dialog on a tablet or unfolded foldable. The map was drawn as a square as wide as the dialog, so on a 620dp-wide card it became 620dp tall and pushed the address off the bottom. It now takes the height left over instead.</item>
+        <item>Fixed notifications going undelivered while Home Assistant reported the device as not connected to local push notifications, even with the app open. The app stood aside for its background connection whenever the settings said that connection should be running — but when Android refused to start it, such as after a reboot, nothing was listening at all. The app now checks whether that connection is really running rather than whether it is meant to be, takes over when it is not, and hands the channel back the moment it does come up.</item>
+        <item>Fixed room-following settings not taking effect on the device you changed them from. Turning following off, or changing how long a room must hold before it counts as a move, was written to the companion component but not to the device\'s own cached copy — so it kept following, and kept using the old dwell time, until the app was next started. Changes now apply immediately. The dwell slider also no longer offers zero seconds, which made the very first sensor reading count as a move.</item>
+        <item>The Formula 1 card now says one thing: the next grand prix and when it is — “Today 15:00” on the day, otherwise the date and time, in your own timezone. Track status is gone from it, because outside a session that read “Not running”, which is not what anyone glances at the card for. The status sits in the same dark pill the camera, vacuum and waste cards use, so it lines up with the rest of your dashboard again. The circuit outline stays as a faint watermark and the host country flag in the corner. The widget also no longer asks which F1 instance to use — it reads everything the integration publishes, so the dialog always has the full picture.</item>
+        <item>The To-Do List dialog\'s undo/redo and Close buttons moved from the title row to the bottom action bar, matching every other dialog in the app.</item>
+        <item>* HKI 7 Cloud Component integration required.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_13">
+        <item>HKI can now follow you from room to room. Point it at a room-presence sensor such as ESPresense and it opens the room you are in when the app starts, then offers to switch views when you move somewhere else. Rooms also gain a purple counter showing how many people are in them, beside the motion and presence counters. An admin sets this up for the whole family under Settings › Family Sharing › Presence: pick each person\'s sensor and how long a new room must hold before it counts as a move. Sensor rooms named after your Home Assistant areas are matched automatically.*</item>
+        <item>Notifications from Home Assistant can now carry action buttons. Add actions to a notify.mobile_app_… message and each one appears on the notification; tapping it sends the action back to Home Assistant, where an automation can respond. The buttons also appear on the in-app banner and in the notification drawer, because HKI hides system notifications while it is open. A URI action opens its link, a REPLY action takes a typed answer, and an action tapped while offline is delivered once the connection returns. Each notification can be actioned once.</item>
+        <item>New Action button: a button that needs no entity at all. Give it a name, an icon, and whatever tap, hold, or double-tap action you like — navigate to a view or room, call a Home Assistant action, open a URL or a custom popup. Add one from the widget picker, from a button stack, or as an action badge in the badge area beside the header.</item>
+        <item>Icon-only buttons can now be sized. Auto shrinks the icon as a stack gains columns, which is what makes icon-only usable in the four-, five-, and six-column custom popups where a fixed-size icon used to overflow the button. A button can also be given its own size.</item>
+        <item>Button stacks can push their appearance onto every button they hold: one Icon only for every button switch instead of the same switch on twenty buttons, plus an icon size they all inherit. A single button can still override the size.</item>
+        <item>The quick start guide can be browsed by hand. Swipe the gesture preview, tap a dot, or tap any tip to jump to it. It still plays on its own until you take over.</item>
+        <item>Fixed the waste widget showing the wrong icon and colour for every collection type outside Dutch: the type was matched against the translated label, so PMD shown as Packaging fell through to a generic grey-blue bin. PMD is orange with a recycling symbol again.</item>
+        <item>Fixed the room-following prompt appearing after Ask before switching rooms was turned off, and for the room already on screen. It now also offers Don\'t ask again until I restart the app, and the wait time can be set whether or not prompting is on.</item>
+        <item>Flows can express Any of these and nested logic, not just a flat list of ANDs. A group opens into its own list with a breadcrumb, and groups can hold groups, so motion detected AND (after sunset OR guest mode on) is buildable. It is the same structure Home Assistant\'s own editor writes, so a flow made in HA that used OR is no longer an untouchable advanced block.</item>
+        <item>Thermostat dials on the Climate view no longer squeeze six across a landscape foldable. Dials hold at four per row until the window is genuinely desktop-wide, so each keeps enough width to read.</item>
+        <item>The Waiting for notifications message now has a Hide this notification button that jumps straight to its Android channel settings, where switching the channel off hides it for good while the connection keeps working. Android will not let a background connection run without a visible notification, so this is as far as muting can go. It also switches itself on when you have more than one Home Assistant server.</item>
+        <item>The vacuum widget can now draw a Valetudo map itself. Choose Valetudo map as the button image and point it at your robot\'s map camera: HKI reads the map data Valetudo hides inside that camera\'s PNG and draws the floor, walls, rooms, the robot, its dock and the path it has taken. No add-on, custom component or extra Home Assistant integration is involved, and the map refreshes on its own while the robot is cleaning.</item>
+        <item>Tap a room on the Valetudo map to send the robot to clean it. Rooms use the names you gave them in Valetudo. Cleaning a single room goes through Home Assistant\'s clean_area action, so first map the robot\'s segments to your areas in Home Assistant — until you do, the map says so instead of leaving the tap doing nothing.</item>
+        <item>The vacuum settings now warn that plain Map camera on a Valetudo map entity shows a blank tile. Valetudo deliberately does not render the map on the robot, so its PNG is only a container for the data — Valetudo map is the mode that shows something.</item>
+        <item>The vacuum dialog now shows a Valetudo map whenever the map camera you picked actually carries one, whatever the button image is set to — the button image only decides how the tile on the dashboard looks. Cameras that turn out not to be Valetudo maps still show their picture, and HKI stops re-checking once it knows.</item>
+        <item>The robot image now spins while the vacuum is cleaning or returning to its dock, using the same icon animation settings as the rest of the app. A button\'s own animation setting still overrides it, and Off keeps it still.</item>
+        <item>* HKI 7 Cloud Component integration required.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_12">
+        <item>Button widgets and button stacks can now hold an empty, fully transparent button. It takes up a grid cell without drawing anything, so the buttons around it line up exactly where you want them.</item>
+        <item>Buttons can show just their icon. The new Icon only switch under a button\'s Appearance settings drops the name and state and centers a larger icon on the button.</item>
+        <item>New Custom popup action for buttons, badges, and dialog buttons. Point any tap, hold, or double tap at a popup you build yourself: it opens with the usual dialog title, status, history, and close controls, and you fill it with any widget the app offers. Popups are listed under Settings › Appearance › Popups, where Edit contents opens one ready to arrange. Popups are shared, so several buttons can open the same one, and stacks inside a popup can use up to six columns instead of three. While a popup is being arranged, a Done button sits beside Add widget to leave edit mode without closing it.</item>
+        <item>Fixed the Energy detail views (Solar, Electricity, Gas, Water, City heating, Battery) drawing their cards flush against each other with their headings missing. Production, Forecast, Inverters and the rest were hidden behind the card below them; the cards now keep their headings and the usual spacing.</item>
+        <item>Fixed Parental Controls refusing to save. An out-of-date HKI 7 Cloud component rejects the Visible and Invisible lists, which used to fail the whole policy; the permissions now save regardless and the message says the component needs updating. Those lists only filter entity lists such as global search — a button on a family dashboard stays visible unless it is hidden for that person explicitly.*</item>
+        <item>* HKI 7 Cloud Component integration required.</item>
+</string-array>
+
+    <string-array name="cr_whats_new_beta_11">
+        <item>Rooms, Climate, Security, Energy, and Battery dashboards now make better use of tablets and foldables. Large cards follow the Home and individual-room 1/2/3-column layout, while compact tiles auto-fit without becoming cramped. Climate, Security, and Energy cards use a height-aware masonry layout on wider displays, eliminating large gaps below shorter cards.</item>
+        <item>State-colored icons on entity buttons and header/status pills now preserve their semantic hue while automatically shifting lighter or darker when they would blend into the current theme.</item>
+        <item>Selecting a family dashboard during onboarding now subscribes that installation to it. Owner edits are published when Save or Done is tapped, active clients refresh immediately, and offline clients reconcile when reopened. Non-admin subscribers cannot create or duplicate dashboards unless the app is fully reset.*</item>
+        <item>Dashboard setup during onboarding can now restore a local, Google Drive, or Home Assistant backup. New Google Drive and Home Assistant backups use consistent, informative names containing the app version and creation date.*</item>
+        <item>Calendar widgets become vertically scrollable when their height is too small for every event, and hidden Home widgets are removed from the layout instead of leaving an empty space.</item>
+        <item>Parcel carrier cards now show the earliest expected delivery date and time for active incoming or outgoing shipments, including integrations that expose a separate next-delivery sensor.</item>
+        <item>Family permissions can now independently allow dashboard switching and creation. Fully restricted subscribers see a locked Dashboard settings tab; onboarding removes its placeholder dashboard when switching is denied, and a deleted family dashboard opens a permission-aware recovery screen instead of silently creating a replacement.*</item>
+        <item>Family permissions now also control manual re-importing. Non-admins cannot open Family Sharing settings, disabled onboarding choices explain why they are unavailable, and aesthetics-only editors see only visual controls. Their local names, icons, colors, backgrounds, styles, sizes, and layouts take priority when owner updates arrive.*</item>
+        <item>Climate sensor/device tabs, Security groups, and every Energy detail tab now follow the same responsive one-, two-, or three-column masonry rules, including their edit and reorder layouts.</item>
+        <item>Aesthetics-only family editors can no longer change header-pill configuration or the dashboard\'s people; those functional settings remain controlled by the owner.*</item>
+        <item>Parental Controls now replaces manual entity-ID entry with Visible and Invisible lists. Admins can select complete Home Assistant domains or individual entities, and global search hides restricted entities and devices. Invisible entries always take precedence.*</item>
+        <item>Energy setup now imports SmartGateways and DSMR Reader P1 meters even when the Home Assistant Energy dashboard has not been configured and the sensors are not attached to a device. Tariff 1 and tariff 2 readings are recognised separately, and usage charts and period totals add both tariffs together when no single grid import or export sensor is set.</item>
+        <item>* HKI 7 Cloud Component integration required.</item>
+    </string-array>
+
+    <string-array name="cr_whats_new_beta_10">
+        <item>Visibility rules now work across all widgets and individual items, with time, entity, person, and mixed AND/OR conditions. Admins using a family-shared dashboard can choose whether an item is Visible or Hidden for a selected user. Person conditions use HKI 7 Cloud, whose requirement is shown when it is unavailable. New rules start empty so you choose Time, Entity, or Person.</item>
+        <item>Room-status counter badges keep a stable two-digit width. Headers responsively fit one, two, or three counters per row like the home-page and person badges, without pushing the title down.</item>
+        <item>Energy setup now recognises SmartGateways and DSMR Reader MQTT sensor names, and choosing a source device refills its separate sensor roles. City heating has dedicated settings, a source tile and detail tab, plus an estimated natural-gas equivalent for J/GJ heat readings.</item>
+        <item>Calendar widget dialogs now use the available height correctly, fixing content that previously occupied only half the settings dialog or was cut off.</item>
+        <item>Re-import settings now use one consistently spelled and localized label across Rooms, Climate, Security, Energy, and Battery. Conditional visibility wording was also corrected in every supported language.</item>
+        <item>Fixed PostNL and the current parcel-integration parser, so incoming shipments once again show their complete tracking details and delivered state. Carrier support has also been brought up to date.</item>
+        <item>Added an in-app language selector with full coverage in 13 languages: Dutch, German, French, Spanish (plus Latin American Spanish), Italian, Turkish, Portuguese (plus Brazilian Portuguese), Japanese, Korean, and Chinese (Simplified and Traditional). Each language shows its native name with an English hint beneath it.</item>
+        <item>The reconnect status now shows the actual connection error, making Wi-Fi, mobile-data, and VPN handovers much easier to diagnose.</item>
+        <item>Screen rotation now follows your device’s auto-rotate setting instead of staying locked to portrait.</item>
+        <item>The Climate "Outside" tile now appears as soon as a weather device is linked, even without dedicated sensors, counts its temperature, humidity and pressure attributes in the summary, and graphs them with matching sensor colors.</item>
+        <item>Parcel status codes are now normal sentences. Dates and times follow the selected language and 12/24-hour preference, nearby deliveries use weekday names, the current year is omitted, and same-day windows no longer repeat the date.</item>
+    </string-array>
+
+    <!-- Earlier releases are kept so a build from an older tag still has a valid resource. -->
+    <string-array name="cr_whats_new_beta_9">
+        <item>Drag to reorder cameras, thermostats, and energy cards. In edit mode the Security, Climate, and Energy views each get a Reorder button for their relevant cards.</item>
+        <item>New Climate Outside tile. Link a weather entity or outdoor temperature, humidity, and air-pressure sensors, then open the tile for individual history graphs.</item>
+        <item>Visibility now belongs to each button and header badge. Hide an item or schedule it once or on a daily, weekly, monthly, or yearly recurrence.</item>
+        <item>Header badges can be renamed from Appearance settings.</item>
+        <item>Swiping cards autoplay every three seconds by default.</item>
+        <item>The Weather dialog adds autoplay for Season, a windrose card, and an optional rain-map card from a camera or embedded web page.</item>
+        <item>The Parcels widget was rebuilt around carriers, with logos, account totals, shipment sections, estimates, tracking history, and add-by-tracking support where available.</item>
+        <item>Humidifiers and dehumidifiers now have native power, humidity, mode, speed, and helper controls throughout the app.</item>
+        <item>Room status counters are interactive and open the entities behind each count.</item>
+        <item>Buttons and badges can show a live countdown from a completion-time entity.</item>
+        <item>Shared dashboards publish owner edits automatically and recipients receive them on their next sync.</item>
+        <item>Header display settings now belong to each dashboard and travel through backups and family sharing.</item>
+        <item>Camera widgets fill the entire tile and follow the configured corner radius.</item>
+        <item>Waste collections on the same day now overlap visibly, and the larger dialog can be dismissed by tapping outside.</item>
+        <item>Battery, Waste, camera, weather, and About visuals are now more consistent.</item>
+        <item>Binary sensors use Home Assistant-style Open/Closed, Wet/Dry, Detected/Clear, and Connected/Disconnected labels.</item>
+        <item>Aesthetic-only editors can change existing badge visuals but cannot add, remove, or reconfigure badges.</item>
+        <item>Fixed network handovers: sockets tied to the old Android network are discarded and the saved Home Assistant session reconnects without an unnecessary login. Reconnect status also shows the failure reason.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_8">
+        <item>Child locks are no longer imported automatically as room controls.</item>
+        <item>Every button and badge now honours Home Assistant entity-icon overrides.</item>
+        <item>Vacuums now appear in the room badge bar and open their controls when tapped.</item>
+        <item>Individual buttons in multi-item widgets can be hidden or scheduled, including recurring annual date ranges.</item>
+        <item>Multiple camera badges now open one swipeable dialog with fullscreen paging.</item>
+        <item>Family Sharing now lists cloud-published dashboards so they can be imported, reshared, or deleted after a reinstall.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_7">
+        <item>Automatic room import now skips built-in helper controls while retaining genuine extra controls.</item>
+        <item>Climate devices from different integrations are no longer merged into one control.</item>
+        <item>Climate-device icons now match air conditioners, humidifiers, dehumidifiers, and air purifiers.</item>
+        <item>Air-purifier and humidifier icons pulse gently instead of spinning.</item>
+        <item>Door locks now use closed-door and open-door icons.</item>
+        <item>Multi-device header badges can be reordered to choose their leading entity.</item>
+        <item>Animated icon effects are enabled by default on new installations.</item>
+        <item>Buttons and badges can display an entity attribute and optional unit instead of its state.</item>
+        <item>Dashboards can now be copied with all rooms, widgets, and page settings.</item>
+        <item>Family Sharing now combines parental controls, dashboard sharing, and per-user permissions.</item>
+        <item>Shared dashboards update automatically while keeping allowed local visual changes.</item>
+        <item>Non-admin family members can use automatic per-room Adaptive Lighting controls when the HKI 7 Cloud component is installed.</item>
+        <item>Fixed unreadable header and pull-down labels in light mode and with custom appearances.</item>
+        <item>About now provides What’s new and Full changelog buttons.</item>
+        <item>Fixed the Unable to connect screen so it appears reliably when Home Assistant cannot be reached.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_6">
+        <item>Fixed edit-mode action bars overlapping Android three-button navigation.</item>
+        <item>The Backup and Restore screen now shows when each automatic cloud backup last ran.</item>
+        <item>Each cloud backup now has a Back up now button.</item>
+        <item>Fixed the oversized app icon after the themed-icon update.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_4_to_5">
+        <item>The Backup and Restore screen now shows when each automatic cloud backup last ran.</item>
+        <item>Each cloud backup now has a Back up now button.</item>
+        <item>Fixed the oversized app icon after the themed-icon update.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_3">
+        <item>Added Simple Icons, Tabler, and Phosphor icon packs alongside Material Design Icons.</item>
+        <item>Added animated entity icons that glow, spin, or pulse while active.</item>
+        <item>Added family dashboard sharing for admins.*</item>
+        <item>Added parental controls that can hide selected views and rooms for specific people.*</item>
+        <item>Added automatic daily backup to your own Home Assistant.*</item>
+        <item>Media-source icons are colored and can open the installed source app.</item>
+        <item>New iFrame widget for embedding web pages.</item>
+        <item>Energy views now show negative values while exporting power.</item>
+        <item>Fixed onboarding completing when switching away before finishing.</item>
+        <item>Fixed the thermostat-dial mode button overlapping nearby items.</item>
+        <item>Many smaller bug fixes.</item>
+        <item>* HKI 7 Cloud Component integration required.</item>
+    </string-array>
+    <string-array name="cr_whats_new_beta_2">
+        <item>Improved layouts on short and narrow displays, with a single-column fallback throughout the app.</item>
+        <item>Dialog headers use two rows on narrow screens so titles are no longer cut off.</item>
+        <item>Fixed Adaptive Lighting sliders overlapping other elements.</item>
+        <item>Navigation bars now indicate when more items are available off-screen.</item>
+        <item>Fixed cameras ignoring the screen-orientation lock.</item>
+        <item>Fixed zoom in camera dialogs and fullscreen cameras.</item>
+    </string-array>
+</resources>

@@ -69,6 +69,9 @@ import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
+/** Length the `hki7` component caps its free-text fields at before storing them. */
+private const val HKI7_TEXT_LIMIT = 128
+
 private fun parseActionFieldDefinitions(fields: JsonObject): List<HAActionFieldDefinition> =
     fields.flatMap { (fieldKey, fieldElement) ->
         val field = fieldElement as? JsonObject ?: return@flatMap emptyList()
@@ -310,6 +313,7 @@ open class HomeAssistantClient(
             name = result["name"]?.jsonPrimitive?.contentOrNull ?: "",
             isAdmin = result["is_admin"]?.jsonPrimitive?.booleanOrNull ?: false,
             isOwner = result["is_owner"]?.jsonPrimitive?.booleanOrNull ?: false,
+            componentVersion = result["version"]?.jsonPrimitive?.contentOrNull,
         )
     }
 
@@ -402,6 +406,117 @@ open class HomeAssistantClient(
         response["result"]?.jsonObject?.get("payload")?.jsonObject?.toString()
     }
 
+    /** Records this device's HKI version with the component (any authenticated user, for itself
+     *  only — the component files it under the connection's account, not under anything sent here).
+     *  Text is truncated to the component's field limit so an unusually long device name is stored
+     *  rather than rejected outright. Requires component 0.7.0; false against anything older. */
+    open suspend fun hki7ReportDevice(
+        deviceId: String,
+        deviceName: String,
+        appVersion: String,
+        appVersionCode: Int,
+        osVersion: String,
+        model: String,
+    ): Hki7DeviceReportResult? = withWebSocket {
+        val data = mapOf<String, JsonElement>(
+            "device_id" to JsonPrimitive(deviceId.take(HKI7_TEXT_LIMIT)),
+            "device_name" to JsonPrimitive(deviceName.take(HKI7_TEXT_LIMIT)),
+            "app_version" to JsonPrimitive(appVersion.take(HKI7_TEXT_LIMIT)),
+            "app_version_code" to JsonPrimitive(appVersionCode),
+            "os_version" to JsonPrimitive(osVersion.take(HKI7_TEXT_LIMIT)),
+            "model" to JsonPrimitive(model.take(HKI7_TEXT_LIMIT)),
+        )
+        val response = sendCommand("hki7/device/report", data)
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket null
+        // 0.7.0 stored the report but answered with the record alone; the update fields arrived in
+        // 0.8.0, so their absence means "no requirement", not "requirement of zero".
+        val result = response["result"]?.jsonObject ?: return@withWebSocket Hki7DeviceReportResult()
+        val required = result["required"]?.jsonObject
+        Hki7DeviceReportResult(
+            requiredVersionCode = required?.get("min_version_code")?.jsonPrimitive?.intOrNull,
+            requiredVersionName = required?.get("min_version_name")?.jsonPrimitive?.contentOrNull.orEmpty(),
+            nudgeVersionCode = result["nudge_version_code"]?.jsonPrimitive?.intOrNull,
+            nudgeVersionName = result["nudge_version_name"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        )
+    }
+
+    /** The household's minimum app version (any authenticated user). Null when the component is
+     *  older than 0.8.0, so the caller leaves whatever it already cached alone. */
+    open suspend fun hki7GetAppUpdatePolicy(): Hki7AppUpdatePolicy? = withWebSocket {
+        val response = sendCommand("hki7/app_update/get")
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket null
+        val result = response["result"]?.jsonObject ?: return@withWebSocket null
+        Hki7AppUpdatePolicy(
+            minVersionCode = result["min_version_code"]?.jsonPrimitive?.intOrNull,
+            minVersionName = result["min_version_name"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            setAt = result["set_at"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+        )
+    }
+
+    /** Sets or clears (null) the household's minimum app version. Admin only. False when the
+     *  component refuses it — including a version no device has reported, which it rejects so an
+     *  admin can't demand something nobody is able to install. */
+    open suspend fun hki7SetAppUpdatePolicy(minVersionCode: Int?, minVersionName: String): Boolean = withWebSocket {
+        val data = mapOf<String, JsonElement>(
+            "min_version_code" to (minVersionCode?.let(::JsonPrimitive) ?: JsonNull),
+            "min_version_name" to JsonPrimitive(minVersionName.take(HKI7_TEXT_LIMIT)),
+        )
+        sendCommand("hki7/app_update/set", data)["success"]?.jsonPrimitive?.booleanOrNull == true
+    }
+
+    /** Asks one device to update, or clears that request with a null [versionCode]. Admin only. */
+    open suspend fun hki7NudgeDevice(
+        userId: String,
+        deviceId: String,
+        versionCode: Int?,
+        versionName: String,
+    ): Boolean = withWebSocket {
+        val data = mapOf<String, JsonElement>(
+            "user_id" to JsonPrimitive(userId),
+            "device_id" to JsonPrimitive(deviceId),
+            "version_code" to (versionCode?.let(::JsonPrimitive) ?: JsonNull),
+            "version_name" to JsonPrimitive(versionName.take(HKI7_TEXT_LIMIT)),
+        )
+        sendCommand("hki7/device/nudge", data)["success"]?.jsonPrimitive?.booleanOrNull == true
+    }
+
+    /** Every HKI install reported in this household (admin only). Null — as opposed to an empty
+     *  list — when the command isn't available, so the caller can tell "component too old" apart
+     *  from "nobody has reported yet" and say which. */
+    open suspend fun hki7ListDevices(): List<Hki7FamilyDevice>? = withWebSocket {
+        val response = sendCommand("hki7/device/list")
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket null
+        val arr = response["result"]?.jsonObject?.get("devices")?.jsonArray ?: return@withWebSocket emptyList()
+        arr.mapNotNull { element ->
+            val o = element.jsonObject
+            Hki7FamilyDevice(
+                userId = o["user_id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                userName = o["user_name"]?.jsonPrimitive?.contentOrNull ?: "",
+                deviceId = o["device_id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                deviceName = o["device_name"]?.jsonPrimitive?.contentOrNull ?: "",
+                appVersion = o["app_version"]?.jsonPrimitive?.contentOrNull ?: "",
+                appVersionCode = o["app_version_code"]?.jsonPrimitive?.intOrNull,
+                osVersion = o["os_version"]?.jsonPrimitive?.contentOrNull,
+                model = o["model"]?.jsonPrimitive?.contentOrNull,
+                reported = o["reported"]?.jsonPrimitive?.contentOrNull ?: "",
+                nudgeVersionCode = o["nudge_version_code"]?.jsonPrimitive?.intOrNull,
+                nudgeVersionName = o["nudge_version_name"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            )
+        }
+    }
+
+    /** Forgets one reported install (admin only). A device still in use reports itself again on
+     *  its next app launch, so this only clears out phones that are genuinely gone. */
+    open suspend fun hki7ForgetDevice(userId: String, deviceId: String): Boolean = withWebSocket {
+        val data = mapOf<String, JsonElement>(
+            "user_id" to JsonPrimitive(userId),
+            "device_id" to JsonPrimitive(deviceId),
+        )
+        val response = sendCommand("hki7/device/forget", data)
+        response["success"]?.jsonPrimitive?.booleanOrNull == true &&
+            response["result"]?.jsonObject?.get("removed")?.jsonPrimitive?.booleanOrNull == true
+    }
+
     /** The current user's own parental-control policy (empty if none set or component absent). */
     open suspend fun hki7GetMyPolicy(): Hki7Policy = withWebSocket {
         val response = sendCommand("hki7/policy/get")
@@ -422,28 +537,87 @@ open class HomeAssistantClient(
     }
 
     /** Sets a user's full policy (hidden views/rooms plus edit and visibility permissions). Admin
-     * only. Returns true on success.
+     * only.
      *
-     * Older companion components accept only hidden_views/hidden_rooms and reject unknown keys with a
-     * schema error, so the extra permission fields are attempted first and, if that call is rejected,
-     * we retry with just the hidden lists. That keeps parental controls working on an un-updated
-     * component; the new permission fields take effect once the component understands them. */
-    open suspend fun hki7SetPolicy(userId: String, policy: Hki7Policy): Boolean = withWebSocket {
+     * Older companion components accept only the fields they shipped with and reject unknown keys
+     * with a schema error, so this walks back through the generations. Whatever the component does
+     * understand is still stored, and the result says whether anything had to be dropped — a
+     * component that is merely out of date must not block every other permission from saving. */
+    open suspend fun hki7SetPolicy(userId: String, policy: Hki7Policy): Hki7PolicySaveResult = withWebSocket {
         val base = mapOf<String, JsonElement>(
             "user_id" to JsonPrimitive(userId),
             "hidden_views" to JsonArray(policy.hiddenViews.map { JsonPrimitive(it) }),
             "hidden_rooms" to JsonArray(policy.hiddenRooms.map { JsonPrimitive(it) }),
         )
-        val full = base + mapOf<String, JsonElement>(
+        val legacyPermissions = base + mapOf<String, JsonElement>(
             "allow_edit" to JsonPrimitive(policy.allowEdit),
             "aesthetics_only" to JsonPrimitive(policy.aestheticsOnly),
             "show_global_search" to JsonPrimitive(policy.showGlobalSearch),
             "show_flows" to JsonPrimitive(policy.showFlows),
         )
-        if (sendCommand("hki7/policy/set", full)["success"]?.jsonPrimitive?.booleanOrNull == true) {
-            return@withWebSocket true
+        val dashboardPermissions = legacyPermissions + mapOf<String, JsonElement>(
+            "allow_dashboard_switch" to JsonPrimitive(policy.allowDashboardSwitch),
+            "allow_dashboard_create" to JsonPrimitive(policy.allowDashboardCreate),
+            "allow_reimport" to JsonPrimitive(policy.allowReimport),
+        )
+        val searchAccess = dashboardPermissions + mapOf<String, JsonElement>(
+            "hidden_item_ids" to JsonArray(policy.hiddenItemIds.map { JsonPrimitive(it) }),
+            "visible_search_domains" to JsonArray(policy.visibleSearchDomains.map { JsonPrimitive(it) }),
+            "visible_search_entity_ids" to JsonArray(policy.visibleSearchEntityIds.map { JsonPrimitive(it) }),
+            "hidden_search_domains" to JsonArray(policy.hiddenSearchDomains.map { JsonPrimitive(it) }),
+            "hidden_search_entity_ids" to JsonArray(policy.hiddenSearchEntityIds.map { JsonPrimitive(it) }),
+        )
+        val roomFollow = searchAccess + mapOf<String, JsonElement>(
+            "room_follow" to buildJsonObject {
+                put("sensor_entity_id", policy.roomFollow.sensorEntityId?.let(::JsonPrimitive) ?: JsonNull)
+                put("enabled", policy.roomFollow.enabled)
+                put("open_on_launch", policy.roomFollow.openOnLaunch)
+                put("continue_after_launch", policy.roomFollow.continueAfterLaunch)
+                put("prompt_on_move", policy.roomFollow.promptOnMove)
+                put("dwell_seconds", policy.roomFollow.dwellSeconds)
+                put("state_rooms", buildJsonObject {
+                    policy.roomFollow.stateRooms.forEach { (state, areaId) -> put(state, areaId) }
+                })
+            }
+        )
+        val full = roomFollow + mapOf<String, JsonElement>(
+            "hidden_event_entity_ids" to JsonArray(policy.hiddenEventEntityIds.map { JsonPrimitive(it) }),
+            "hidden_event_domains" to JsonArray(policy.hiddenEventDomains.map { JsonPrimitive(it) }),
+        )
+        suspend fun send(payload: Map<String, JsonElement>): Boolean =
+            sendCommand("hki7/policy/set", payload)["success"]?.jsonPrimitive?.booleanOrNull == true
+
+        if (send(full)) return@withWebSocket Hki7PolicySaveResult.SAVED
+        // Component 0.8.x and older reject the event-visibility lists. Only report the drop when
+        // this policy actually restricts somebody's timeline.
+        val usesEventAccess = policy.hiddenEventEntityIds.isNotEmpty() ||
+            policy.hiddenEventDomains.isNotEmpty()
+        if (usesEventAccess && send(roomFollow)) {
+            return@withWebSocket Hki7PolicySaveResult.SAVED_WITHOUT_EVENT_ACCESS
         }
-        sendCommand("hki7/policy/set", base)["success"]?.jsonPrimitive?.booleanOrNull == true
+        if (send(roomFollow)) return@withWebSocket Hki7PolicySaveResult.SAVED
+        // Component 0.5.x and older reject room_follow. Only report the drop when the policy
+        // actually carries room-following settings.
+        if (policy.roomFollow != Hki7RoomFollow() && send(searchAccess)) {
+            return@withWebSocket Hki7PolicySaveResult.SAVED_WITHOUT_ROOM_FOLLOW
+        }
+        if (send(searchAccess)) return@withWebSocket Hki7PolicySaveResult.SAVED
+        // Everything below drops the item/search lists, so only report a partial save when the
+        // policy actually carries some.
+        val usesSearchAccess = policy.hiddenItemIds.isNotEmpty() ||
+            policy.visibleSearchDomains.isNotEmpty() || policy.visibleSearchEntityIds.isNotEmpty() ||
+            policy.hiddenSearchDomains.isNotEmpty() || policy.hiddenSearchEntityIds.isNotEmpty()
+        val degraded = if (usesSearchAccess) {
+            Hki7PolicySaveResult.SAVED_WITHOUT_SEARCH_ACCESS
+        } else {
+            Hki7PolicySaveResult.SAVED
+        }
+        if (send(dashboardPermissions)) return@withWebSocket degraded
+        // Component 0.4/0.5 understands the original permission set but not the dashboard fields.
+        // Preserve those permissions instead of falling all the way back to hidden lists.
+        if (send(legacyPermissions)) return@withWebSocket degraded
+        if (send(base)) return@withWebSocket degraded
+        Hki7PolicySaveResult.FAILED
     }
 
     /** Every stored policy keyed by user id (admin only). Empty if not permitted. */
@@ -457,11 +631,98 @@ open class HomeAssistantClient(
     private fun parsePolicy(o: JsonObject): Hki7Policy = Hki7Policy(
         hiddenViews = o["hidden_views"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
         hiddenRooms = o["hidden_rooms"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        hiddenItemIds = o["hidden_item_ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        visibleSearchDomains = o["visible_search_domains"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        visibleSearchEntityIds = o["visible_search_entity_ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        hiddenSearchDomains = o["hidden_search_domains"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        hiddenSearchEntityIds = o["hidden_search_entity_ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
         allowEdit = o["allow_edit"]?.jsonPrimitive?.booleanOrNull ?: true,
         aestheticsOnly = o["aesthetics_only"]?.jsonPrimitive?.booleanOrNull ?: false,
         showGlobalSearch = o["show_global_search"]?.jsonPrimitive?.booleanOrNull ?: true,
         showFlows = o["show_flows"]?.jsonPrimitive?.booleanOrNull ?: true,
+        allowDashboardSwitch = o["allow_dashboard_switch"]?.jsonPrimitive?.booleanOrNull ?: true,
+        allowDashboardCreate = o["allow_dashboard_create"]?.jsonPrimitive?.booleanOrNull ?: true,
+        allowReimport = o["allow_reimport"]?.jsonPrimitive?.booleanOrNull ?: true,
+        roomFollow = (o["room_follow"] as? JsonObject)?.let { follow ->
+            Hki7RoomFollow(
+                sensorEntityId = follow["sensor_entity_id"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() },
+                enabled = follow["enabled"]?.jsonPrimitive?.booleanOrNull ?: false,
+                openOnLaunch = follow["open_on_launch"]?.jsonPrimitive?.booleanOrNull ?: true,
+                continueAfterLaunch = follow["continue_after_launch"]?.jsonPrimitive?.booleanOrNull ?: true,
+                promptOnMove = follow["prompt_on_move"]?.jsonPrimitive?.booleanOrNull ?: true,
+                dwellSeconds = follow["dwell_seconds"]?.jsonPrimitive?.intOrNull
+                    ?: Hki7RoomFollow.DEFAULT_DWELL_SECONDS,
+                stateRooms = (follow["state_rooms"] as? JsonObject)
+                    ?.mapNotNull { (state, area) -> area.jsonPrimitive.contentOrNull?.let { state to it } }
+                    ?.toMap()
+                    .orEmpty()
+            )
+        } ?: Hki7RoomFollow(),
+        hiddenEventEntityIds = o["hidden_event_entity_ids"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
+        hiddenEventDomains = o["hidden_event_domains"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
     )
+
+    /** The household's room-presence sensor ids, for the people-per-room counter. Readable by any
+     *  user. Null when the command is unavailable (older or absent component), so the caller can
+     *  tell "no sensors configured" apart from "this component can't answer". */
+    open suspend fun hki7RoomFollowRoster(): List<String>? = withWebSocket {
+        val response = sendCommand("hki7/room_follow/roster")
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket null
+        response["result"]?.jsonObject?.get("sensors")?.jsonArray
+            ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+            ?: emptyList()
+    }
+
+    /** The household's event-timeline roster as it applies to *this* user.
+     *
+     * [Hki7EventsRoster.visible] is what the component decided the caller may see — it has already
+     * subtracted this person's hidden entities and domains, so the app never has to be trusted to
+     * apply the restriction itself, and a restricted account is never handed the ids it is being
+     * kept away from. [Hki7EventsRoster.all] is the unfiltered roster and arrives for admins only,
+     * because the roster editor is the one screen that has to show every entry.
+     *
+     * Null when the command is unavailable (older or absent component), so the caller can tell
+     * "no roster configured" apart from "this component can't answer". Requires 0.9.0. */
+    open suspend fun hki7EventsRoster(): Hki7EventsRoster? = withWebSocket {
+        val response = sendCommand("hki7/events/roster")
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket null
+        val result = response["result"]?.jsonObject ?: return@withWebSocket null
+        fun ids(key: String) = result[key]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }
+        Hki7EventsRoster(
+            visible = ids("entity_ids") ?: emptyList(),
+            // A 0.9.0 component answers without domains at all, which is an empty list rather
+            // than a missing capability — it simply had no way to store any.
+            visibleDomains = ids("domains").orEmpty(),
+            all = ids("all_entity_ids"),
+            allDomains = ids("all_domains"),
+        )
+    }
+
+    /** Replaces the household's event roster (admin only). Returns what was actually stored, which
+     * may be shorter than what was sent — the component caps entities and domains separately.
+     * Null when the command is unavailable or the caller is not an admin. */
+    open suspend fun hki7SetEventsRoster(
+        entityIds: List<String>,
+        domains: List<String> = emptyList(),
+    ): Hki7EventsRoster? = withWebSocket {
+        val payload = mapOf<String, JsonElement>(
+            "entity_ids" to JsonArray(entityIds.map { JsonPrimitive(it) }),
+            "domains" to JsonArray(domains.map { JsonPrimitive(it) }),
+        )
+        val response = sendCommand("hki7/events/roster/set", payload)
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket null
+        val result = response["result"]?.jsonObject
+        fun ids(key: String) = result?.get(key)?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }
+        val stored = ids("entity_ids").orEmpty()
+        val storedDomains = ids("domains").orEmpty()
+        // The caller is an admin by definition here, so the full roster is the visible one.
+        Hki7EventsRoster(
+            visible = stored,
+            visibleDomains = storedDomains,
+            all = stored,
+            allDomains = storedDomains,
+        )
+    }
 
     private fun parseDashboardMeta(o: JsonObject): Hki7SharedDashboardMeta? {
         val id = o["id"]?.jsonPrimitive?.contentOrNull ?: return null
@@ -702,7 +963,14 @@ open class HomeAssistantClient(
         val history = nestedList.flatten().reversed()
         val logbook = runCatching { getEntityLogbook(entityId, start, end) }.getOrDefault(emptyList())
         val userNamesById = getUserNamesById()
-        return history.map { entry: HAHistoryEntry -> entry.withActor(entityId, logbook, userNamesById) }
+        // Parse each logbook entry's timestamp once instead of once per history entry. A quiet
+        // entity never noticed, but a busy motion sensor can log thousands of changes a day, and
+        // re-filtering + re-parsing the whole logbook for every one of them (an O(history x logbook)
+        // datetime-string parse) pegged the CPU for long enough to ANR the app outright.
+        val parsedLogbook = logbook
+            .filter { it.entity_id == null || it.entity_id == entityId }
+            .mapNotNull { entry -> parseHaInstant(entry.time)?.let { it to entry } }
+        return history.map { entry: HAHistoryEntry -> entry.withActor(entityId, parsedLogbook, userNamesById) }
     }
 
     private suspend fun getEntityLogbook(
@@ -916,6 +1184,91 @@ open class HomeAssistantClient(
         }
     }
 
+    /**
+     * Streams logbook events for [entityIds] — everything since [sinceMillis] first, then live
+     * events as they happen, over a single `logbook/event_stream` subscription.
+     *
+     * The backfill is why this is used rather than the app's own `state_changed` stream: the
+     * recorder saw what happened while HKI was closed, and a timeline whose history starts when
+     * you opened the app is missing exactly the events worth showing. Entities excluded from the
+     * recorder never appear, and neither does anything at all when the recorder is disabled.
+     *
+     * Like [subscribeStateChanges], the flow completes rather than errors when the socket drops,
+     * so a caller re-collects to reconnect. Emits nothing for an empty [entityIds]: Home Assistant
+     * reads a missing filter as "every entity in the house", which is emphatically not the
+     * intent when the roster happens to be empty.
+     */
+    open fun subscribeLogbook(entityIds: List<String>, sinceMillis: Long): Flow<HALogbookEvent> = flow {
+        if (entityIds.isEmpty()) return@flow
+        val conn = ensureConnected()
+        val id = messageId.getAndIncrement()
+        val channel = Channel<JsonObject>(Channel.UNLIMITED)
+        conn.channels[id] = channel
+        try {
+            conn.session.send(buildJsonObject {
+                put("id", id)
+                put("type", "logbook/event_stream")
+                put("start_time", Instant.ofEpochMilli(sinceMillis).toString())
+                put("entity_ids", JsonArray(entityIds.map { JsonPrimitive(it) }))
+            }.toString())
+
+            for (message in channel) {
+                if (message["type"]?.jsonPrimitive?.contentOrNull != "event") continue
+                // Historic and live events arrive in the same shape; the stream sends them in
+                // batches, so one message carries an array rather than a single event.
+                val events = message["event"]?.jsonObject?.get("events")?.jsonArray ?: continue
+                for (element in events) {
+                    val event = runCatching {
+                        json.decodeFromJsonElement(HALogbookEvent.serializer(), element)
+                    }.getOrNull() ?: continue
+                    emit(event)
+                }
+            }
+        } finally {
+            conn.channels.remove(id)
+            runCatching {
+                conn.session.send(buildJsonObject {
+                    put("id", messageId.getAndIncrement())
+                    put("type", "unsubscribe_events")
+                    put("subscription", id)
+                }.toString())
+            }
+        }
+    }
+
+    /** Emits the shared dashboard id whenever HKI 7 Cloud publishes or unpublishes a dashboard.
+     * Access control remains enforced by the subsequent list/get calls; this event is only an
+     * invalidation signal. Older components simply never emit it, while startup/foreground sync
+     * remains the compatibility fallback. */
+    open fun subscribeHki7DashboardUpdates(): Flow<String?> = flow {
+        val conn = ensureConnected()
+        val id = messageId.getAndIncrement()
+        val channel = Channel<JsonObject>(Channel.UNLIMITED)
+        conn.channels[id] = channel
+        try {
+            conn.session.send(buildJsonObject {
+                put("id", id)
+                put("type", "subscribe_events")
+                put("event_type", "hki7_dashboard_updated")
+            }.toString())
+
+            for (message in channel) {
+                if (message["type"]?.jsonPrimitive?.contentOrNull != "event") continue
+                val data = message["event"]?.jsonObject?.get("data")?.jsonObject
+                emit(data?.get("dashboard_id")?.jsonPrimitive?.contentOrNull)
+            }
+        } finally {
+            conn.channels.remove(id)
+            runCatching {
+                conn.session.send(buildJsonObject {
+                    put("id", messageId.getAndIncrement())
+                    put("type", "unsubscribe_events")
+                    put("subscription", id)
+                }.toString())
+            }
+        }
+    }
+
     /** Long-term statistics (recorder): pre-aggregated per-hour/per-day mean and change values —
      *  the same source HA's own energy dashboard uses. Tiny payloads compared to raw history,
      *  which for a per-second P1 meter can run into millions of rows over a month. */
@@ -1052,6 +1405,48 @@ open class HomeAssistantClient(
         }
     }
 
+    /**
+     * Raw bytes of a camera entity's current frame. Needed for Valetudo map cameras, whose PNG is a
+     * container for deflated map JSON rather than a picture — Coil would decode and cache the blank
+     * pixels and throw the payload away.
+     */
+    open suspend fun getCameraImageBytes(entityId: String): ByteArray = withAuthHandling {
+        val response = client.get("$baseUrl/api/camera_proxy/$entityId") {
+            header(HttpHeaders.Authorization, "Bearer $accessToken")
+        }
+        if (!response.status.isSuccess()) {
+            throw Exception("Camera image fetch failed: HTTP ${response.status.value}")
+        }
+        response.body<ByteArray>()
+    }
+
+    /**
+     * The vacuum's segment-to-area mapping, as configured in Home Assistant's segment mapping
+     * dialog: `{ area_id: [segment_id, …] }`. `vacuum.clean_area` targets Home Assistant areas
+     * rather than robot segments, so this is what turns a tapped map segment into a callable area.
+     *
+     * Lives in the entity registry entry's `options`, which `config/entity_registry/list` omits —
+     * only the per-entity `get` returns the extended dict.
+     */
+    open suspend fun getVacuumAreaMapping(entityId: String): Map<String, List<String>> = withWebSocket {
+        val response = sendCommand(
+            "config/entity_registry/get",
+            mapOf("entity_id" to JsonPrimitive(entityId))
+        )
+        if (response["success"]?.jsonPrimitive?.booleanOrNull != true) return@withWebSocket emptyMap()
+        val mapping = response["result"]?.jsonObject
+            ?.get("options")?.jsonObject
+            ?.get("vacuum")?.jsonObject
+            ?.get("area_mapping")?.jsonObject
+            ?: return@withWebSocket emptyMap()
+
+        mapping.mapValues { (_, segments) ->
+            runCatching {
+                segments.jsonArray.mapNotNull { it.jsonPrimitive.contentOrNull }
+            }.getOrDefault(emptyList())
+        }.filterValues { it.isNotEmpty() }
+    }
+
     /** Calls an arbitrary service with a free-form JSON payload (target + service data), for
      *  user-configured custom actions where the fixed [HAServiceCall] fields aren't enough. */
     open suspend fun callServiceRaw(domain: String, service: String, payload: JsonObject) {
@@ -1094,18 +1489,16 @@ open class HomeAssistantClient(
 
     private fun HAHistoryEntry.withActor(
         entityId: String,
-        logbookEntries: List<HALogbookEntry>,
+        parsedLogbook: List<Pair<Instant, HALogbookEntry>>,
         userNamesById: Map<String, String>
     ): HAHistoryEntry {
         val historyTime = parseHaInstant(last_changed)
         val matchingLogbook = historyTime?.let { target ->
-            logbookEntries
-                .filter { it.entity_id == null || it.entity_id == entityId }
-                .mapNotNull { logbook ->
-                    val logTime = parseHaInstant(logbook.time) ?: return@mapNotNull null
-                    logbook to abs(Duration.between(target, logTime).toMillis())
+            parsedLogbook
+                .mapNotNull { (logTime, logbook) ->
+                    val delta = abs(Duration.between(target, logTime).toMillis())
+                    if (delta <= 5000) logbook to delta else null
                 }
-                .filter { pair -> pair.second <= 5000 }
                 .minByOrNull { pair -> pair.second }
                 ?.first
         }
