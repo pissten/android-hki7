@@ -1565,8 +1565,15 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
     private val _activeCameraPopup = MutableStateFlow<CameraPopupRequest?>(null)
     val activeCameraPopup: StateFlow<CameraPopupRequest?> = _activeCameraPopup
 
+    private var cameraPopupSettingsPersistJob: Job? = null
+
     fun saveCameraPopupSettings(settings: CameraPopupSettings) {
-        viewModelScope.launch { prefs.saveCameraPopupSettings(settings) }
+        _cameraPopupSettings.value = settings
+        cameraPopupSettingsPersistJob?.cancel()
+        cameraPopupSettingsPersistJob = viewModelScope.launch {
+            delay(300)
+            prefs.saveCameraPopupSettings(_cameraPopupSettings.value)
+        }
     }
 
     fun dismissCameraPopup(nonce: String? = null) {
@@ -1584,8 +1591,15 @@ class MainViewModel(val prefs: PreferencesManager, appCtx: Context? = null) : Vi
 
     @Volatile private var lastUserActivityAt = SystemClock.elapsedRealtime()
 
+    private var screensaverSettingsPersistJob: Job? = null
+
     fun saveScreensaverSettings(settings: ScreensaverSettings) {
-        viewModelScope.launch { prefs.saveScreensaverSettings(settings) }
+        _screensaverSettings.value = settings
+        screensaverSettingsPersistJob?.cancel()
+        screensaverSettingsPersistJob = viewModelScope.launch {
+            delay(300)
+            prefs.saveScreensaverSettings(_screensaverSettings.value)
+        }
     }
 
     fun noteUserActivity() {
