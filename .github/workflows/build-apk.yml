@@ -2,19 +2,14 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Release-tag, f.eks. hki7-v1.1.2-1"
+        required: true
+        type: string
   push:
-    branches:
-      - main
-      - multi-os
-    paths:
-      - "app/**"
-      - "gradle/**"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle.properties"
-      - "gradlew"
-      - "gradlew.bat"
-      - ".github/workflows/build-apk.yml"
+    tags:
+      - "hki7-v*"
 
 permissions:
   contents: write
@@ -57,7 +52,23 @@ jobs:
           PY
           )
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "App version: $NAME"
+
+      - name: Resolve release tag
+        id: rel
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.version_tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "$TAG" in
+            hki7-v*) ;;
+            *) echo "Tag must look like hki7-v1.1.2-1, got: $TAG" >&2; exit 1 ;;
+          esac
+          SHORT="${TAG#hki7-}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "apk=HKI7-${SHORT}.apk" >> "$GITHUB_OUTPUT"
+          echo "title=HKI 7 ${SHORT}" >> "$GITHUB_OUTPUT"
 
       - name: Build debug APK
         run: |
@@ -67,10 +78,7 @@ jobs:
       - name: Prepare release file
         run: |
           mkdir -p release
-          VERSION="${{ steps.version.outputs.name }}"
-          BRANCH="${GITHUB_REF_NAME}"
-          cp app/build/outputs/apk/debug/app-debug.apk \
-            "release/HKI7-${VERSION}-${BRANCH}-build-${GITHUB_RUN_NUMBER}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "release/${{ steps.rel.outputs.apk }}"
           ls -la release
 
       - name: Upload Actions artifact
@@ -81,17 +89,23 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish GitHub prerelease
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: hki7-ci-${{ github.run_number }}
-          name: HKI7 ${{ steps.version.outputs.name }} CI ${{ github.run_number }} (${{ github.ref_name }})
-          prerelease: true
+          tag_name: ${{ steps.rel.outputs.tag }}
+          name: ${{ steps.rel.outputs.title }}
+          target_commitish: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          make_latest: true
           generate_release_notes: true
           body: |
-            Automated installable debug APK from `${{ github.ref_name }}` at `${{ github.sha }}`.
+            Installerbar test-APK av HKI 7.
 
-            Version: **${{ steps.version.outputs.name }}**
-            Requires Android 12 or newer (minSdk 31). Signed with the standard Android debug key for testing.
+            - Tag: **${{ steps.rel.outputs.tag }}**
+            - App-versjon: **${{ steps.version.outputs.name }}**
+            - Commit: `${{ github.sha }}`
+            - Krever Android 12 eller nyere (minSdk 31)
+            - Signert med standard Android debug-nøkkel
           files: release/*.apk
           fail_on_unmatched_files: true

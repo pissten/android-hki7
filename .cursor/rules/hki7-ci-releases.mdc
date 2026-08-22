@@ -1,0 +1,24 @@
+---
+description: HKI 7 CI builds and GitHub Releases start only after explicit confirmation
+alwaysApply: true
+---
+
+# HKI 7: CI-release bare etter bekreftelse
+
+Dette er en Android-app. Ikke si «pull og bygg» på Docker-server. Testbar APK kommer fra GitHub Actions og vises som **GitHub Release**.
+
+## Når koden er ferdig
+
+1. Commit og push til `multi-os` som vanlig. Det skal **ikke** starte APK-bygg.
+2. Spør alltid: «Vil du at jeg lager en versjonstagget CI-release nå?»
+3. Start bygg **bare** når brukeren svarer ja. Da:
+   - Lag git-tag på formen `hki7-v{versionName}-{løpenummer}`, f.eks. `hki7-v1.1.2-1`
+   - Push taggen (`git push origin <tag>`)
+   - Gi brukeren Release-URL og direkte APK-lenke når jobben er ferdig
+4. Ikke bump `versionName` i Gradle med mindre brukeren ber om det.
+
+## Forbudt
+
+- Å trigge APK-CI på vanlig branch-push
+- Å late som om en gammel `hki7-ci-N`-prerelease er siste bygg uten å sjekke tag/commit
+- Å be brukeren bygge APK lokalt eller på 10.0.0.53
