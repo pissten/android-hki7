@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - multi-os
     paths:
       - "app/**"
       - "gradle/**"
@@ -12,6 +13,7 @@ on:
       - "settings.gradle.kts"
       - "gradle.properties"
       - "gradlew"
+      - "gradlew.bat"
       - ".github/workflows/build-apk.yml"
 
 permissions:
@@ -44,6 +46,19 @@ jobs:
             "platforms;android-37.0" \
             "build-tools;37.0.0"
 
+      - name: Read app version
+        id: version
+        run: |
+          NAME=$(python3 - <<'PY'
+          import re, pathlib
+          text = pathlib.Path("app/build.gradle.kts").read_text()
+          match = re.search(r'versionName\s*=\s*"([^"]+)"', text)
+          print(match.group(1) if match else "dev")
+          PY
+          )
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "App version: $NAME"
+
       - name: Build debug APK
         run: |
           chmod +x gradlew
@@ -52,7 +67,11 @@ jobs:
       - name: Prepare release file
         run: |
           mkdir -p release
-          cp app/build/outputs/apk/debug/app-debug.apk "release/HKI7-1.0.0-beta.9-debug-build-${GITHUB_RUN_NUMBER}.apk"
+          VERSION="${{ steps.version.outputs.name }}"
+          BRANCH="${GITHUB_REF_NAME}"
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "release/HKI7-${VERSION}-${BRANCH}-build-${GITHUB_RUN_NUMBER}.apk"
+          ls -la release
 
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
@@ -66,11 +85,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: hki7-ci-${{ github.run_number }}
-          name: HKI7 CI Build ${{ github.run_number }}
+          name: HKI7 ${{ steps.version.outputs.name }} CI ${{ github.run_number }} (${{ github.ref_name }})
           prerelease: true
+          generate_release_notes: true
           body: |
-            Automated installable debug APK built from commit `${{ github.sha }}`.
+            Automated installable debug APK from `${{ github.ref_name }}` at `${{ github.sha }}`.
 
-            Requires Android 14 or newer. This APK is signed with the standard Android debug key and is intended for testing.
+            Version: **${{ steps.version.outputs.name }}**
+            Requires Android 12 or newer (minSdk 31). Signed with the standard Android debug key for testing.
           files: release/*.apk
           fail_on_unmatched_files: true
