@@ -26,3 +26,12 @@ local.properties
 
 # MkDocs build output (docs/ itself is tracked; this is what `mkdocs build` renders)
 /site
+
+# Local HA token for leftover web experiments. Never commit.
+.env
+
+# Abandoned Kotlin Multiplatform leftovers from the multiplatform-web branch.
+# They are not part of the Android app; keeping them untracked avoids leaking
+# build output and a second copy of the UI into this repo.
+/sharedUi/
+/webApp/
