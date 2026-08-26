@@ -186,4 +186,7 @@
     <string name="parental_search_domains">Domeinen</string>
     <string name="parental_search_entire_domain">Volledig domein</string>
     <string name="parental_search_domain_chip">Domein: %1$s</string>
+    <string name="settings_device_camera_bind_failed">Could not start the camera stream on port %1$d. Try another port.</string>
+    <string name="settings_device_camera_lan_only">The stream is bound to this tablet\'s LAN address only, not a VPN.</string>
+    <string name="settings_device_wifi_ssid_hint">The Wi-Fi name needs location permission while the app is open. Without it the sensor reports unavailable.</string>
 </resources>

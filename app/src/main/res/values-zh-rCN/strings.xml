@@ -3931,4 +3931,7 @@
         <item>更新通知现在也出现在 HKI 7 自己的通知面板中，并带有指向发行说明的“查看更改内容”链接。滑开后系统通知就消失了；该选项会保留，并在“设置”&gt;“关于”下检查更新，将其恢复。</item>
         <item>现在，一旦您授予权限回来，“设置”中的权限图块就会更新。位置、电池优化和后台使用情况一直显示旧状态，直到关闭并重新打开“设置”。</item>
     </string-array>
+    <string name="settings_device_camera_bind_failed">Could not start the camera stream on port %1$d. Try another port.</string>
+    <string name="settings_device_camera_lan_only">The stream is bound to this tablet\'s LAN address only, not a VPN.</string>
+    <string name="settings_device_wifi_ssid_hint">The Wi-Fi name needs location permission while the app is open. Without it the sensor reports unavailable.</string>
 </resources>

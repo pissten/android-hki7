@@ -176,4 +176,7 @@
     <string name="family_dashboard_restore_disabled_reason">L’amministratore della famiglia ha disattivato il cambio di dashboard. Il ripristino potrebbe sostituire la dashboard familiare, quindi questo account può scegliere solo una dashboard condivisa.</string>
     <string name="family_settings_admin_only">Bloccato — solo un amministratore di Home Assistant può gestire la condivisione familiare</string>
     <string name="family_aesthetics_only_explanation">L’accesso solo estetico consente nomi, icone, colori, sfondi, stili delle schede, forme, dimensioni e layout locali. Entità, azioni, regole di visibilità, contenuti, controlli e altri comportamenti restano gestiti dal proprietario della dashboard.</string>
+    <string name="settings_device_camera_bind_failed">Could not start the camera stream on port %1$d. Try another port.</string>
+    <string name="settings_device_camera_lan_only">The stream is bound to this tablet\'s LAN address only, not a VPN.</string>
+    <string name="settings_device_wifi_ssid_hint">The Wi-Fi name needs location permission while the app is open. Without it the sensor reports unavailable.</string>
 </resources>

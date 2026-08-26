@@ -3533,4 +3533,7 @@
     <string name="clock_app_section_subtitle">알람 대화상자가 열리는 앱</string>
     <string name="clock_app_automatic">오토매틱</string>
     <string name="clock_app_none_found">이 기기에서는 시계 앱을 찾을 수 없습니다.</string>
+    <string name="settings_device_camera_bind_failed">Could not start the camera stream on port %1$d. Try another port.</string>
+    <string name="settings_device_camera_lan_only">The stream is bound to this tablet\'s LAN address only, not a VPN.</string>
+    <string name="settings_device_wifi_ssid_hint">The Wi-Fi name needs location permission while the app is open. Without it the sensor reports unavailable.</string>
 </resources>

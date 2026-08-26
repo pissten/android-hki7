@@ -176,4 +176,7 @@
     <string name="family_dashboard_restore_disabled_reason">Votre administrateur familial a désactivé le changement de tableau de bord. Une restauration pourrait remplacer le tableau de bord familial ; ce compte ne peut donc choisir qu’un tableau de bord partagé.</string>
     <string name="family_settings_admin_only">Verrouillé — seul un administrateur Home Assistant peut gérer le partage familial</string>
     <string name="family_aesthetics_only_explanation">L’accès esthétique uniquement autorise les noms, icônes, couleurs, arrière-plans, styles de cartes, formes, tailles et mises en page locaux. Les entités, actions, règles de visibilité, contenus, commandes et autres comportements restent gérés par le propriétaire du tableau de bord.</string>
+    <string name="settings_device_camera_bind_failed">Could not start the camera stream on port %1$d. Try another port.</string>
+    <string name="settings_device_camera_lan_only">The stream is bound to this tablet\'s LAN address only, not a VPN.</string>
+    <string name="settings_device_wifi_ssid_hint">The Wi-Fi name needs location permission while the app is open. Without it the sensor reports unavailable.</string>
 </resources>

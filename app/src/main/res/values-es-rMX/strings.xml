@@ -3976,4 +3976,7 @@
         <item>Las notificaciones de actualización ahora también aparecen en el panel de notificaciones de HKI 7, con un enlace "Ver qué cambió" a las notas de la versión. La notificación del sistema desaparece una vez que la deslizas; éste permanece y la búsqueda de actualizaciones en Configuración › Acerca de lo recupera.</item>
         <item>Los mosaicos de permisos en Configuración ahora se actualizan tan pronto como vuelves de otorgar uno. La ubicación, la optimización de la batería y el uso en segundo plano siguieron mostrando el estado anterior hasta que se cerró y se volvió a abrir la Configuración.</item>
     </string-array>
+    <string name="settings_device_camera_bind_failed">Could not start the camera stream on port %1$d. Try another port.</string>
+    <string name="settings_device_camera_lan_only">The stream is bound to this tablet\'s LAN address only, not a VPN.</string>
+    <string name="settings_device_wifi_ssid_hint">The Wi-Fi name needs location permission while the app is open. Without it the sensor reports unavailable.</string>
 </resources>

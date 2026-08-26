@@ -176,4 +176,7 @@
     <string name="family_dashboard_restore_disabled_reason">El administrador familiar ha desactivado el cambio de panel. Restaurar una copia podría sustituir el panel familiar, por lo que esta cuenta solo puede elegir un panel compartido.</string>
     <string name="family_settings_admin_only">Bloqueado: solo un administrador de Home Assistant puede gestionar el uso compartido familiar</string>
     <string name="family_aesthetics_only_explanation">El acceso solo estético permite nombres, iconos, colores, fondos, estilos de tarjeta, formas, tamaños y diseño locales. Las entidades, acciones, reglas de visibilidad, contenido, controles y demás comportamiento siguen bajo la gestión del propietario del panel.</string>
+    <string name="settings_device_camera_bind_failed">Could not start the camera stream on port %1$d. Try another port.</string>
+    <string name="settings_device_camera_lan_only">The stream is bound to this tablet\'s LAN address only, not a VPN.</string>
+    <string name="settings_device_wifi_ssid_hint">The Wi-Fi name needs location permission while the app is open. Without it the sensor reports unavailable.</string>
 </resources>

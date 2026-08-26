@@ -5,6 +5,12 @@ file in sync with `app/src/main/java/com/jimz011apps/hki7/ui/components/WhatsNew
 
 Items marked with \* require the HKI 7 Cloud Component integration.
 
+## Unreleased
+
+Wall-tablet extras: native camera popups, a screensaver, and optional device sensors plus a local MJPEG camera stream.
+
+- Wall-tablet hardening: MJPEG binds the LAN address off the main thread and reports a bind failure in settings, the camera stream is not started from boot, the screensaver defaults to a local dark background, and camera/screensaver/device settings no longer drop when the active instance id is missing.
+
 ## 1.1.2
 
 Home Assistant settings return exactly where you left them.
