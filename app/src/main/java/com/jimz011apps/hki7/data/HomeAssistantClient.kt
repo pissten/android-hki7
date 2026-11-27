@@ -6,6 +6,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -120,6 +121,9 @@ open class HomeAssistantClient(
     }
 
     private val client = HttpClient(OkHttp) {
+        defaultRequest {
+            header(HttpHeaders.UserAgent, HKI7_USER_AGENT)
+        }
         install(ContentNegotiation) {
             json(json)
         }
@@ -1586,8 +1590,12 @@ open class HomeAssistantClient(
             ?: "User ${id.take(8)}"
 
     companion object {
+        private const val HKI7_USER_AGENT = "HKI7 Android"
         private val json = Json { ignoreUnknownKeys = true }
         private val client = HttpClient(OkHttp) {
+            defaultRequest {
+                header(HttpHeaders.UserAgent, HKI7_USER_AGENT)
+            }
             install(ContentNegotiation) { json(json) }
         }
 

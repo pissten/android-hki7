@@ -45,17 +45,14 @@ class GeofenceManager(private val context: Context) {
                 instance.homeSsids,
                 ssid
             ) ?: primary
-            val client = HomeAssistantClient(active, instance.accessToken.orEmpty())
-            val zones = try {
-                runCatching { client.getEntities() }
-                    .getOrElse {
-                        log("${instance.name}: zone fetch failed: ${it.message}")
-                        emptyList()
-                    }
-                    .filter { it.entity_id.startsWith("zone.") }
-            } finally {
-                client.closeSession()
-            }
+            val zones = runCatching {
+                Hki7Endpoint.withClient(context, instance.id, preferredUrl = active) { haClient ->
+                    haClient.getEntities()
+                }.orEmpty()
+            }.getOrElse {
+                log("${instance.name}: zone fetch failed: ${it.message}")
+                emptyList()
+            }.filter { it.entity_id.startsWith("zone.") }
             zones.mapNotNull { zone ->
                 zone.toGeofence("${instance.id.take(12)}:${zone.entity_id}".take(100))
             }

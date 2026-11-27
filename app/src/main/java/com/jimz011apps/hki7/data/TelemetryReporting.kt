@@ -41,8 +41,22 @@ suspend fun reportTelemetryNow(
             instance.homeSsids,
             ssid
         ) ?: primary
-        val token = instance.accessToken.orEmpty()
+        val storedWebhook = scopedPrefs.mobileAppWebhookId.first()
+        val storedUrl = scopedPrefs.mobileAppRegisteredUrl.first()
+        val needsRegistration = storedWebhook.isNullOrBlank() || storedUrl != primary
         runCatching {
+            val token = if (needsRegistration) {
+                Hki7Endpoint.resolveAccessToken(
+                    context.applicationContext,
+                    instance.id,
+                    preferredUrl = active,
+                ) ?: run {
+                    log("${instance.name}: telemetry skipped: login required before mobile_app registration")
+                    return@runCatching
+                }
+            } else {
+                instance.accessToken.orEmpty()
+            }
             val client = HomeAssistantClient(active, token)
             try {
                 DeviceTelemetryReporter(context.applicationContext, scopedPrefs).report(
@@ -57,7 +71,7 @@ suspend fun reportTelemetryNow(
                     log = { message -> log("${instance.name}: $message") }
                 )
             } finally {
-                client.closeSession()
+                client.dispose()
             }
         }.onFailure { error -> log("${instance.name}: telemetry failed: ${error.message}") }
     }

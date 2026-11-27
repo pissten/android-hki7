@@ -32,15 +32,18 @@ internal object Hki7Endpoint {
     private suspend fun endpoint(
         context: Context,
         instanceId: String,
+        preferredUrl: String? = null,
         rejectedToken: String? = null,
     ): Endpoint? {
         val rootPrefs = PreferencesManager(context)
         val prefs = rootPrefs.forInstance(instanceId)
-        // Prefer the external URL (reachable off the home network, e.g. for the daily job);
-        // fall back to the internal URL for local-only setups.
-        val url = prefs.serverUrl.first()?.takeIf { it.isNotBlank() }
-            ?: prefs.internalUrl.first()?.takeIf { it.isNotBlank() }
-            ?: return null
+        // Use the caller's SSID-resolved URL when supplied; otherwise prefer the external URL
+        // (reachable off the home network, e.g. for the daily job) and fall back to internal.
+        val url = resolveEndpointUrl(
+            preferredUrl = preferredUrl,
+            externalUrl = prefs.serverUrl.first(),
+            internalUrl = prefs.internalUrl.first(),
+        ) ?: return null
         var token = prefs.accessToken.first()?.takeIf { it.isNotBlank() }
         val refreshToken = prefs.refreshToken.first()?.takeIf { it.isNotBlank() }
         val expiry = prefs.accessTokenExpiry.first()
@@ -74,6 +77,14 @@ internal object Hki7Endpoint {
         return Endpoint(url, token ?: return null)
     }
 
+    /** Returns a fresh access token for [instanceId] (refreshing proactively when expired), or
+     *  null when credentials are missing or require re-login. */
+    suspend fun resolveAccessToken(
+        context: Context,
+        instanceId: String,
+        preferredUrl: String? = null,
+    ): String? = endpoint(context, instanceId, preferredUrl = preferredUrl)?.token
+
     /** Runs [block] with a fresh client, releasing it afterwards. Null if no credentials.
      *
      *  Disposes rather than only closing the session: the client is built per call and no caller
@@ -100,14 +111,26 @@ internal object Hki7Endpoint {
         context: Context,
         instanceId: String,
         block: suspend (HomeAssistantClient) -> T,
+    ): T? = withClient(context, instanceId, preferredUrl = null, block = block)
+
+    suspend fun <T> withClient(
+        context: Context,
+        instanceId: String,
+        preferredUrl: String?,
+        block: suspend (HomeAssistantClient) -> T,
     ): T? {
-        val first = endpoint(context, instanceId) ?: return null
+        val first = endpoint(context, instanceId, preferredUrl = preferredUrl) ?: return null
         try {
             return useClient(first, block)
         } catch (error: Exception) {
             if (!isAuthExpired(error)) throw error
         }
-        val retry = endpoint(context, instanceId, rejectedToken = first.token) ?: return null
+        val retry = endpoint(
+            context,
+            instanceId,
+            preferredUrl = preferredUrl,
+            rejectedToken = first.token,
+        ) ?: return null
         return useClient(retry, block)
     }
 
@@ -173,6 +196,14 @@ internal object Hki7Endpoint {
         }
     }
 }
+
+internal fun resolveEndpointUrl(
+    preferredUrl: String?,
+    externalUrl: String?,
+    internalUrl: String?,
+): String? = preferredUrl?.takeIf { it.isNotBlank() }
+    ?: externalUrl?.takeIf { it.isNotBlank() }
+    ?: internalUrl?.takeIf { it.isNotBlank() }
 
 internal enum class EndpointAuthDecision { USE_ACCESS_TOKEN, REFRESH, LOGIN_REQUIRED }
 
